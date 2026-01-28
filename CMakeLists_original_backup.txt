@@ -1,0 +1,186 @@
+cmake_minimum_required(VERSION 3.16)
+project(OpenJDK11_CutNew)
+
+# 设置 C/C++ 标准
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
+
+# 设置构建类型为 Debug（对应 slowdebug）
+set(CMAKE_BUILD_TYPE Debug)
+
+# 包含构建配置
+include(build-config/cmake-config.cmake OPTIONAL)
+
+# 设置通用编译选项
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fno-omit-frame-pointer")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -fno-omit-frame-pointer -std=gnu++98")
+
+# 构建产物根目录（方便后续引用）
+set(BUILD_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/build/linux-x86_64-normal-server-slowdebug)
+
+# 添加全局包含目录
+include_directories(
+    # ========== 源码目录 ==========
+    # HotSpot 核心
+    src/hotspot/share
+    src/hotspot/share/include
+    src/hotspot/share/precompiled
+    src/hotspot/share/utilities
+    src/hotspot/os/linux
+    src/hotspot/os/posix
+    src/hotspot/os/posix/include
+    src/hotspot/cpu/x86
+    src/hotspot/os_cpu/linux_x86
+    
+    # java.base native
+    src/java.base/share/native/include
+    src/java.base/share/native/libjava
+    src/java.base/share/native/libjli
+    src/java.base/share/native/libnet
+    src/java.base/share/native/libnio
+    src/java.base/share/native/libzip
+    src/java.base/share/native/libverify
+    src/java.base/unix/native/include
+    src/java.base/unix/native/libjava
+    src/java.base/unix/native/libjli
+    src/java.base/unix/native/libnet
+    src/java.base/unix/native/libnio
+    src/java.base/linux/native/include
+    src/java.base/linux/native/libjava
+    
+    # ========== 构建生成的头文件目录 ==========
+    # modules_include（包含 jni.h, jvmti.h 等核心头文件）
+    ${BUILD_OUTPUT_DIR}/support/modules_include/java.base
+    ${BUILD_OUTPUT_DIR}/support/modules_include/java.base/linux
+    ${BUILD_OUTPUT_DIR}/support/modules_include/java.desktop
+    ${BUILD_OUTPUT_DIR}/support/modules_include/java.desktop/linux
+    ${BUILD_OUTPUT_DIR}/support/modules_include/jdk.jdwp.agent
+    
+    # headers（JNI 头文件，由 javah/javac -h 生成）
+    ${BUILD_OUTPUT_DIR}/support/headers/java.base
+    ${BUILD_OUTPUT_DIR}/support/headers/java.desktop
+    ${BUILD_OUTPUT_DIR}/support/headers/jdk.net
+    ${BUILD_OUTPUT_DIR}/support/headers/jdk.management
+    ${BUILD_OUTPUT_DIR}/support/headers/jdk.sctp
+    ${BUILD_OUTPUT_DIR}/support/headers/jdk.crypto.cryptoki
+    ${BUILD_OUTPUT_DIR}/support/headers/jdk.crypto.ec
+    ${BUILD_OUTPUT_DIR}/support/headers/jdk.pack
+    ${BUILD_OUTPUT_DIR}/support/headers/jdk.security.auth
+    
+    # HotSpot 生成文件（ad文件、jvmti、jfr、dtrace 等）
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc/adfiles
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc/jvmtifiles
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc/jfrfiles
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc/dtracefiles
+)
+
+# 添加预处理器定义
+add_definitions(
+    -DLINUX
+    -D_GNU_SOURCE
+    -D_REENTRANT
+    -D_LARGEFILE64_SOURCE
+    -DDEBUG
+    -DASSERT
+    -DAMD64
+    -D_LP64=1
+    -DTARGET_ARCH_x86
+    -DINCLUDE_SUFFIX_OS=_linux
+    -DINCLUDE_SUFFIX_CPU=_x86
+    -DINCLUDE_SUFFIX_COMPILER=_gcc
+    -DTARGET_COMPILER_gcc
+    -DHOTSPOT_LIB_ARCH="amd64"
+    -DCOMPILER1
+    -DCOMPILER2
+    -DINCLUDE_SHENANDOAHGC=0
+)
+
+# HotSpot JVM 源码
+file(GLOB_RECURSE HOTSPOT_SOURCES
+    "src/hotspot/share/*.cpp"
+    "src/hotspot/share/*.c"
+    "src/hotspot/os/linux/*.cpp"
+    "src/hotspot/os/linux/*.c"
+    "src/hotspot/os/posix/*.cpp"
+    "src/hotspot/os/posix/*.c"
+    "src/hotspot/cpu/x86/*.cpp"
+    "src/hotspot/cpu/x86/*.c"
+    "src/hotspot/os_cpu/linux_x86/*.cpp"
+    "src/hotspot/os_cpu/linux_x86/*.c"
+)
+
+# 排除一些特殊文件
+list(FILTER HOTSPOT_SOURCES EXCLUDE REGEX ".*test.*")
+list(FILTER HOTSPOT_SOURCES EXCLUDE REGEX ".*Test.*")
+
+# Java 基础库源码
+file(GLOB_RECURSE JAVA_BASE_SOURCES
+    "src/java.base/share/native/*.c"
+    "src/java.base/unix/native/*.c"
+    "src/java.base/linux/native/*.c"
+)
+
+# 创建 HotSpot 库目标
+add_library(jvm SHARED ${HOTSPOT_SOURCES})
+target_include_directories(jvm PRIVATE
+    src/hotspot/share
+    src/hotspot/share/precompiled
+    src/hotspot/share/utilities
+    src/hotspot/os/linux
+    src/hotspot/os/posix
+    src/hotspot/cpu/x86
+    src/hotspot/os_cpu/linux_x86
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc/adfiles
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc/jvmtifiles
+    ${BUILD_OUTPUT_DIR}/hotspot/variant-server/gensrc/jfrfiles
+)
+
+# 创建 Java 基础库目标
+add_library(java_base SHARED ${JAVA_BASE_SOURCES})
+target_include_directories(java_base PRIVATE
+    src/java.base/share/native/libjava
+    src/java.base/share/native/libjli
+    src/java.base/share/native/libnet
+    src/java.base/share/native/libnio
+    src/java.base/share/native/libzip
+    src/java.base/share/native/libverify
+    src/java.base/unix/native/libjava
+    src/java.base/unix/native/libjli
+    src/java.base/unix/native/libnet
+    src/java.base/unix/native/libnio
+    src/java.base/linux/native/libjava
+    ${BUILD_OUTPUT_DIR}/support/modules_include/java.base
+    ${BUILD_OUTPUT_DIR}/support/modules_include/java.base/linux
+    ${BUILD_OUTPUT_DIR}/support/headers/java.base
+)
+
+# 设置输出目录
+set_target_properties(jvm PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+)
+
+set_target_properties(java_base PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+)
+
+# 添加自定义目标用于构建
+add_custom_target(build_split_hotspot
+    COMMAND make -f make/Main.gmk SPEC=${CMAKE_SOURCE_DIR}/build-config/spec.gmk split-hotspot-libs
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Building HotSpot using split build system"
+)
+
+add_custom_target(build_split_java_base
+    COMMAND make -f make/Main.gmk SPEC=${CMAKE_SOURCE_DIR}/build-config/spec.gmk split-java.base-libs
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Building java.base using split build system"
+)
+
+# 添加测试目标
+add_custom_target(test_java
+    COMMAND ${CMAKE_SOURCE_DIR}/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java -version
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Testing built JDK"
+)

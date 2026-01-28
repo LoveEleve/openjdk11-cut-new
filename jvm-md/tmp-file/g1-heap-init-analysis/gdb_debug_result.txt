@@ -1,0 +1,41 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+Function "G1CollectedHeap::initialize" not defined.
+Breakpoint 1 (G1CollectedHeap::initialize) pending.
+Function "G1CollectedHeap::G1CollectedHeap" not defined.
+Breakpoint 2 (G1CollectedHeap::G1CollectedHeap) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+----_JAVA_LAUNCHER_DEBUG----
+Launcher state:
+	First application arg index: 5
+	debug:on
+	javargs:off
+	program name:java
+	launcher name:openjdk
+	javaw:off
+	fullversion:11.0.17-internal+0-adhoc.root.openjdk11-core
+Java args:
+Command line args:
+argv[0] = /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+argv[1] = -XX:+UseG1GC
+argv[2] = -Xms8g
+argv[3] = -Xmx8g
+argv[4] = SimpleTest
+JRE path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk
+jvm.cfg[0] = ->-server<-
+jvm.cfg[1] = ->-client<-
+27 micro seconds to parse jvm.cfg
+Default VM: server
+Does `/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so' exist ... yes.
+mustsetenv: FALSE
+JVM path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so
+809742 micro seconds to LoadJavaVM
+[New Thread 0x7ffff780b6c0 (LWP 3285141)]
+[Switching to Thread 0x7ffff780b6c0 (LWP 3285141)]
+
+Thread 2 "java" hit Breakpoint 2, G1CollectedHeap::G1CollectedHeap (this=0x7ffff00324e0, collector_policy=0x7ffff0031e10) at /data/workspace/openjdk-cut-new/src/hotspot/share/gc/g1/g1CollectedHeap.cpp:1484
+1484	  _in_cset_fast_test() { // 快速判断Region是否在CSet中
+Already logging to gdb.txt.
+开始G1堆初始化调试...

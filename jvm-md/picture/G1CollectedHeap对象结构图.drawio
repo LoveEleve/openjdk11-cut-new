@@ -1,0 +1,295 @@
+<mxfile host="65bd71144e">
+    <diagram name="G1CollectedHeap对象结构" id="g1-heap-structure">
+        <mxGraphModel dx="476" dy="675" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="G1CollectedHeap 对象内存布局 (8GB堆配置)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#333333;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="20" width="600" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="subtitle" value="地址: 0x7ffff0031f00 | Region大小: 4MB | Region总数: 2048" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#666666;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="55" width="600" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="parent-group" value="父类 CollectedHeap (继承)" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="100" width="350" height="198" as="geometry"/>
+                </mxCell>
+                <mxCell id="p1" value="_fire_out_of_memory_count: static int" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="parent-group" vertex="1">
+                    <mxGeometry y="30" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="p2" value="_gc_heap_log: GCHeapLog*" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="parent-group" vertex="1">
+                    <mxGeometry y="54" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="p3" value="⭐ _reserved: MemRegion (堆内存区域)" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="parent-group" vertex="1">
+                    <mxGeometry y="78" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="p4" value="_is_gc_active: bool" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="parent-group" vertex="1">
+                    <mxGeometry y="102" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="p5" value="_total_collections: uint = 0" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="parent-group" vertex="1">
+                    <mxGeometry y="126" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="p6" value="_total_full_collections: uint = 0" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="parent-group" vertex="1">
+                    <mxGeometry y="150" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="p7" value="_gc_cause / _gc_lastcause: GCCause::Cause" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="parent-group" vertex="1">
+                    <mxGeometry y="174" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="thread-group" value="线程管理" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="320" width="350" height="98" as="geometry"/>
+                </mxCell>
+                <mxCell id="t1" value="_young_gen_sampling_thread: NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="thread-group" vertex="1">
+                    <mxGeometry y="26" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="t2" value="⭐ _workers: WorkGang* = 0x7ffff003ee60" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="thread-group" vertex="1">
+                    <mxGeometry y="50" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="t3" value="_cm_thread: G1ConcMarkThread* = 0xf1f1f1f1f1f1" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="thread-group" vertex="1">
+                    <mxGeometry y="74" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="policy-group" value="策略与配置" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="440" width="350" height="146" as="geometry"/>
+                </mxCell>
+                <mxCell id="po1" value="_collector_policy: 0x7ffff0031830" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="policy-group" vertex="1">
+                    <mxGeometry y="26" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="po2" value="⭐ _g1_policy: G1Policy* = 0x7ffff0038350" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="policy-group" vertex="1">
+                    <mxGeometry y="50" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="po3" value="_heap_sizing_policy: 0x7ffff0040e90" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="policy-group" vertex="1">
+                    <mxGeometry y="74" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="po4" value="_collector_state: G1CollectorState" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="policy-group" vertex="1">
+                    <mxGeometry y="98" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="po5" value="_soft_ref_policy: SoftRefPolicy" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="policy-group" vertex="1">
+                    <mxGeometry y="122" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="core-group" value="核心管理组件" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="100" width="380" height="194" as="geometry"/>
+                </mxCell>
+                <mxCell id="c1" value="⭐ _hrm: HeapRegionManager (Region管理器)" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="core-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="c2" value="⭐ _allocator: G1Allocator* = 0x7ffff0040d70" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="core-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="c3" value="_verifier: G1HeapVerifier* = 0x7ffff0040d20" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="core-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="c4" value="_bot: G1BlockOffsetTable* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="core-group" vertex="1">
+                    <mxGeometry y="98" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="c5" value="_card_table: G1CardTable* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="core-group" vertex="1">
+                    <mxGeometry y="122" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="c6" value="_archive_allocator: G1ArchiveAllocator* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="core-group" vertex="1">
+                    <mxGeometry y="146" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="c7" value="_listener: G1RegionMappingChangedListener" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="core-group" vertex="1">
+                    <mxGeometry y="170" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="region-group" value="Region集合管理" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="320" width="380" height="98" as="geometry"/>
+                </mxCell>
+                <mxCell id="r1" value="_old_set: HeapRegionSet (老年代Region集合)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="region-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="r2" value="_humongous_set: HeapRegionSet (巨型对象Region)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="region-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="r3" value="_expansion_regions: uint = 4059165169 (待初始化)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="region-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="young-group" value="年轻代管理" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="440" width="380" height="146" as="geometry"/>
+                </mxCell>
+                <mxCell id="y1" value="⭐ _eden: G1EdenRegions (Eden区域管理)" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="young-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="y2" value="⭐ _survivor: G1SurvivorRegions (Survivor区域)" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="young-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="y3" value="_collection_set: G1CollectionSet (收集集)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="young-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="y4" value="_young_list_fixed_length / target / max" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="young-group" vertex="1">
+                    <mxGeometry y="98" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="y5" value="_next_young_gc_id / _next_old_gc_id" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="young-group" vertex="1">
+                    <mxGeometry y="122" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="cm-group" value="并发标记系统" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="100" width="380" height="122" as="geometry"/>
+                </mxCell>
+                <mxCell id="cm1" value="⭐ _cm: G1ConcurrentMark* = 0xf1f1f1f1f1f1" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="cm-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="cm2" value="_old_marking_cycles_started: volatile uint = 0" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="cm-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="cm3" value="_old_marking_cycles_completed: volatile uint = 0" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="cm-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="cm4" value="_cr: G1ConcurrentRefine* = NULL (并发精炼)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="cm-group" vertex="1">
+                    <mxGeometry y="98" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="hum-group" value="巨型对象管理" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="250" width="380" height="98" as="geometry"/>
+                </mxCell>
+                <mxCell id="h1" value="_humongous_object_threshold_in_words: 262144 (2MB)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="hum-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="h2" value="_humongous_reclaim_candidates: HumongousReclaimCandidates" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="hum-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="h3" value="_has_humongous_reclaim_candidates: bool = false" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="hum-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref-group" value="引用处理器 (Reference Processing)" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="370" width="380" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref1" value="_ref_processor_stw: ReferenceProcessor* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="ref-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref2" value="_is_alive_closure_stw: G1STWIsAliveClosure" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="ref-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref3" value="_is_subject_to_discovery_stw: G1STWSubjectToDiscoveryClosure" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="ref-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref4" value="_ref_processor_cm: ReferenceProcessor* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="ref-group" vertex="1">
+                    <mxGeometry y="98" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref5" value="_is_alive_closure_cm: G1CMIsAliveClosure" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="ref-group" vertex="1">
+                    <mxGeometry y="122" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ref6" value="_is_subject_to_discovery_cm: G1CMSubjectToDiscoveryClosure" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="ref-group" vertex="1">
+                    <mxGeometry y="146" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="stat-group" value="统计与监控" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1240" y="100" width="350" height="146" as="geometry"/>
+                </mxCell>
+                <mxCell id="s1" value="_g1mm: G1MonitoringSupport* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="stat-group" vertex="1">
+                    <mxGeometry y="26" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="s2" value="_summary_bytes_used: size_t = 0" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="stat-group" vertex="1">
+                    <mxGeometry y="50" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3" value="_survivor_evac_stats / _old_evac_stats: G1EvacStats" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="stat-group" vertex="1">
+                    <mxGeometry y="74" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="s4" value="_survivor_plab_stats / _old_plab_stats: PLABStats" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="stat-group" vertex="1">
+                    <mxGeometry y="98" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="s5" value="_hr_printer: G1HRPrinter (Region打印器)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="stat-group" vertex="1">
+                    <mxGeometry y="122" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="time-group" value="时间与追踪" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1240" y="270" width="350" height="122" as="geometry"/>
+                </mxCell>
+                <mxCell id="ti1" value="_gc_timer_stw: STWGCTimer* = 0x7ffff0037fb0" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="time-group" vertex="1">
+                    <mxGeometry y="26" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ti2" value="_gc_tracer_stw: G1NewTracer* = 0x7ffff0021d50" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="time-group" vertex="1">
+                    <mxGeometry y="50" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ti3" value="_gc_timer_cm: ConcurrentGCTimer*" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="time-group" vertex="1">
+                    <mxGeometry y="74" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ti4" value="_gc_tracer_cm: G1OldTracer*" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="time-group" vertex="1">
+                    <mxGeometry y="98" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="pool-group" value="内存池管理" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="610" width="350" height="122" as="geometry"/>
+                </mxCell>
+                <mxCell id="pl1" value="_memory_manager: GCMemoryManager" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="pool-group" vertex="1">
+                    <mxGeometry y="26" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="pl2" value="_full_gc_memory_manager: GCMemoryManager" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="pool-group" vertex="1">
+                    <mxGeometry y="50" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="pl3" value="_eden_pool: MemoryPool* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="pool-group" vertex="1">
+                    <mxGeometry y="74" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="pl4" value="_survivor_pool / _old_pool: MemoryPool* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="pool-group" vertex="1">
+                    <mxGeometry y="98" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="fail-group" value="失败处理与控制" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="610" width="380" height="194" as="geometry"/>
+                </mxCell>
+                <mxCell id="f1" value="_evacuation_failed: bool = 241 (未初始化)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="fail-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="f2" value="_evacuation_failed_info_array: EvacuationFailedInfo* = 0x7ffff0041000" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="fail-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="f3" value="_expand_heap_after_alloc_failure: bool = true" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="fail-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="f4" value="_free_regions_coming: bool" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="fail-group" vertex="1">
+                    <mxGeometry y="98" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="f5" value="_preserved_marks_set: PreservedMarksSet" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="fail-group" vertex="1">
+                    <mxGeometry y="122" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="f6" value="_evacuation_failure_alot_for_current_gc: bool = 241" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="fail-group" vertex="1">
+                    <mxGeometry y="146" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="f7" value="_evacuation_failure_alot_gc_number: size_t = 17433981653976478193" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="fail-group" vertex="1">
+                    <mxGeometry y="170" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="task-group" value="并行任务与队列" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="565" width="380" height="98" as="geometry"/>
+                </mxCell>
+                <mxCell id="ta1" value="⭐ _task_queues: RefToScanQueueSet* = 0x7ffff0040f00" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="task-group" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ta2" value="_dirty_card_queue_set: DirtyCardQueueSet" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="task-group" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="ta3" value="_hot_card_cache: G1HotCardCache* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="task-group" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="remote-group" value="RemSet管理" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1240" y="420" width="350" height="74" as="geometry"/>
+                </mxCell>
+                <mxCell id="rem1" value="_g1_rem_set: G1RemSet* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="remote-group" vertex="1">
+                    <mxGeometry y="26" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="rem2" value="_hot_card_cache: G1HotCardCache* = NULL" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="remote-group" vertex="1">
+                    <mxGeometry y="50" width="350" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="other-group" value="其他重要字段" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="760" width="760" height="122" as="geometry"/>
+                </mxCell>
+                <mxCell id="o1" value="⭐ _in_cset_fast_test: G1InCSetStateFastTestBiasedMappedArray (快速判断Region是否在CSet)" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="other-group" vertex="1">
+                    <mxGeometry y="26" width="760" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="o2" value="_max_heap_capacity: size_t = 17433981653976478193 (待初始化)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="other-group" vertex="1">
+                    <mxGeometry y="50" width="760" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="o3" value="_g1_rem_set: G1RemSet* = NULL (记忆集管理器)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="other-group" vertex="1">
+                    <mxGeometry y="74" width="760" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="o4" value="_evacuation_failure_alot_count: volatile size_t = 17433981653976478193 (调试用)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="other-group" vertex="1">
+                    <mxGeometry y="98" width="760" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend" value="图例说明" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="685" width="380" height="122" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg1" value="⭐ + 黄色背景 = 核心重要属性，需要重点关注" style="text;strokeColor=#6c8ebf;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;" parent="legend" vertex="1">
+                    <mxGeometry y="26" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg2" value="蓝色背景 = 普通属性" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="legend" vertex="1">
+                    <mxGeometry y="50" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg3" value="0xf1f1f1f1f1f1 = 调试模式下的毒药值(未初始化指针)" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="legend" vertex="1">
+                    <mxGeometry y="74" width="380" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg4" value="17433981653976478193 = 未初始化的随机内存值" style="text;strokeColor=#6c8ebf;fillColor=#dae8fc;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;points=[];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontSize=11;" parent="legend" vertex="1">
+                    <mxGeometry y="98" width="380" height="24" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

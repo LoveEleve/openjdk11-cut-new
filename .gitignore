@@ -1,0 +1,77 @@
+# ====================
+# 构建输出目录
+# ====================
+build/
+cmake-build-debug/
+cmake-build-release/
+out/
+
+# ====================
+# IDE 配置文件
+# ====================
+# JetBrains IDE (CLion, IntelliJ IDEA)
+.idea/
+*.iml
+.clion.source.upload.marker
+
+# VS Code
+.vscode/
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# ====================
+# CMake 生成文件
+# ====================
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.ninja
+.ninja_log
+.ninja_deps
+compile_commands.json
+
+# ====================
+# 编译产物
+# ====================
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# ====================
+# 调试文件
+# ====================
+gdb.txt
+*.log
+core
+core.*
+
+# ====================
+# 临时文件
+# ====================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ====================
+# CodeBuddy 配置（可选保留）
+# ====================
+# 如果你想忽略 CodeBuddy 配置，取消下面的注释
+# .codebuddy/
+
+# ====================
+# 其他
+# ====================
+# GDB 初始化文件（个人配置）
+# .gdbinit
