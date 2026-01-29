@@ -34,6 +34,36 @@
  *   _hot_cache:热卡缓存数组（后续 initialize 分配）
  *   _use_cache:是否启用缓存（后续 initialize 设置）
  *   _card_counts:卡计数器，记录每张卡被修改的次数
+ *
+ *   这个热卡缓存是 G1写屏障优化的核心组件之一
+ *   问题场景：
+ *       某些内存区域（如热点数据）会被频繁修改，导致：
+ *          - 同一张卡被反复标记为"脏"
+ *          - 并发精炼线程反复处理同一张卡
+ *          - 大量重复工作，浪费 CPU 资源
+ *   解决方案：
+ *          - 统计每张卡被修改的次数（_card_counts）
+ *          - 当修改次数 >= 4 时，认为这是"热卡"
+ *          - 热卡不立即精炼，而是放入缓存（_hot_cache）
+ *          - 等 GC 暂停时批量处理，减少重复工作
+ */
+/*
+    在上面的注释中又引入了 “精炼” 这个概念：
+        精炼（Refinement） 是 G1 GC 中将"脏卡"转换为"记忆集条目"的过程
+        简单来说：
+            写屏障：标记卡为"脏"（只是说明该卡覆盖的内存区域有引用修改）
+            精炼：扫描脏卡，找出跨 Region 的引用，更新目标 Region 的记忆集
+        为什么叫"精炼"？
+            脏卡只知道"某个 512 字节区域有引用被修改了"
+            精炼后知道"具体是哪个对象的哪个字段，指向了哪个 Region"
+            从粗粒度变成细粒度，从模糊变成精确
+
+        这里有个问题：卡表和记忆集有什么关系和区别呢？
+            卡表：记录"哪里被修改了"，整个堆共享一个，更新时机为写屏障立即更新(更新速度极快，一条指令),粒度为512B
+            记忆集：记录"谁引用了我"，每个region一个，更新时机为 精炼线程异步更新(更新慢,需要分析引用)，粒度为卡级别
+        G1的核心问题:如何找到所有的引用？回收某个region的时候: 比如其中的一个A对象，如何知道有哪些其他Region的对象还引用了A对象呢？
+            全Region遍历,当然没问题，但是是不可能采用这种做法的,性能太差
+            同样也是空间换时间的做法，为每个Region维护一个RSet，Rset中记录的是：哪些其他Region中的对象引用了该Region中的对象
  */
 G1HotCardCache::G1HotCardCache(G1CollectedHeap *g1h):
   _g1h(g1h), _hot_cache(NULL), _use_cache(false), _card_counts(g1h) {}
@@ -42,7 +72,7 @@ void G1HotCardCache::initialize(G1RegionToSpaceMapper* card_counts_storage) {
     // forcus 通常都是true
   if (default_use_cache()) { // G1ConcRSLogCacheSize = 10(默认为10)
     _use_cache = true;
-    // 计算缓存大小 _hot_cache_size = 1 << 10 = 1024
+    // 计算缓存大小 _hot_cache_size = 1 << 10 = 1024，每个元素是一个指针(8B),总大小为8KB
     // note 热卡缓存默认可以存储 1024个热卡指针
     _hot_cache_size = (size_t)1 << G1ConcRSLogCacheSize;
     // forcus 分配缓存数组,存储 jbyte* 指针(数组大小为1024) - 每个元素是指向卡表中某张卡的指针
@@ -52,6 +82,9 @@ void G1HotCardCache::initialize(G1RegionToSpaceMapper* card_counts_storage) {
 
 
     // forcus 设置并行处理参数 - 用于多线程并行处理热卡缓存中的卡
+    /*
+        用于 GC 暂停时多线程并行处理热卡缓存，每个线程一次处理 32 个卡
+     */
     // For refining the cards in the hot cache in parallel
     _hot_cache_par_chunk_size = ClaimChunkSize; // 并行处理时每个线程处理的块大小
     _hot_cache_par_claimed_idx = 0; // 并行处理时的索引计数器

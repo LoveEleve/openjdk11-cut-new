@@ -108,6 +108,10 @@ private:
    * note 每个区域的迭代状态
    *  - 大小：max_regions * sizeof(jint)
    *  - 状态：Unclaimed(0) → Claimed(1) → Complete(2)
+   *    每个区域的迭代状态：Unclaimed(0) → Claimed(1) → Complete(2)
+   *  注意哦,这是一个指针,指向的是int类型的地址(其实就是数组，数组的每一个元素存储的是G1RemsetIterState(其实就是int))
+   *  在后面初始化的时候会执行： _iter_states = NEW_C_HEAP_ARRAY(G1RemsetIterState, max_regions, mtGC)
+   *  也就是:NEW_C_HEAP_ARRAY 会在堆上分配 max_regions 个 G1RemsetIterState（也就是 int），然后返回指向这块内存的指针。
    */
   G1RemsetIterState volatile* _iter_states;
   /*
@@ -117,6 +121,7 @@ private:
    */
   // The current location where the next thread should continue scanning in a region's
   // remembered set.
+  // note 每个区域当前扫描位置（用于并发扫描时的进度跟踪）
   size_t volatile* _iter_claims;
 
   // Temporary buffer holding the regions we used to store remembered set scan duplicate
@@ -125,6 +130,7 @@ private:
    * note 脏区域缓冲区
    *  - 大小：max_regions * sizeof(uint)
    *  - 存储需要清理卡表的区域ID
+   *  note 脏区域缓冲区（存储需要清理卡表的区域ID）
    */
   uint* _dirty_region_buffer;
 
@@ -137,6 +143,7 @@ private:
    * note  脏区域标记数组
    *  - 大小：max_regions * sizeof(jbyte)
    *  - 标记区域是否已在脏缓冲区中
+   *  脏区域标记数组（标记区域是否已在脏缓冲区中）
    */
   IsDirtyRegionState* _in_dirty_region_buffer;
   size_t _cur_dirty_region;
@@ -169,6 +176,7 @@ private:
    * note 每个区域的扫描顶部指针
    *  - 大小：max_regions * sizeof(HeapWord*)
    *  - 记录每个区域在GC开始时的top位置
+   *  每个区域的扫描顶部指针（记录 GC 开始时每个区域的 top 位置）
    */
   HeapWord** _scan_top;
 public:
@@ -303,6 +311,78 @@ public:
   }
 };
 
+/*
+    扫描状态管理器是什么呢？
+        它的核心作用：在GC暂停期间,如何让多个GC线程高效,无冲突的并行扫描所有Region的记忆集
+        如果没有它，GC 线程会：
+            重复扫描同一个 Region（浪费时间）
+            互相竞争同一块工作（大量锁冲突）
+            无法协调清理卡表（留下脏数据）
+        假设我们有 2048 个 Region，8 个 GC 线程要并行扫描它们的 RSet： 这里还涉及到了 Collection Set(待回收的Region)，这里gc线程应该处理的是这些region的RSet
+        涉及到的问题:
+            1. 如何避免重复扫描：多个线程重复扫描一个region,这没有意义
+            2. 如何协调进度： 一个 Region 的 RSet 可能有 10000 张卡，一个线程扫不完，需要多个线程协作扫描同一个 Region 的 RSet
+            3. GC后如何清理卡表：扫描过的卡需要设置为 clean，但哪些 Region 被扫描过了？需要记录下来，GC 结束后统一清理
+            4. 如何确定扫描边界？：GC 期间应用线程可能还在分配对象（并发 GC 场景），需要在 GC 开始时"快照"每个 Region 的 top 位置，作为扫描上限
+        而 G1RemSetScanState 的5个字段就是为了解决这些问题的:
+            1.  _iter_states : 问题 1：重复扫描 --> Region 级别的"领取"机制
+                    - 确保每个Region的RSet只能被领取一次,避免重复扫描
+                    - 使用状态: 0(未被领取)，1(正在被扫描)，2(扫描完成)
+                        - 只有cas(0->1)成功的线程才能开始扫描，并且只有cas(1->2)的线程才能去扫描跟引用
+                    - 每个region对应一个state，_iter_states是一个数组
+            2.  _iter_claims : 问题 2：协调进度 --> 卡片级别的"分块领取"机制
+                    作用：一个 Region 的 RSet 可能有成千上万张卡，多个线程可以协作扫描同一个 RSet，每次领取一"块"卡片
+                        首先再这里需要回顾一下RSet的概念：它记录的是 "哪些其他Region的哪些卡引用了我"，当一个对象是热对象时(比如 全局缓存对象 / 共享的配置对象)
+                        那么这个以后可能就会有很多region中的对象都引用了这个对象
+                        所以为了提高性能,多个线程可以协作扫描同一个RSet，每次领取一块卡片
+                    该属性的基本信息： size_t volatile* _iter_claims;
+                        1. 类型与大小：指向 size_t数组的指针，大小为 max_regions * sizeof(size_t)
+                        2. 用途：记录每个 Region 的 RSet 当前扫描到的卡片位置（进度）
+                    多线程协调处理一个region的RSet需要解决的问题：1. 每张卡只被扫描一次（不重复）/ 每张卡都被扫描到（不遗漏） /  线程之间不发生冲突（高效）
+                    而且需要注意的是 这个 _iter_claims 是与 _iter_states 有关系的
+                    _iter_states[region]：标记某个region的RSet的状态(0/1/2)
+                    _iter_claims[region]:标记当前扫描到了第几张卡,用于分块领取
+                        简单协作流程: 当然 某个Region的RSet对应着哪些其他Region的卡是在运行时才知道的，并且是通过“写屏障”代码来填充的，后续具体在介绍
+                            │   1. 线程 A 通过 claim_iter() 将 _iter_states[region] 从 0→1（领取这个 Region）        │
+                            │   2. 线程 A/B/C 通过 iter_claimed_next() 从 _iter_claims[region] 领取卡片块            │
+                            │   3. 最后一个完成的线程将 _iter_states[region] 从 1→2（标记完成）
+
+            3. _dirty_region_buffer : 问题 3：清理卡表 --> 记录哪些 Region 被扫描过 「存储需要清理的 Region ID 列表，GC 结束后，遍历这个列表来清理卡表，只存储被扫描过的 Region，不需要遍历全部 Region」
+                    uint* _dirty_region_buffer,假设 max_regions = 2048,大小：2048 × sizeof(uint) = 8 KB
+                                        索引:    0     1     2     3     4     5    ...                                       │
+                    │          ┌─────┬─────┬─────┬─────┬─────┬─────┬─────────────────────────────────────────┐│
+                    │   值:    │  5  │ 17  │ 42  │ 100 │  ?  │  ?  │         ...（未使用的部分）            ││
+                    │          └─────┴─────┴─────┴─────┴─────┴─────┴─────────────────────────────────────────┘│
+                    │                                             ↑                                                       │
+                    │                          _cur_dirty_region = 4                                         │
+                    │                          （表示已记录 4 个脏 Region）                                   │
+
+            4. _in_dirty_region_buffe : 问题 3：去重 --> 防止同一 Region 重复加入脏列表
+                    类型：IsDirtyRegionState*（指向 jbyte 数组）  大小：2048 × sizeof(jbyte) = 2 KB 作用：快速判断某个 Region 是否已在列表中 「快速判断某个 Region 是否已经在列表中，防止同一个 Region 被重复添加到列表中 」
+                     _in_dirty_region_buffer（脏区域标记）                                                 │
+                    │   ─────────────────────────────────────────                                            │
+                    │   • 类型：IsDirtyRegionState*（指向 jbyte 数组）                                       │
+                    │   • 大小：2048 × sizeof(jbyte) = 2 KB                                                  │
+                    │   • 作用：快速判断某个 Region 是否已在列表中                                           │
+                    │                                                                                         │
+                    │   Region索引:  0    1    2    3    4    5    6   ...  17  ...  42  ... 100  ...        │
+                    │              ┌────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────┬────────┐│
+                    │   值(0/1):   │ 0  │ 0  │ 0  │ 0  │ 0  │ 1  │ 0  │... │ 1  │... │ 1  │... │ 1  │ ...   ││
+                    │              └────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────┴────────┘│
+                    │                                        ↑              ↑         ↑         ↑                 │
+                    │                              Region 5, 17, 42, 100 被标记为 Dirty(1)                   │
+                    │                                                                                         │
+                同样也是从问题出发，为什么需要这两个属性呢？
+                    GC 扫描时，会扫描大量的卡片（Card），扫描完的卡片需要重置为 clean 状态
+                    一种很简单的方式：GC 结束后，遍历整个卡表，把所有脏卡设为 clean ，同样，是不可能遍历的，性能太差了
+                    应该只清理“扫描过”的Region的卡表(只做应该做的事情)
+                        而 _dirty_region_buffer 的作用就是：记录哪些 Region被扫描过
+
+            5. _scan_top : 问题 4：扫描边界 --> 快照 GC 开始时每个 Region 的 top
+                    为什么需要这个属性呢？
+                    每个HeapRegion
+
+ */
 G1RemSet::G1RemSet(G1CollectedHeap* g1h,
                    G1CardTable* ct,
                    G1HotCardCache* hot_card_cache) :
@@ -312,7 +392,7 @@ G1RemSet::G1RemSet(G1CollectedHeap* g1h,
   _ct(ct), // 卡表引用
   _g1p(_g1h->g1_policy()), // GC策略引用
   _hot_card_cache(hot_card_cache), // 热卡缓存引用
-  _prev_period_summary() { // 统计信息
+  _prev_period_summary() { // 统计信息(初始化周期统计信息)
 }
 
 G1RemSet::~G1RemSet() {

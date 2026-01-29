@@ -72,7 +72,7 @@ void G1CardTableChangedListener::on_commit(uint start_idx, size_t num_regions, b
 }
 // forcus 初始化卡表,传入了 cardtable_storage
 void G1CardTable::initialize(G1RegionToSpaceMapper* mapper) {
-    // 为 cardtable_storage 设置监听器
+  // 为 cardtable_storage 设置监听器,当Region内存被提交时,自动清理对应的卡表区域O(设置为-1)
   mapper->set_mapping_changed_listener(&_listener);
   // forcus 设置卡表字节数组大小
   // 对于8GB堆：8GB ÷ 512字节 = 16MB个卡 . 每张卡用1字节表示：_byte_map_size = 16MB
@@ -87,6 +87,13 @@ void G1CardTable::initialize(G1RegionToSpaceMapper* mapper) {
   HeapWord* low_bound  = _whole_heap.start();
   HeapWord* high_bound = _whole_heap.end();
   // forcus 设置覆盖区域
+  /*
+        覆盖区域是卡表用来追踪它负责覆盖哪些堆内存范围的数据结构
+            - _covered[]：记录卡表覆盖了哪些堆内存区域
+            - _committed[]：记录为覆盖这些堆内存区域而提交的卡表内存
+        G1的堆布局：将堆划分为大小相同的Region,逻辑上分代，但是物理上是一个连续的内存空间
+        整个堆共享一个卡表
+   */
   _cur_covered_regions = 1; // G1与传统分代GC的多区域不同,G1采用的是单一覆盖区域
   _covered[0] = _whole_heap; // 保存到_covered[0]中
   // forcus 设置卡表数组指针

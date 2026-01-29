@@ -38,8 +38,14 @@ void HeapRegionManager::initialize(G1RegionToSpaceMapper* heap_storage,
                                G1RegionToSpaceMapper* cardtable,
                                G1RegionToSpaceMapper* card_counts) {
    // 重置已分配的HeapRegion实例数量计数器
+   // 这个计数器记录着已创建HeapRegion实例的最大索引 + 1(初始为0,代表还没有创建任何HeapRegion)
   _allocated_heapregions_length = 0;
   // 保存各种映射器引用(6个)
+  /*
+        因为后续在 commit_regions() 和 uncommit_regions() 时，
+        HeapRegionManager 需要同步管理这 6 个数据结构的内存——当提交/释放一个 Region 的主堆内存时，
+        对应的位图、BOT、卡表等辅助结构也必须同步提交/释放
+   */
   _heap_mapper = heap_storage;
 
   _prev_bitmap_mapper = prev_bitmap;
@@ -58,7 +64,7 @@ void HeapRegionManager::initialize(G1RegionToSpaceMapper* heap_storage,
   _regions.initialize(reserved.start(), reserved.end(), HeapRegion::GrainBytes);
   // 初始化可用性位图
   // _available_map CHeapBitMap (2048位 = 256字节)
-  // 作用: 跟踪每个区域是否可用于分配
+  // 作用: 用于快速判断某个region是否已提交内存并且可用于分配
   _available_map.initialize(_regions.length());
 }
 /*

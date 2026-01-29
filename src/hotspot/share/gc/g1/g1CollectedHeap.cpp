@@ -1848,6 +1848,7 @@ jint G1CollectedHeap::initialize() {
   // forcus 初始化卡表,传入了 cardtable_storage
   _card_table->initialize(cardtable_storage);
   // Do later initialization work for concurrent refinement.
+  // forcus 初始化热卡缓存
   _hot_card_cache->initialize(card_counts_storage);
 
   // 6843694 - ensure that the maximum region index can fit
@@ -1864,6 +1865,8 @@ jint G1CollectedHeap::initialize() {
         创建G1记忆集对象
         传入卡表和热卡缓存的引用
         初始化记忆集，设置最大容量和最大Region数
+
+        -- G1RemSet ：是 G1 GC 中记忆集管理的核心组件，负责协调卡表、热卡缓存和各 Region 的记忆集，提供跨 Region 引用的追踪和扫描功能。
    */
   // Also create a G1 rem set.
   _g1_rem_set = new G1RemSet(this, _card_table, _hot_card_cache); // note 传入了this(堆对象) + 卡表对象 + 热卡对象
