@@ -1,0 +1,35 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+[New LWP 1480655]
+[New LWP 1480656]
+[New LWP 1480657]
+[New LWP 1480658]
+[New LWP 1480662]
+[New LWP 1480663]
+[New LWP 1480664]
+[New LWP 1480665]
+[New LWP 1480666]
+[New LWP 1480667]
+[New LWP 1480668]
+[New LWP 1480669]
+[New LWP 1480671]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  Id   Target Id                                             Frame 
+* 1    Thread 0x7f8e14610740 (LWP 1480653) "java"            0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  2    Thread 0x7f8e11dff6c0 (LWP 1480655) "java"            0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  3    Thread 0x7f8e119ff6c0 (LWP 1480656) "GC Thread#0"     0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  4    Thread 0x7f8e10bf06c0 (LWP 1480657) "G1 Main Marker"  0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  5    Thread 0x7f8e10aee6c0 (LWP 1480658) "G1 Conc#0"       0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  6    Thread 0x7f8debbfb6c0 (LWP 1480662) "G1 Refine#0"     0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  7    Thread 0x7f8debaf96c0 (LWP 1480663) "G1 Young RemSet" 0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  8    Thread 0x7f8deb1766c0 (LWP 1480664) "VM Thread"       0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  9    Thread 0x7f8deb0746c0 (LWP 1480665) "Reference Handl" 0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  10   Thread 0x7f8deaf746c0 (LWP 1480666) "Finalizer"       0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  11   Thread 0x7f8deae1c6c0 (LWP 1480667) "Signal Dispatch" 0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  12   Thread 0x7f8dea9ff6c0 (LWP 1480668) "Service Thread"  0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  13   Thread 0x7f8dea8ff6c0 (LWP 1480669) "Common-Cleaner"  0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+  14   Thread 0x7f8dea7ff6c0 (LWP 1480671) "VM Periodic Tas" 0x00007f8e140720c6 in __futex_abstimed_wait_common () from /lib64/libc.so.6
+[Inferior 1 (process 1480653) detached]

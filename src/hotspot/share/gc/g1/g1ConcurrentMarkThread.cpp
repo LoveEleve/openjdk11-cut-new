@@ -77,15 +77,15 @@ public:
 // The CM thread is created when the G1 garbage collector is used
 
 G1ConcurrentMarkThread::G1ConcurrentMarkThread(G1ConcurrentMark* cm) :
-  ConcurrentGCThread(),
-  _cm(cm),
-  _state(Idle),
-  _phase_manager_stack(),
-  _vtime_accum(0.0),
-  _vtime_mark_accum(0.0) {
+  ConcurrentGCThread(), // 父类构造
+  _cm(cm), // 保存 G1ConcurrentMark 引用
+  _state(Idle),  // 初始状态：空闲
+  _phase_manager_stack(),// 阶段管理器栈
+  _vtime_accum(0.0), // 累计虚拟时间
+  _vtime_mark_accum(0.0) {  // 标记累计虚拟时间
 
-  set_name("G1 Main Marker");
-  create_and_start();
+  set_name("G1 Main Marker"); // 设置线程名(这个名字会在 jstack / VisualVM / GC日志中看到)
+  create_and_start();// forcus 创建并启动线程
 }
 
 class CMRemark : public VoidClosure {
@@ -254,7 +254,7 @@ void G1ConcurrentMarkThread::run_service() {
 
   while (!should_terminate()) {
     // wait until started is set.
-    sleep_before_next_cycle();
+    sleep_before_next_cycle();  // forcus 等待被唤醒（等待 Initial Mark）-- 这里的逻辑后续再来看
     if (should_terminate()) {
       break;
     }

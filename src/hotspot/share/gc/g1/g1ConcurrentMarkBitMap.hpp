@@ -60,13 +60,13 @@ public:
 // A generic mark bitmap for concurrent marking.  This is essentially a wrapper
 // around the BitMap class that is based on HeapWords, with one bit per (1 << _shifter) HeapWords.
 class G1CMBitMap {
-  MemRegion _covered;    // The heap area covered by this bitmap.
+  MemRegion _covered;    // The heap area covered by this bitmap. forcus 对应着heap的 MemRegion
 
-  const int _shifter;    // Shift amount from heap index to bit index in the bitmap.
+  const int _shifter;    // Shift amount from heap index to bit index in the bitmap. forcus 在这里为0，代表着堆中的每8B对应位图中的1bit
 
-  BitMapView _bm;        // The actual bitmap.
+  BitMapView _bm;        // The actual bitmap. forcus 真正的位图,指向storage中的 _low_boundary
 
-  G1CMBitMapMappingChangedListener _listener;
+  G1CMBitMapMappingChangedListener _listener; // 监听器
 
   inline void check_mark(HeapWord* addr) NOT_DEBUG_RETURN;
 

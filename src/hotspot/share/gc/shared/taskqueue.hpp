@@ -211,6 +211,7 @@ public:
 
   // Maximum number of elements allowed in the queue.  This is two less
   // than the actual queue size, for somewhat complicated reasons.
+  // forcus 为什么是 N - 2
   uint max_elems() const { return N - 2; }
 
   // Total size of queue.

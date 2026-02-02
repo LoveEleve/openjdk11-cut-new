@@ -379,9 +379,51 @@ public:
                         而 _dirty_region_buffer 的作用就是：记录哪些 Region被扫描过
 
             5. _scan_top : 问题 4：扫描边界 --> 快照 GC 开始时每个 Region 的 top
-                    为什么需要这个属性呢？
-                    每个HeapRegion
+                    补充：_scan_top的目的不是简单的记录每个region的top，而是记录每个region的扫描上限(也就是限制扫描范围，不扫描GC开始后新分配的对象,SATB语义)
+                    除此之外还有另外一个功能：过滤不需要扫描的Region类型(通过设置bottom()来使得扫描范围为空)
+                    每次gc开始时，会通过 G1ResetScanTopClosure.do_heap_region() 来设置 _scan_top，在这个方法内处理了两种场景：
+                        1. !in_collection_set() && is_old_or_humongous()：非CSet 且为 Old/Humongous 区域：存储这些Region的top值
+                            这样设置的话则有两层含义：这些区域需要扫描，并且扫描的上限为top值
+                            乍一看,是不是有点矛盾呢？不在CSet的区域竟然也要扫描：是的，因为这些区域中可能有对象引用着CSet区域中的对象,所以必须扫描,否则可能会出现漏标
+                        2. 其他所有情况：CSet，Young区域(特殊的，一般所有 Young 都在CSet中)，Free区域，Archive区域
+                            存储的均为每个 region的 bottom
+                            这里又有个不太容易理解的点: 我上面说了, _scan_top记录的有两个含义, 1. 是否需要进行扫描 2. 如果要扫描,则扫描的上限是什么？
+                            而这里又说,CSet Region在这里存储的是bottom(),代表不扫描，可是CSet是回收集啊,怎么可能不扫描呢？这不是矛盾了吗？
+                            所以在这里要区分一下：扫描CSet区域 和 扫描指向CSet Region的Region(这个不解释了，应该容易理解)
+                                1. 扫描CSet区域中的对象,目的找出CSet中存活的对象,复制到新的Region，而这是GC的主要工作,与_scan_top无关
+                                2. 扫描从某个Region指向CSet的引用,目的,找出所有指向CSet的引用(作为GC Root的补充,避免漏标)，方式：扫描非CSet区域的RSet/卡表，而_scan_top控制的就是这个
+                            那么在这里为什么CSet中的Region对应的_scan_top会设置为bottom()呢？这代表着这些区域不需要被_scan_top 所限制，
+                            因为这个区域会全部扫描,不会导致引用丢失
+                            所以总结：_scan_top在RSet扫描过程中被使用，用来限制每张卡表的扫描范围
+                            {
+                                这又会引入一个问题,之前说过,在gc并发操作过程中，新分配的对象是不会被扫描的，那么在这里，如果是这种情况，不限制CSet的扫描范围，
+                                那么新对象如果分配在CSet的某个Region，要不要扫描呢？
+                                    -- 在这里，新分配的对象是不会出现在CSet的Region中的(CSet中的Region不能用于分配,后面会讲解到)
+                            }
 
+
+                    为什么需要这个属性呢？
+                    每个HeapRegion都有3个关键指针:
+                        bottom(): region的起始地址，固定不变
+                        top(): 当前已分配对象的末尾(随对象分配而增长),top()以下是有对象的，top以上是空闲的
+                        end(): Region介绍地址(固定不变)
+                    问题场景: gc期间(并发标记)，应用线程仍在分配对象(特别是young gc 的并发阶段)
+                    那就存在一个问题了,这个新分配的对象应该被扫描吗？
+                        答案为：不应该(为什么呢？因为不值得,新分配的对象成为垃圾的概率是多少？几乎为0啊，浪费gc时间)
+                    既然是不扫描,那么就需要记录GC开始时每个region的top位置,作为扫描上限
+
+                    类型与大小： max_regions(2048) * sizeof(HeapWord*)，记录每个区域在GC开始时的top位置
+                    不同类型的Region存储不同的值：这是什么意思呢?
+                        Old/Humongous 区域（非 CSet）：存储 GC 开始时的 top() 值
+                            Old区域：存放"老对象"，经过多次gc后存活下来的
+                            Humongous区域：存放"大对象"，超过半个Region大小的对象
+                            非CSet:不在本次回收集合中(本次GC不回收这些区域)
+                            那么为什么要记录呢？因为这些区域中的对象可能持有CSet(要回收区域)的引用
+                        Collection Set 中的区域：存储 bottom() 值（即不扫描）
+                            CSet: 本次GC要回收的区域集合
+                            通常包括：1，所有Young Region(Eden + Survivor) 2. 部分Old Region(Mixed GC时选中的)
+                            为什么这里存储的是每个Region的bottom()值呢？
+                        其他区域（Free/Archive 等）：存储 bottom() 值（即不扫描）
  */
 G1RemSet::G1RemSet(G1CollectedHeap* g1h,
                    G1CardTable* ct,

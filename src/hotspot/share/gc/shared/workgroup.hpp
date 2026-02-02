@@ -90,17 +90,18 @@ class GangTaskDispatcher : public CHeapObj<mtGC> {
 
   // Distributes the task out to num_workers workers.
   // Returns when the task has been completed by all workers.
+  // forcus 协调者API - 主线程调用
   virtual void coordinator_execute_on_workers(AbstractGangTask* task, uint num_workers,
                                               bool add_foreground_work) = 0;
 
   // Worker API.
-
+  // forcus 工作者API - 工作线程调用
   // Waits for a task to become available to the worker.
   // Returns when the worker has been assigned a task.
-  virtual WorkData worker_wait_for_task() = 0;
+  virtual WorkData worker_wait_for_task() = 0;  // 等待任务分配
 
   // Signal to the coordinator that the worker is done with the assigned task.
-  virtual void     worker_done_with_task() = 0;
+  virtual void     worker_done_with_task() = 0;  // 通知任务完成
 };
 
 // The work gang is the collection of workers to execute tasks.
@@ -109,13 +110,13 @@ class GangTaskDispatcher : public CHeapObj<mtGC> {
 class AbstractWorkGang : public CHeapObj<mtInternal> {
  protected:
   // The array of worker threads for this gang.
-  AbstractGangWorker** _workers;
+  AbstractGangWorker** _workers; // 线程数组
   // The count of the number of workers in the gang.
-  uint _total_workers;
+  uint _total_workers; // 最大线程数
   // The currently active workers in this gang.
-  uint _active_workers;
+  uint _active_workers; // 默认为1
   // The count of created workers in the gang.
-  uint _created_workers;
+  uint _created_workers; // 已经创建线程数
   // Printing support.
   const char* _name;
 
@@ -132,12 +133,12 @@ class AbstractWorkGang : public CHeapObj<mtInternal> {
 
  public:
   AbstractWorkGang(const char* name, uint workers, bool are_GC_task_threads, bool are_ConcurrentGC_threads) :
-      _name(name),
-      _total_workers(workers),
-      _active_workers(UseDynamicNumberOfGCThreads ? 1U : workers),
-      _created_workers(0),
-      _are_GC_task_threads(are_GC_task_threads),
-      _are_ConcurrentGC_threads(are_ConcurrentGC_threads)
+      _name(name), // 保存名称 "G1 Conc"
+      _total_workers(workers), // 最大工作线程数。这是工作组能拥有的线程上限，由之前的 scale_concurrent_worker_threads() 计算得出
+      _active_workers(UseDynamicNumberOfGCThreads ? 1U : workers), // 取决于 UseDynamicNumberOfGCThreads(默认是关闭的)，也即默认只会创建一个线程(动态线程池思想)
+      _created_workers(0), // 已实际创建的线程数 _created_workers <= _active_workers <= _total_workers
+      _are_GC_task_threads(are_GC_task_threads), // false：用于STW阶段的并行GC线程(比如Young GC的并行回收线程)，false 不是STW线程
+      _are_ConcurrentGC_threads(are_ConcurrentGC_threads) // true: 标记是否为 并发GC线程 -- 线程类型会被设置为 os::cgc_thread（Concurrent GC Thread）
   { }
 
   // Initialize workers in the gang.  Return true if initialization succeeded.

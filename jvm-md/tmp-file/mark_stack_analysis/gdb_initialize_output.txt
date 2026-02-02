@@ -1,0 +1,127 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+Reading symbols from ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java...
+warning: File "/data/workspace/openjdk-cut-new/.gdbinit" auto-loading has been declined by your `auto-load safe-path' set to "$debugdir:$datadir/auto-load".
+To enable execution of this file add
+	add-auto-load-safe-path /data/workspace/openjdk-cut-new/.gdbinit
+line to your configuration file "/root/.gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/root/.gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+(gdb) (gdb) (gdb) (gdb) (gdb) No source file named g1ConcurrentMark.cpp.
+Breakpoint 1 (g1ConcurrentMark.cpp:126) pending.
+(gdb) No source file named g1ConcurrentMark.cpp.
+Breakpoint 2 (g1ConcurrentMark.cpp:94) pending.
+(gdb) No source file named g1ConcurrentMark.cpp.
+Breakpoint 3 (g1ConcurrentMark.cpp:94) pending.
+(gdb) Starting program: /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+----_JAVA_LAUNCHER_DEBUG----
+Launcher state:
+	First application arg index: 8
+	debug:on
+	javargs:off
+	program name:java
+	launcher name:openjdk
+	javaw:off
+	fullversion:11.0.17-internal+0-adhoc.root.openjdk11-core
+Java args:
+Command line args:
+argv[0] = /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+argv[1] = -Xms8g
+argv[2] = -Xmx8g
+argv[3] = -XX:+UseG1GC
+argv[4] = -Xint
+argv[5] = -cp
+argv[6] = /data/workspace/demo/src
+argv[7] = com.wjcoder.Main
+JRE path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk
+jvm.cfg[0] = ->-server<-
+jvm.cfg[1] = ->-client<-
+32 micro seconds to parse jvm.cfg
+Default VM: server
+Does `/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so' exist ... yes.
+mustsetenv: FALSE
+JVM path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so
+824973 micro seconds to LoadJavaVM
+[New Thread 0x7ffff780b6c0 (LWP 811349)]
+[New Thread 0x7ffff55ff6c0 (LWP 811350)]
+[New Thread 0x7ffff44f26c0 (LWP 811351)]
+[New Thread 0x7ffff43f06c0 (LWP 811352)]
+[Switching to Thread 0x7ffff780b6c0 (LWP 811349)]
+
+Thread 2 "java" hit Breakpoint 1, G1CMMarkStack::initialize (this=0x7ffff0059a08, initial_capacity=4194304, max_capacity=16777216) at /data/workspace/openjdk-cut-new/src/hotspot/share/gc/g1/g1ConcurrentMark.cpp:126
+warning: Source file is more recent than executable.
+126	bool G1CMMarkStack::initialize(size_t initial_capacity, size_t max_capacity) {
+Missing separate debuginfos, use: dnf debuginfo-install glibc-2.38-45.tl4.x86_64 libgcc-12.3.1.7-1.tl4.x86_64 libstdc++-12.3.1.7-1.tl4.x86_64 zlib-1.2.13-9.tl4.x86_64
+(gdb) (gdb) (gdb) 
+(gdb) ========================================================
+(gdb)           G1CMMarkStack::initialize() 分析
+(gdb) ========================================================
+(gdb) ========================================================
+(gdb) 
+【1. 函数入参】
+(gdb)   initial_capacity = 4194304 (0x400000)
+(gdb)   max_capacity     = 16777216 (0x1000000)
+(gdb)   换算成 MB:
+(gdb)     initial_capacity = 4 MB
+(gdb)     max_capacity     = 16 MB
+(gdb)     max_capacity     = 16 MB
+(gdb) 
+【2. 结构体大小】
+(gdb)   sizeof(TaskQueueEntryChunk) = 8192 bytes
+(gdb)   sizeof(G1TaskQueueEntry)    = 8 bytes
+(gdb)   EntriesPerChunk (静态常量)  = 1023
+(gdb)   EntriesPerChunk (静态常量)  = 1023
+(gdb) (gdb) Continuing.
+
+Thread 2 "java" hit Breakpoint 2, G1CMMarkStack::resize (this=0x7ffff0059a08, new_capacity=4096) at /data/workspace/openjdk-cut-new/src/hotspot/share/gc/g1/g1ConcurrentMark.cpp:95
+95	  assert(is_empty(), "Only resize when stack is empty.");
+(gdb) Continuing.
+[New Thread 0x7fffcf4f46c0 (LWP 811353)]
+[New Thread 0x7fffcf3f26c0 (LWP 811354)]
+[New Thread 0x7fffceaf06c0 (LWP 811355)]
+[New Thread 0x7fffce9ee6c0 (LWP 811356)]
+[New Thread 0x7fffce8ee6c0 (LWP 811357)]
+[New Thread 0x7fffce7966c0 (LWP 811358)]
+[New Thread 0x7fffce3ff6c0 (LWP 811359)]
+[New Thread 0x7fffce2ce6c0 (LWP 811367)]
+[New Thread 0x7fffce1ce6c0 (LWP 811372)]
+JavaVM args:
+    version 0x00010002, ignoreUnrecognized is JNI_FALSE, nOptions is 10
+    option[ 0] = '-Dsun.java.launcher.diag=true'
+    option[ 1] = '-Djava.class.path=/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:'
+    option[ 2] = '-Xms8g'
+    option[ 3] = '-Xmx8g'
+    option[ 4] = '-XX:+UseG1GC'
+    option[ 5] = '-Xint'
+    option[ 6] = '-Djava.class.path=/data/workspace/demo/src'
+    option[ 7] = '-Dsun.java.command=com.wjcoder.Main'
+    option[ 8] = '-Dsun.java.launcher=SUN_STANDARD'
+    option[ 9] = '-Dsun.java.launcher.pid=811339'
+1712657 micro seconds to InitializeJVM
+程序启动，等待GDB附加...
+PID: 811339
+[New Thread 0x7fffce0cc6c0 (LWP 811402)]
+[New Thread 0x7fffcdfca6c0 (LWP 811403)]
+[New Thread 0x7fffcdec86c0 (LWP 811404)]
+[New Thread 0x7fffcddc66c0 (LWP 811405)]
+[New Thread 0x7fffcdcc46c0 (LWP 811406)]
+[New Thread 0x7fffcdbc26c0 (LWP 811407)]
+[New Thread 0x7fffcdac06c0 (LWP 811408)]
+[New Thread 0x7fffcd9be6c0 (LWP 811409)]
+[New Thread 0x7fffcd8bc6c0 (LWP 811410)]
+[New Thread 0x7fffcd7ba6c0 (LWP 811411)]
+[New Thread 0x7fffcd6b86c0 (LWP 811412)]
+[New Thread 0x7fffcd5b66c0 (LWP 811413)]
+Exception ignored in: <gdb._GdbFile object at 0x7f20e83393d0>
+Traceback (most recent call last):
+  File "/usr/share/gdb/python/gdb/__init__.py", line 56, in flush
+    def flush(self):
+
+KeyboardInterrupt: 

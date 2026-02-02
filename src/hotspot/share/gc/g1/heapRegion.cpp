@@ -250,10 +250,10 @@ HeapRegion::HeapRegion(uint hrm_index,
 {
   // forcus 创建HeapRegionRemSet对象
   /*
-   * 用于跟踪指向该Region的跨代引用，提高增量收集的效率
+        用于跟踪指向该Region的跨代引用，提高增量收集的效率
    */
   _rem_set = new HeapRegionRemSet(bot, this);
-  // forcus 初始化Region内存空间
+  // forcus 初始化Region内存空间范围 ( 初始化内存范围（设置 _bottom, _end, _top） )
   initialize(mr);
 }
 

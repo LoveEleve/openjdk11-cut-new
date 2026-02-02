@@ -1,0 +1,107 @@
+# GDB 调试脚本：HeapRegion 内存布局分析
+
+set pagination off
+set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/heap_region_layout/debug_output.log
+set logging overwrite on
+set logging enabled on
+
+# 在 HeapRegion 初始化完成后断点
+break HeapRegion::initialize
+commands
+    silent
+    # 只在第一个 Region 初始化时打印详细信息
+    if _hrm_index == 0
+        echo \n========== HeapRegion 0 初始化完成 ==========\n
+        echo \n--- this 指针和完整结构 ---\n
+        print this
+        print *this
+    end
+    continue
+end
+
+# 在 expand 返回前设置断点
+break G1CollectedHeap::expand
+commands
+    silent
+    echo \n========== expand() 被调用 ==========\n
+    echo expand_bytes = 
+    print expand_bytes
+    continue
+end
+
+# 在 insert_into_free_list 后查看 Region
+break HeapRegionManager::make_regions_available
+commands
+    silent
+    echo \n========== make_regions_available 开始 ==========\n
+    echo start = 
+    print start
+    echo num_regions = 
+    print num_regions
+    # 完成后单步到函数末尾会太慢，我们用 finish
+    finish
+    
+    echo \n========== make_regions_available 完成 ==========\n
+    echo \n--- HeapRegion 0 完整内存布局 ---\n
+    
+    set $hr0 = _regions.get_by_index(0)
+    print $hr0
+    print *$hr0
+    
+    echo \n--- Space 基类字段 ---\n
+    print $hr0->_bottom
+    print $hr0->_end
+    print $hr0->_saved_mark_word
+    
+    echo \n--- CompactibleSpace 字段 ---\n
+    print $hr0->_compaction_top
+    print $hr0->_next_compaction_space
+    
+    echo \n--- G1ContiguousSpace 字段 ---\n
+    print $hr0->_top
+    print $hr0->_bot_part
+    print $hr0->_pre_dummy_top
+    print $hr0->_par_alloc_lock
+    
+    echo \n--- HeapRegion 特有字段 ---\n
+    print $hr0->_hrm_index
+    print $hr0->_type
+    print $hr0->_humongous_start_region
+    print $hr0->_evacuation_failed
+    print $hr0->_next
+    print $hr0->_prev
+    print $hr0->_prev_marked_bytes
+    print $hr0->_next_marked_bytes
+    print $hr0->_gc_efficiency
+    print $hr0->_young_index_in_cset
+    print $hr0->_surv_rate_group
+    print $hr0->_age_index
+    print $hr0->_prev_top_at_mark_start
+    print $hr0->_next_top_at_mark_start
+    print $hr0->_recorded_rs_length
+    print $hr0->_predicted_elapsed_time_ms
+    
+    echo \n--- HeapRegionRemSet ---\n
+    print $hr0->_rem_set
+    print *($hr0->_rem_set)
+    
+    echo \n--- 地址验证 ---\n
+    echo Region 0 容量 (end - bottom) in bytes: 
+    print (size_t)($hr0->_end) - (size_t)($hr0->_bottom)
+    
+    echo \n--- Region 1 对比 ---\n
+    set $hr1 = _regions.get_by_index(1)
+    print $hr1->_hrm_index
+    print $hr1->_bottom
+    print $hr1->_end
+    
+    echo \n--- Region 2047 (最后一个) ---\n
+    set $hr_last = _regions.get_by_index(2047)
+    print $hr_last->_hrm_index
+    print $hr_last->_bottom
+    print $hr_last->_end
+    
+    continue
+end
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main

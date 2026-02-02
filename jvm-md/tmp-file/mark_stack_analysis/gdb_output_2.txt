@@ -1,0 +1,119 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+warning: File "/data/workspace/openjdk-cut-new/.gdbinit" auto-loading has been declined by your `auto-load safe-path' set to "$debugdir:$datadir/auto-load".
+To enable execution of this file add
+	add-auto-load-safe-path /data/workspace/openjdk-cut-new/.gdbinit
+line to your configuration file "/root/.gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/root/.gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+No source file named g1ConcurrentMark.cpp.
+Breakpoint 1 (g1ConcurrentMark.cpp:500) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+----_JAVA_LAUNCHER_DEBUG----
+Launcher state:
+	First application arg index: 8
+	debug:on
+	javargs:off
+	program name:java
+	launcher name:openjdk
+	javaw:off
+	fullversion:11.0.17-internal+0-adhoc.root.openjdk11-core
+Java args:
+Command line args:
+argv[0] = /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+argv[1] = -Xms8g
+argv[2] = -Xmx8g
+argv[3] = -XX:+UseG1GC
+argv[4] = -Xint
+argv[5] = -cp
+argv[6] = /data/workspace/demo/src
+argv[7] = com.wjcoder.Main
+JRE path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk
+jvm.cfg[0] = ->-server<-
+jvm.cfg[1] = ->-client<-
+2669 micro seconds to parse jvm.cfg
+Default VM: server
+Does `/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so' exist ... yes.
+mustsetenv: FALSE
+JVM path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so
+2314825 micro seconds to LoadJavaVM
+[New Thread 0x7ffff780b6c0 (LWP 779600)]
+[New Thread 0x7ffff55ff6c0 (LWP 779601)]
+[New Thread 0x7ffff44f26c0 (LWP 779602)]
+[New Thread 0x7ffff43f06c0 (LWP 779603)]
+[New Thread 0x7fffcf4f46c0 (LWP 779604)]
+[New Thread 0x7fffcf3f26c0 (LWP 779605)]
+[New Thread 0x7fffceaf06c0 (LWP 779606)]
+[New Thread 0x7fffce9ee6c0 (LWP 779607)]
+[New Thread 0x7fffce8ee6c0 (LWP 779608)]
+[New Thread 0x7fffce7966c0 (LWP 779612)]
+[New Thread 0x7fffce3ff6c0 (LWP 779613)]
+[New Thread 0x7fffce2ce6c0 (LWP 779614)]
+[New Thread 0x7fffce1ce6c0 (LWP 779637)]
+JavaVM args:
+    version 0x00010002, ignoreUnrecognized is JNI_FALSE, nOptions is 10
+    option[ 0] = '-Dsun.java.launcher.diag=true'
+    option[ 1] = '-Djava.class.path=/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:/data/workspace/openjdk11-core/build/linux-x86_64-normal-server-slowdebug/jdk/lib:'
+    option[ 2] = '-Xms8g'
+    option[ 3] = '-Xmx8g'
+    option[ 4] = '-XX:+UseG1GC'
+    option[ 5] = '-Xint'
+    option[ 6] = '-Djava.class.path=/data/workspace/demo/src'
+    option[ 7] = '-Dsun.java.command=com.wjcoder.Main'
+    option[ 8] = '-Dsun.java.launcher=SUN_STANDARD'
+    option[ 9] = '-Dsun.java.launcher.pid=779556'
+2073261 micro seconds to InitializeJVM
+程序启动，等待GDB附加...
+PID: 779556
+[New Thread 0x7fffce0cc6c0 (LWP 779713)]
+[New Thread 0x7fffcdfca6c0 (LWP 779714)]
+[New Thread 0x7fffcdec86c0 (LWP 779715)]
+[New Thread 0x7fffcddc66c0 (LWP 779716)]
+[New Thread 0x7fffcdcc46c0 (LWP 779717)]
+[New Thread 0x7fffcdbc26c0 (LWP 779718)]
+[New Thread 0x7fffcdac06c0 (LWP 779719)]
+[N[Thread 0x7fffce1ce6c0 (LWP 774752) exited]
+[Thread 0x7fffcf3f26c0 (LWP 774682) exited]
+[Thread 0x7fffcf4f46c0 (LWP 774681) exited]
+[Thread 0x7ffff44f26c0 (LWP 774679) exited]
+[Thread 0x7fffce7966c0 (LWP[Thread 0x7fffce1ce6c0 (LWP 779637) exited]
+[Thread 0x7fffcf3f26c0 (LWP 779605) exited]
+[Thread 0x7fffcf4f46c0 (LWP 779604) exited]
+[Thread 0x7ffff44f26c0 (LWP 779602) exited]
+[Thread 0x7fffce7966c0 (LWP 779612) exited]
+[Thread 0x7fffceaf06c0 (LWP 779606) exited]
+[Thread 0x7ffff780b6c0 (LWP 779600) exited]
+Main class is 'com.wjcoder.Main'
+App's argc is 0
+46991 micro seconds to load main class
+----_JAVA_LAUNCHER_DEBUG----
+[Thread 0x7fffcd5b66c0 (LWP 779724) exited]
+[Thread 0x7fffcd6b86c0 (LWP 779723) exited]
+[Thread 0x7fffcd7ba6c0 (LWP 779722) exited]
+[Thread 0x7fffcd8bc6c0 (LWP 779721) exited]
+[Thread 0x7fffcdac06c0 (LWP 779719) exited]
+[Thread 0x7fffcdbc26c0 (LWP 779718) exited]
+[Thread 0x7fffcdcc46c0 (LWP 779717) exited]
+[Thread 0x7fffcddc66c0 (LWP 779716) exited]
+[Thread 0x7fffcdec86c0 (LWP 779715) exited]
+[Thread 0x7fffcdfca6c0 (LWP 779714) exited]
+[Thread 0x7fffce0cc6c0 (LWP 779713) exited]
+[Thread 0x7fffce2ce6c0 (LWP 779614) exited]
+[Thread 0x7fffce3ff6c0 (LWP 779613) exited]
+[Thread 0x7fffce8ee6c0 (LWP 779608) exited]
+[Thread 0x7fffce9ee6c0 (LWP 779607) exited]
+[Thread 0x7ffff43f06c0 (LWP 779603) exited]
+[Thread 0x7ffff55ff6c0 (LWP 779601) exited]
+[Thread 0x7ffff7f7a740 (LWP 779556) exited]
+[Thread 0x7fffcd9be6c0 (LWP 779720) exited]
+[New process 779556]
+[Inferior 1 (process 779556) exited normally]
+'MarkStackSize' has unknown type; cast it to its declared type
+'MarkStackSizeMax' has unknown type; cast it to its declared type
+No symbol "_global_mark_stack" in current context.

@@ -1,0 +1,330 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+To enable execution of this file add
+	add-auto-load-safe-path /data/workspace/openjdk-cut-new/.gdbinit
+line to your configuration file "/root/.gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/root/.gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+Breakpoint 1 (G1CMMarkStack::G1CMMarkStack) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+----_JAVA_LAUNCHER_DEBUG----
+Launcher state:
+	First application arg index: 8
+	debug:on
+	javargs:off
+	program name:java
+	launcher name:openjdk
+	javaw:off
+	fullversion:11.0.17-internal+0-adhoc.root.openjdk11-core
+Java args:
+Command line args:
+argv[0] = /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+argv[1] = -Xms8g
+argv[2] = -Xmx8g
+argv[3] = -XX:+UseG1GC
+argv[4] = -Xint
+argv[5] = -cp
+argv[6] = /data/workspace/demo/src
+argv[7] = com.wjcoder.Main
+JRE path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk
+jvm.cfg[0] = ->-server<-
+jvm.cfg[1] = ->-client<-
+92 micro seconds to parse jvm.cfg
+Default VM: server
+Does `/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so' exist ... yes.
+mustsetenv: FALSE
+JVM path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so
+976114 micro seconds to LoadJavaVM
+[New Thread 0x7ffff780b6c0 (LWP 773983)]
+[New Thread 0x7ffff55ff6c0 (LWP 773984)]
+[Switching to Thread 0x7ffff780b6c0 (LWP 773983)]
+
+Thread 2 "java" hit Breakpoint 1, G1CMMarkStack::G1CMMarkStack (this=0x7ffff0059a08) at /data/workspace/openjdk-cut-new/src/hotspot/share/gc/g1/g1ConcurrentMark.cpp:88
+88	  _max_chunk_capacity(0),
+
+=========================================
+断点1: G1CMMarkStack::G1CMMarkStack() 构造函数
+=========================================
+this: 0x7ffff0059a08
+
+=== 执行构造函数... ===
+G1ConcurrentMark::G1ConcurrentMark (this=0x7ffff0059940, g1h=0x7ffff0031c90, prev_bitmap_storage=0x7ffff0043570, next_bitmap_storage=0x7ffff00447c0) at /data/workspace/openjdk-cut-new/src/hotspot/share/gc/g1/g1ConcurrentMark.cpp:375
+375	  _worker_id_offset(DirtyCardQueueSet::num_par_ids() + G1ConcRefinementThreads), // 线程偏移量，避免与其他gc线程冲突
+
+=== 构造函数执行后的状态 ===
+$1 = {
+  <CHeapObj<(MemoryType)5>> = {
+    <AllocatedObj> = {
+      _vptr.AllocatedObj = 0x7ffff758d3c8 <vtable for G1ConcurrentMark+16>
+    }, <No data fields>}, 
+  members of G1ConcurrentMark:
+  _cm_thread = 0xf1f1f1f1f1f1f1f1,
+  _g1h = 0x7ffff0031c90,
+  _completed_initialization = false,
+  _mark_bitmap_1 = {
+    _covered = {
+      _start = 0x0,
+      _word_size = 0
+    },
+    _shifter = 0,
+    _bm = {
+      <BitMap> = {
+        _map = 0x0,
+        _size = 0,
+        static small_range_words = 32
+      }, <No data fields>},
+    _listener = {
+      <G1MappingChangedListener> = {
+        _vptr.G1MappingChangedListener = 0x7ffff74bbe38 <vtable for G1CMBitMapMappingChangedListener+16>
+      }, 
+      members of G1CMBitMapMappingChangedListener:
+      _bm = 0x7ffff0059960
+    }
+  },
+  _mark_bitmap_2 = {
+    _covered = {
+      _start = 0x0,
+      _word_size = 0
+    },
+    _shifter = 0,
+    _bm = {
+      <BitMap> = {
+        _map = 0x0,
+        _size = 0,
+        static small_range_words = 32
+      }, <No data fields>},
+    _listener = {
+      <G1MappingChangedListener> = {
+        _vptr.G1MappingChangedListener = 0x7ffff74bbe38 <vtable for G1CMBitMapMappingChangedListener+16>
+      }, 
+      members of G1CMBitMapMappingChangedListener:
+      _bm = 0x7ffff0059998
+    }
+  },
+  _prev_mark_bitmap = 0x7ffff0059960,
+  _next_mark_bitmap = 0x7ffff0059998,
+  _heap = {
+    _start = 0x600000000,
+    _word_size = 1073741824
+  },
+  _root_regions = {
+    _survivors = 0x0,
+    _cm = 0x0,
+    _scan_in_progress = false,
+    _should_abort = false,
+    _claimed_survivor_index = 0
+  },
+  _global_mark_stack = {
+    static EntriesPerChunk = 1023,
+    _max_chunk_capacity = 0,
+    _base = 0x0,
+    _chunk_capacity = 0,
+    _pad0 = '\361' <repeats 127 times>, <incomplete sequence \361>,
+    _free_list = 0x0,
+    _pad1 = '\361' <repeats 119 times>, <incomplete sequence \361>,
+    _chunk_list = 0x0,
+    _chunks_in_chunk_list = 0,
+    _pad2 = '\361' <repeats 111 times>, <incomplete sequence \361>,
+    _hwm = 0,
+    _pad4 = '\361' <repeats 119 times>, <incomplete sequence \361>
+  },
+  _finger = 0xf1f1f1f1f1f1f1f1,
+  _worker_id_offset = 4059165169,
+  _max_num_tasks = 4059165169,
+  _num_active_tasks = 4059165169,
+  _tasks = 0xf1f1f1f1f1f1f1f1,
+  _task_queues = 0xf1f1f1f1f1f1f1f1,
+  _terminator = {
+    <StackObj> = {
+      <AllocatedObj> = {
+        _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+      }, <No data fields>}, 
+    members of ParallelTaskTerminator:
+    _n_threads = 4059165169,
+    _queue_set = 0xf1f1f1f1f1f1f1f1,
+    _pad_buf0 = '\361' <repeats 127 times>, <incomplete sequence \361>,
+    _offered_termination = 4059165169,
+    _pad_buf1 = '\361' <repeats 123 times>, <incomplete sequence \361>
+  },
+  _first_overflow_barrier_sync = {
+    <StackObj> = {
+      <AllocatedObj> = {
+        _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+      }, <No data fields>}, 
+    members of WorkGangBarrierSync:
+    _monitor = {
+      <CHeapObj<(MemoryType)18>> = {
+        <AllocatedObj> = {
+          _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+        }, <No data fields>}, 
+      members of Monitor:
+      _LockWord = {
+        FullWord = -1012762419733073423,
+        Address = 0xf1f1f1f1f1f1f1f1,
+        Bytes = "\361\361\361\361\361\361\361", <incomplete sequence \361>
+      },
+      _owner = 0xf1f1f1f1f1f1f1f1,
+      _EntryList = 0xf1f1f1f1f1f1f1f1,
+      _OnDeck = 0xf1f1f1f1f1f1f1f1,
+      _WaitLock = {-1012762419733073423},
+      _WaitSet = 0xf1f1f1f1f1f1f1f1,
+      _snuck = 241,
+      _name = '\361' <repeats 63 times>, <incomplete sequence \361>,
+      _allow_vm_block = 241,
+      _rank = -235802127,
+      _next = 0xf1f1f1f1f1f1f1f1,
+      _last_owner = 0xf1f1f1f1f1f1f1f1,
+      _safepoint_check_required = (Monitor::_safepoint_check_sometimes | unknown: 0xf1f1f1f0)
+    },
+    _n_workers = 4059165169,
+    _n_completed = 4059165169,
+    _should_reset = 241,
+    _aborted = 241
+  },
+  _second_overflow_barrier_sync = {
+    <StackObj> = {
+      <AllocatedObj> = {
+        _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+      }, <No data fields>}, 
+    members of WorkGangBarrierSync:
+    _monitor = {
+      <CHeapObj<(MemoryType)18>> = {
+        <AllocatedObj> = {
+          _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+        }, <No data fields>}, 
+      members of Monitor:
+      _LockWord = {
+        FullWord = -1012762419733073423,
+        Address = 0xf1f1f1f1f1f1f1f1,
+        Bytes = "\361\361\361\361\361\361\361", <incomplete sequence \361>
+      },
+      _owner = 0xf1f1f1f1f1f1f1f1,
+      _EntryList = 0xf1f1f1f1f1f1f1f1,
+      _OnDeck = 0xf1f1f1f1f1f1f1f1,
+      _WaitLock = {-1012762419733073423},
+      _WaitSet = 0xf1f1f1f1f1f1f1f1,
+      _snuck = 241,
+      _name = '\361' <repeats 63 times>, <incomplete sequence \361>,
+      _allow_vm_block = 241,
+      _rank = -235802127,
+      _next = 0xf1f1f1f1f1f1f1f1,
+      _last_owner = 0xf1f1f1f1f1f1f1f1,
+      _safepoint_check_required = (Monitor::_safepoint_check_sometimes | unknown: 0xf1f1f1f0)
+    },
+    _n_workers = 4059165169,
+    _n_completed = 4059165169,
+    _should_reset = 241,
+    _aborted = 241
+  },
+  _has_overflown = 241,
+  _concurrent = 241,
+  _has_aborted = 241,
+  _restart_for_overflow = 241,
+  _gc_timer_cm = 0xf1f1f1f1f1f1f1f1,
+  _gc_tracer_cm = 0xf1f1f1f1f1f1f1f1,
+  _init_times = {
+    <AbsSeq> = {
+      <CHeapObj<(MemoryType)7>> = {
+        <AllocatedObj> = {
+          _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+        }, <No data fields>}, 
+      members of AbsSeq:
+      _num = -235802127,
+      _sum = -7.4786357953083842e+240,
+      _sum_of_squares = -7.4786357953083842e+240,
+      _davg = -7.4786357953083842e+240,
+      _dvariance = -7.4786357953083842e+240,
+      _alpha = -7.4786357953083842e+240
+    }, 
+    members of NumberSeq:
+    _last = -7.4786357953083842e+240,
+    _maximum = -7.4786357953083842e+240
+  },
+  _remark_times = {
+    <AbsSeq> = {
+      <CHeapObj<(MemoryType)7>> = {
+        <AllocatedObj> = {
+          _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+        }, <No data fields>}, 
+      members of AbsSeq:
+      _num = -235802127,
+      _sum = -7.4786357953083842e+240,
+      _sum_of_squares = -7.4786357953083842e+240,
+      _davg = -7.4786357953083842e+240,
+      _dvariance = -7.4786357953083842e+240,
+      _alpha = -7.4786357953083842e+240
+    }, 
+    members of NumberSeq:
+    _last = -7.4786357953083842e+240,
+    _maximum = -7.4786357953083842e+240
+  },
+  _remark_mark_times = {
+    <AbsSeq> = {
+      <CHeapObj<(MemoryType)7>> = {
+        <AllocatedObj> = {
+          _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+        }, <No data fields>}, 
+      members of AbsSeq:
+      _num = -235802127,
+      _sum = -7.4786357953083842e+240,
+      _sum_of_squares = -7.4786357953083842e+240,
+      _davg = -7.4786357953083842e+240,
+      _dvariance = -7.4786357953083842e+240,
+      _alpha = -7.4786357953083842e+240
+    }, 
+    members of NumberSeq:
+    _last = -7.4786357953083842e+240,
+    _maximum = -7.4786357953083842e+240
+  },
+  _remark_weak_ref_times = {
+    <AbsSeq> = {
+      <CHeapObj<(MemoryType)7>> = {
+        <AllocatedObj> = {
+          _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+        }, <No data fields>}, 
+      members of AbsSeq:
+      _num = -235802127,
+      _sum = -7.4786357953083842e+240,
+      _sum_of_squares = -7.4786357953083842e+240,
+      _davg = -7.4786357953083842e+240,
+      _dvariance = -7.4786357953083842e+240,
+      _alpha = -7.4786357953083842e+240
+    }, 
+    members of NumberSeq:
+    _last = -7.4786357953083842e+240,
+    _maximum = -7.4786357953083842e+240
+  },
+  _cleanup_times = {
+    <AbsSeq> = {
+      <CHeapObj<(MemoryType)7>> = {
+        <AllocatedObj> = {
+          _vptr.AllocatedObj = 0xf1f1f1f1f1f1f1f1
+        }, <No data fields>}, 
+      members of AbsSeq:
+      _num = -235802127,
+      _sum = -7.4786357953083842e+240,
+      _sum_of_squares = -7.4786357953083842e+240,
+      _davg = -7.4786357953083842e+240,
+      _dvariance = -7.4786357953083842e+240,
+      _alpha = -7.4786357953083842e+240
+    }, 
+    members of NumberSeq:
+    _last = -7.4786357953083842e+240,
+    _maximum = -7.4786357953083842e+240
+  },
+  _total_cleanup_time = -7.4786357953083842e+240,
+  _accum_task_vtime = 0xf1f1f1f1f1f1f1f1,
+  _concurrent_workers = 0xf1f1f1f1f1f1f1f1,
+  _num_concurrent_workers = 4059165169,
+  _max_concurrent_workers = 4059165169,
+  _region_mark_stats = 0xf1f1f1f1f1f1f1f1,
+  _top_at_rebuild_starts = 0xf1f1f1f1f1f1f1f1
+}
+
+成员变量详情:

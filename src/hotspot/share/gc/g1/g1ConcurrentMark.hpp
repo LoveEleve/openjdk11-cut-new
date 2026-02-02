@@ -54,9 +54,19 @@ class ThreadClosure;
 // mark stack entries. Both are pushed onto the mark stack.
 class G1TaskQueueEntry {
 private:
+    /*
+     * forcus 可以存储两种内容
+     *  1. 普通对象指针 (oop)：指向需要扫描引用字段的灰色对象
+     *  2. 数组切片地址 (HeapWord*)：大数组分片处理时的起始地址
+     *      为什么要支持数组切片？
+     *          大数组（如 new Object[1000000]）包含大量引用，一次性扫描会：
+                    耗时过长，影响响应性
+                    阻塞其他线程获取工作
+                解决方案：将大数组分片，每片作为独立任务入栈。
+     */
   void* _holder;
 
-  static const uintptr_t ArraySliceBit = 1;
+  static const uintptr_t ArraySliceBit = 1; // forcus 最低位用于区分类型
 
   G1TaskQueueEntry(oop obj) : _holder(obj) {
     assert(_holder != NULL, "Not allowed to set NULL task queue element");
@@ -98,8 +108,8 @@ public:
 #pragma warning(pop)
 #endif
 
-typedef GenericTaskQueue<G1TaskQueueEntry, mtGC> G1CMTaskQueue;
-typedef GenericTaskQueueSet<G1CMTaskQueue, mtGC> G1CMTaskQueueSet;
+typedef GenericTaskQueue<G1TaskQueueEntry, mtGC> G1CMTaskQueue; // forcus 单个任务队列(队列中的元素则是之前说的 G1TaskQueueEntry)
+typedef GenericTaskQueueSet<G1CMTaskQueue, mtGC> G1CMTaskQueueSet; // forcus 队列集合
 
 // Closure used by CM during concurrent reference discovery
 // and reference processing (during remarking) to determine
@@ -143,9 +153,12 @@ public:
   // Number of TaskQueueEntries that can fit in a single chunk.
   static const size_t EntriesPerChunk = 1024 - 1 /* One reference for the next pointer */;
 private:
+    /*
+     * note 内存管理单元
+     */
   struct TaskQueueEntryChunk {
-    TaskQueueEntryChunk* next;
-    G1TaskQueueEntry data[EntriesPerChunk];
+    TaskQueueEntryChunk* next; // forcus 链表指针
+    G1TaskQueueEntry data[EntriesPerChunk]; // forcus G1TaskQueueEntry 这个就是栈中存放的元素  // 8184 字节：实际数据
   };
 
   size_t _max_chunk_capacity;    // Maximum number of TaskQueueEntryChunk elements on the stack.
@@ -240,12 +253,12 @@ private:
 // regions populated during the initial-mark pause.
 class G1CMRootRegions {
 private:
-  const G1SurvivorRegions* _survivors;
-  G1ConcurrentMark*        _cm;
+  const G1SurvivorRegions* _survivors; // forcus Survivor区域管理器指针
+  G1ConcurrentMark*        _cm; // forcus 保存 G1ConcurrentMark 的引用
 
-  volatile bool            _scan_in_progress;
-  volatile bool            _should_abort;
-  volatile int             _claimed_survivor_index;
+  volatile bool            _scan_in_progress; // forcus 扫描进行中标志(默认为false)
+  volatile bool            _should_abort; // 中止标志(默认为false)
+  volatile int             _claimed_survivor_index; // 	forcus 多线程领取索引(初始值为0)
 
   void notify_scan_done();
 
@@ -310,9 +323,11 @@ class G1ConcurrentMark : public CHeapObj<mtGC> {
   MemRegion const         _heap;
 
   // Root region tracking and claiming
+  // forcus 管理 Young GC 产生的 Survivor区域,确保这些区域在并发标记期间优先被扫描
   G1CMRootRegions         _root_regions;
 
   // For grey objects
+  // forcus 存储灰色对象(已标记但是其还有未处理的引用字段)
   G1CMMarkStack           _global_mark_stack; // Grey objects behind global finger
   HeapWord* volatile      _finger;            // The global finger, region aligned,
                                               // always pointing to the end of the

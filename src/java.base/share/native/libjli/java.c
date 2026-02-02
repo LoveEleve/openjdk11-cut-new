@@ -100,6 +100,56 @@ static JavaVMOption *options; // 参数数组
 static int numOptions, maxOptions;
 
 /*
+ * ============================================================================
+ * [DEBUG] 自定义参数注入配置区 - 仅对 java 命令生效
+ * ============================================================================
+ * 使用说明:
+ *   1. 将 DEBUG_INJECT_ARGS 设为 1 启用参数注入
+ *   2. 在 DEBUG_INJECTED_ARGS 数组中添加/删除参数
+ *   3. 重新编译后生效
+ *   4. 注入的参数会插入到原始参数之前(VM参数在前, 应用参数在后)
+ *
+ * 示例:
+ *   "-Xms8g", "-Xmx8g"                    // 堆大小
+ *   "-XX:+UseG1GC"                        // 使用G1
+ *   "-Xlog:gc*=info"                      // GC日志
+ *   "-cp", "/path/to/classes"            // classpath(需要两个元素)
+ *   "com.example.Main"                    // 主类(放在最后)
+ * ============================================================================
+ */
+#define DEBUG_INJECT_ARGS 1  /* 1=启用参数注入, 0=禁用 */
+
+#if DEBUG_INJECT_ARGS
+// note my_args
+static const char* DEBUG_INJECTED_ARGS[] = {
+    /* ===== 在这里添加你的参数 ===== */
+    
+    // GC 配置
+    "-Xms8g",
+    "-Xmx8g",
+    "-XX:+UseG1GC",
+    
+    // GC 日志 (按需启用/注释)
+    // "-Xlog:gc*=info",
+    "-Xlog:gc+ergo+heap=debug",      // expand() 日志
+    // "-Xlog:gc+marking=trace",
+    "-Xlog:gc+workgang=trace",
+    "-Xlog:gc+region=trace", // region提交日志
+    
+    // 调试选项
+    // "-XX:+PrintFlagsFinal",
+    // "-XX:+UnlockDiagnosticVMOptions",
+    
+    // Classpath 和主类 (如果需要完全在代码中配置)
+     "-cp", "/data/workspace/demo/src",
+     "com.wjcoder.Main",
+    
+    /* ===== 参数添加到这里 ===== */
+};
+#define DEBUG_INJECTED_ARGS_COUNT (sizeof(DEBUG_INJECTED_ARGS) / sizeof(DEBUG_INJECTED_ARGS[0]))
+#endif /* DEBUG_INJECT_ARGS */
+
+/*
  * Prototypes for functions internal to launcher.
  */
 static void SetClassPath(const char *s);
@@ -239,6 +289,34 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
     char jvmpath[MAXPATHLEN];
     char jrepath[MAXPATHLEN];
     char jvmcfg[MAXPATHLEN];
+
+    /*
+     * [DEBUG] 参数注入 - 仅对 java 命令生效 (检查 pname 是否为 "java")
+     */
+#if DEBUG_INJECT_ARGS
+    if (JLI_StrCmp(pname, "java") == 0 && DEBUG_INJECTED_ARGS_COUNT > 0) {
+        int i;
+        int new_argc = argc + (int)DEBUG_INJECTED_ARGS_COUNT;
+        char **new_argv = (char **)JLI_MemAlloc(new_argc * sizeof(char *));
+        
+        // argv[0] 是程序名，保持不变
+        new_argv[0] = argv[0];
+        
+        // 插入注入的参数
+        for (i = 0; i < (int)DEBUG_INJECTED_ARGS_COUNT; i++) {
+            new_argv[1 + i] = (char *)DEBUG_INJECTED_ARGS[i];
+        }
+        
+        // 复制原始参数（跳过 argv[0]）
+        for (i = 1; i < argc; i++) {
+            new_argv[DEBUG_INJECTED_ARGS_COUNT + i] = argv[i];
+        }
+        
+        argv = new_argv;
+        argc = new_argc;
+    }
+#endif /* DEBUG_INJECT_ARGS */
+
     _fVersion = fullversion;
     _launcher_name = lname;
     _program_name = pname;
@@ -247,7 +325,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
 
     // 打印所有的 jargv(编译时预定义参数,通常为空)
     // 打印所有 argv(命令行参数)
-    putenv("_JAVA_LAUNCHER_DEBUG=1"); // 开启调试断言功能
+//    putenv("_JAVA_LAUNCHER_DEBUG=1"); // 开启调试断言功能
     InitLauncher(javaw);
     DumpState();
     if (JLI_IsTraceLauncher()) {

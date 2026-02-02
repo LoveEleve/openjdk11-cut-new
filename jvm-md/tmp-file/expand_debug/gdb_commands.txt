@@ -1,0 +1,14 @@
+# GDB 调试 expand() 方法
+# 设置断点在 expand 方法入口
+break G1CollectedHeap::expand
+
+# 设置断点在 HeapRegionManager::make_regions_available
+break HeapRegionManager::make_regions_available
+
+# 设置断点在 commit_regions
+break HeapRegionManager::commit_regions
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+# 以下命令在断点触发后手动执行

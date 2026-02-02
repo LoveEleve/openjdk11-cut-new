@@ -56,9 +56,22 @@ class WorkerManager : public AllStatic {
     uint end = MIN2(active_workers, total_workers);
     for (uint worker_id = start; worker_id < end; worker_id += 1) {
       WorkerThread* new_worker = NULL;
+      /*
+             note 这里跳转不过去，实际上是在：AbstractWorkGang::install_worker(uint worker_id)
+             new_worker = holder->install_worker(worker_id);  // install_worker(0),具体的实现如下
+             {
+                AbstractGangWorker* new_worker = allocate_worker(worker_id); // 1. 分配 Worker 对象
+                    {
+                        // 实际上为: new GangWorker(WorkGang* "G1 Conc", 0)
+                        return new GangWorker(this, worker_id);
+                    }
+                set_thread(worker_id, new_worker); // 2. 存入数组 _workers[0] = new_worker
+             }
+       */
       if (initializing || !InjectGCWorkerCreationFailure) {
         new_worker = holder->install_worker(worker_id);
       }
+      // forcus 调用 os::create_thread() -> pthread_create()来真正的创建线程(对应内核实体)
       if (new_worker == NULL || !os::create_thread(new_worker, worker_type)) {
         log_trace(gc, task)("WorkerManager::add_workers() : "
                             "creation failed due to failed allocation of native %s",
@@ -71,8 +84,9 @@ class WorkerManager : public AllStatic {
         }
         break;
       }
-      created_workers++;
-      os::start_thread(new_worker);
+      created_workers++; // forcus 更新计数 0 -> 1
+      //
+      os::start_thread(new_worker); // forcus 真正的启动线程,最终执行的是 AbstractGangWorker::run()，在workgroup.cpp中
     }
 
     log_trace(gc, task)("WorkerManager::add_workers() : "

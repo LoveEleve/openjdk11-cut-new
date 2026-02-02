@@ -40,14 +40,17 @@ size_t G1CMBitMap::compute_size(size_t heap_size) {
 }
 
 size_t G1CMBitMap::mark_distance() {
-  return MinObjAlignmentInBytes * BitsPerByte;
+  return MinObjAlignmentInBytes * BitsPerByte; // forcus 堆内存每 64 字节 对应位图中的 1 个 bit
 }
 
 void G1CMBitMap::initialize(MemRegion heap, G1RegionToSpaceMapper* storage) {
+  // forcus  记录覆盖的堆范围
   _covered = heap;
-
+  // forcus 从 storage中 获取 内存 起始地址，创建BitMapView
+  // 而这个 起始地址 对应的就是 storage中的_low_boundary(但是是一个新的MemRegion对象)
+  // _covered.word_size() >> _shifter 位图大小
   _bm = BitMapView((BitMap::bm_word_t*) storage->reserved().start(), _covered.word_size() >> _shifter);
-
+  // forcus 为 storage 设置监听器
   storage->set_mapping_changed_listener(&_listener);
 }
 

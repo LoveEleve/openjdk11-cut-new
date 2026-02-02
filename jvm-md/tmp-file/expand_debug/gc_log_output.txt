@@ -1,0 +1,13 @@
+[0.008s][trace][gc,workgang] Constructing work gang GC Thread with 13 threads
+[0.008s][trace][gc,workgang] Running gang worker for gang GC Thread id 0
+[0.016s][trace][gc,workgang] Constructing work gang G1 Conc with 3 threads
+[0.016s][trace][gc,workgang] Running gang worker for gang G1 Conc id 0
+[0.850s][trace][gc,workgang] Running work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0
+[0.851s][trace][gc,workgang] Finished work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0 thread: 0x00007f7d84040800
+[1.034s][trace][gc,workgang] Running work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0
+[1.034s][trace][gc,workgang] Finished work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0 thread: 0x00007f7d84040800
+hello jvm
+[1.080s][trace][gc,workgang] Running work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0
+[1.080s][trace][gc,workgang] Finished work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0 thread: 0x00007f7d84040800
+[1.084s][trace][gc,workgang] Running work gang: GC Thread#0 task: Parallel verify task worker: 0
+[1.524s][trace][gc,workgang] Finished work gang: GC Thread#0 task: Parallel verify task worker: 0 thread: 0x00007f7d84040800

@@ -371,6 +371,29 @@ private:
   } while (0)
 
   // The young region list.
+  // forcus 这个是之前在学习 G1CollectedHeap 的构造时看到的，在这里回过头来继续学习
+  /*
+        G1EdenRegions：就是一个int，只存储Eden区域的数量，为什么呢? 因为Eden的信息在HeapRegion本身
+            不需要遍历，GC时全部被回收
+        G1SurvivorRegions：动态数组(GrowableArray<HeapRegion*>* _regions;), 使用数组存储指向 HeapRegion的指针
+            需要遍历做 Survivor --> Eden的转换
+            1.并发标记时需要作为 根区域 扫描
+            2.下次gc前需要转化为Eden类型
+        ===
+        一个简单的工作流程：
+            1. 分配对象 -> 新的 eden region(对应的计数_length++)
+            2. eden 满，触发Young GC(STW)
+            3. Yound GC
+                a. 存活对象从Eden移动到Survivor
+                b. _survivor.add(hr) 添加新 Survivor Region
+                c. _eden.clear() 清空计数
+                d. Eden Region 被回收到 Free List
+            4. 并发标记周期
+                扫描 _survivor 中的所有 Region 作为根，(因为它们可能引用 Old 区域对象)
+            5. 下一次GC前
+                survivors->convert_to_eden()
+                把上次 GC 的 Survivor 转为 Eden，因为这次 GC 它们也要被扫描（作为年轻代的一部分）
+   */
   G1EdenRegions _eden;
   G1SurvivorRegions _survivor;
 

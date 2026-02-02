@@ -860,7 +860,8 @@ bool os::Linux::manually_expand_stack(JavaThread *t, address addr) {
 // create new thread
 
 // Thread start routine for all newly created threads
-static void *thread_native_entry(Thread *thread) { // 这里传入的是JavaThread对象(jvm内部的)
+static void *
+thread_native_entry(Thread *thread) { // 这里传入的是JavaThread对象(jvm内部的)
 
     thread->record_stack_base_and_size(); // 记录栈消息
 

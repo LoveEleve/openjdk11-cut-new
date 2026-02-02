@@ -1,0 +1,86 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+To enable execution of this file add
+	add-auto-load-safe-path /data/workspace/openjdk-cut-new/.gdbinit
+line to your configuration file "/root/.gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/root/.gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+Breakpoint 1 (g1ConcurrentMark.cpp:441) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+----_JAVA_LAUNCHER_DEBUG----
+Launcher state:
+	First application arg index: 8
+	debug:on
+	javargs:off
+	program name:java
+	launcher name:openjdk
+	javaw:off
+	fullversion:11.0.17-internal+0-adhoc.root.openjdk11-core
+Java args:
+Command line args:
+argv[0] = /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+argv[1] = -Xms8g
+argv[2] = -Xmx8g
+argv[3] = -XX:+UseG1GC
+argv[4] = -Xint
+argv[5] = -cp
+argv[6] = /data/workspace/demo/src
+argv[7] = com.wjcoder.Main
+JRE path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk
+jvm.cfg[0] = ->-server<-
+jvm.cfg[1] = ->-client<-
+158 micro seconds to parse jvm.cfg
+Default VM: server
+Does `/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so' exist ... yes.
+mustsetenv: FALSE
+JVM path is /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so
+794357 micro seconds to LoadJavaVM
+[New Thread 0x7ffff780b6c0 (LWP 756707)]
+[New Thread 0x7ffff55ff6c0 (LWP 756708)]
+[New Thread 0x7ffff44f26c0 (LWP 756709)]
+[Switching to Thread 0x7ffff780b6c0 (LWP 756707)]
+
+Thread 2 "java" hit Breakpoint 1, G1ConcurrentMark::G1ConcurrentMark (this=0x7ffff0059940, g1h=0x7ffff0031c90, prev_bitmap_storage=0x7ffff0043570, next_bitmap_storage=0x7ffff00447c0) at /data/workspace/openjdk-cut-new/src/hotspot/share/gc/g1/g1ConcurrentMark.cpp:442
+442	  if (FLAG_IS_DEFAULT(ConcGCThreads) || ConcGCThreads == 0) {
+
+=========================================
+验证 _root_regions.init() 调用后的状态
+=========================================
+
+=== 地址关系 ===
+G1ConcurrentMark this: 0x7ffff0059940
+G1CollectedHeap _g1h: 0x7ffff0031c90
+&_root_regions: 0x7ffff00599f0
+
+=== G1CollectedHeap::_survivor 成员 ===
+&(_g1h->_survivor): 0x7ffff0032180
+_g1h->survivor() 返回: 0x7ffff0032180
+两者相等? 1
+
+=== _root_regions 内部状态 ===
+_root_regions._survivors: 0x7ffff0032180
+_root_regions._cm: 0x7ffff0059940
+_root_regions._scan_in_progress: 0
+_root_regions._should_abort: 0
+_root_regions._claimed_survivor_index: 0
+
+=== 最终验证 ===
+_root_regions._survivors == &(_g1h->_survivor)? 1
+_root_regions._survivors == _g1h->survivor()? 1
+_root_regions._cm == this? 1
+
+=== G1SurvivorRegions 内部的 GrowableArray ===
+_root_regions._survivors->_regions: 0x7ffff0037c50
+  _len (当前survivor区域数): 0
+  _max (最大容量): 8
+  _data (数据指针): 0x7ffff0037cc0
+
+=== 堆内存范围 (_heap) ===
+_heap._start: 0x600000000
+_heap._word_size: 1073741824 (words) = 8589934592 bytes = 8 GB

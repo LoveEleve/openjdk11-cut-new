@@ -90,26 +90,30 @@ G1CMMarkStack::G1CMMarkStack() :
   _chunk_capacity(0) {
   set_empty();
 }
-
+// new_capacity = 4096
 bool G1CMMarkStack::resize(size_t new_capacity) {
   assert(is_empty(), "Only resize when stack is empty.");
   assert(new_capacity <= _max_chunk_capacity,
          "Trying to resize stack to " SIZE_FORMAT " chunks when the maximum is " SIZE_FORMAT, new_capacity, _max_chunk_capacity);
-
+  // forcus 1. 分配内存
+  /*
+   * addr = mmap(NULL, 32MB, PROT_NONE, MAP_PRIVATE|MAP_NORESERVE|MAP_ANONYMOUS, -1, 0) -- 私有映射，写时复制 + 不预留 swap 空间 + 非文件映射
+   * mmap(0x7fffd4000000, 32MB, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) -- 可读可写 + 必须映射到指定地址
+   */
   TaskQueueEntryChunk* new_base = MmapArrayAllocator<TaskQueueEntryChunk>::allocate_or_null(new_capacity, mtGC);
 
   if (new_base == NULL) {
     log_warning(gc)("Failed to reserve memory for new overflow mark stack with " SIZE_FORMAT " chunks and size " SIZE_FORMAT "B.", new_capacity, new_capacity * sizeof(TaskQueueEntryChunk));
     return false;
   }
-  // Release old mapping.
+  // Release old mapping. 释放旧内存,感觉应该不会遇到这种情况(可能是在扩容的时候？)
   if (_base != NULL) {
     MmapArrayAllocator<TaskQueueEntryChunk>::free(_base, _chunk_capacity);
   }
-
+  // 更新状态
   _base = new_base;
   _chunk_capacity = new_capacity;
-  set_empty();
+  set_empty(); // forcus 重制链表状态
 
   return true;
 }
@@ -117,12 +121,27 @@ bool G1CMMarkStack::resize(size_t new_capacity) {
 size_t G1CMMarkStack::capacity_alignment() {
   return (size_t)lcm(os::vm_allocation_granularity(), sizeof(TaskQueueEntryChunk)) / sizeof(G1TaskQueueEntry);
 }
-
+/*
+ * note 初始化 G1CMMarkStack
+ * 默认传入的参数大小为:
+ *  initial_capacity = 4MB(G1默认值)
+ *  max_capacity = 16MB(128 × TASKQUEUE_SIZE)
+ *  上面的两个容量指的都是entry数量，而不是字节数
+ */
 bool G1CMMarkStack::initialize(size_t initial_capacity, size_t max_capacity) {
-  guarantee(_max_chunk_capacity == 0, "G1CMMarkStack already initialized.");
-
+  guarantee(_max_chunk_capacity == 0, "G1CMMarkStack already initialized."); // 防止重复初始化
+  /*
+   *  计算 Chunk 的"条目当量"
+   *    1. sizeof(TaskQueueEntryChunk) = 8192 = 一个chunk的大小
+   *    2. sizeof(G1TaskQueueEntry) = 8 = 一个entry的大小(entry就是条目)
+   *    TaskEntryChunkSizeInVoidStar = 1024 -> 一个chunk相当于1024个entry(实际上是1023个entry，因为还有8B用来做管理的，next指针)
+   */
   size_t const TaskEntryChunkSizeInVoidStar = sizeof(TaskQueueEntryChunk) / sizeof(G1TaskQueueEntry);
-
+  /*
+   * 计算 Chunk 数量
+   *    _max_chunk_capacity = 16384(最多扩展到16384个chunk)
+   *    initial_chunk_capacity = 4096（初始分配 4096 个 Chunk）
+   */
   _max_chunk_capacity = align_up(max_capacity, capacity_alignment()) / TaskEntryChunkSizeInVoidStar;
   size_t initial_chunk_capacity = align_up(initial_capacity, capacity_alignment()) / TaskEntryChunkSizeInVoidStar;
 
@@ -133,7 +152,7 @@ bool G1CMMarkStack::initialize(size_t initial_capacity, size_t max_capacity) {
 
   log_debug(gc)("Initialize mark stack with " SIZE_FORMAT " chunks, maximum " SIZE_FORMAT,
                 initial_chunk_capacity, _max_chunk_capacity);
-
+  // forcus 分配内存(4096个chunk)
   return resize(initial_chunk_capacity);
 }
 
@@ -262,8 +281,8 @@ G1CMRootRegions::G1CMRootRegions() :
   _should_abort(false), _claimed_survivor_index(0) { }
 
 void G1CMRootRegions::init(const G1SurvivorRegions* survivors, G1ConcurrentMark* cm) {
-  _survivors = survivors;
-  _cm = cm;
+  _survivors = survivors; // 保存survivor的引用
+  _cm = cm; // 保存 G1ConcurrentMark 的引用
 }
 
 void G1CMRootRegions::prepare_for_scan() {
@@ -353,53 +372,72 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
   _completed_initialization(false),
   // forcus 创建两个标记位图对象（双缓冲机制）
   // note 每个位图对应堆中所有对象的一位标记，位图大小 = 堆大小 / 对象对齐大小
-  _mark_bitmap_1(), // 默认构造，实际初始化在构造函数体400行
-  _mark_bitmap_2(), // 默认构造，实际初始化在构造函数体401行
+  _mark_bitmap_1(), // 创建了两个 G1CMBitMap 类型的成员变量
+  _mark_bitmap_2(), //
   // forcus 初始化位图指针，实现双缓冲切换
   // note prev保存已完成的标记结果，next是当前工作区，通过swap_mark_bitmaps()交换指针实现O(1)切换
-  _prev_mark_bitmap(&_mark_bitmap_1), // 指向bitmap1作为"上一轮完成的标记"
-  _next_mark_bitmap(&_mark_bitmap_2), // 指向bitmap2作为"当前正在标记"
+  _prev_mark_bitmap(&_mark_bitmap_1), // 创建指针,分别指向上面两个位图对象
+  _next_mark_bitmap(&_mark_bitmap_2),
   // forcus 保存G1堆的内存区域范围（起始地址和结束地址）
   // note 用于边界检查：判断指针是否指向堆内对象，计算对象所属区域等
-  _heap(_g1h->reserved_region()), // 返回MemRegion(start, end)
+  _heap(_g1h->reserved_region()), // 返回MemRegion(start, end),堆的内存范围
   // forcus 根区域跟踪器，管理初始标记时需要扫描的survivor区域
   // note 根区域是Young GC后残留的对象，必须在并发标记开始前扫描完成
-  _root_regions(), // 默认构造，实际初始化在构造函数体414行
+  _root_regions(), // 默认构造，实际初始化在构造函数体414行 根区域跟踪器(Survivor区域),管理Young GC后的survivor区域,必须在并发标记前扫描
   // forcus 全局标记栈（溢出栈），用于处理任务队列溢出的灰色对象
   // note 当任务本地队列满时，将多余的对象批量推入全局栈，支持动态扩展
-  _global_mark_stack(), // 默认构造，实际初始化在构造函数体473行
+  _global_mark_stack(), // 当任务本地队列满时，灰色对象被被推入到全局栈中，支持动态扩展
 
   // _finger set in set_non_marking_state
   // forcus 工作线程ID偏移量，避免与其他GC线程ID冲突
   // note 并发标记线程ID = _worker_id_offset + 本地索引，确保全局唯一性
-  _worker_id_offset(DirtyCardQueueSet::num_par_ids() + G1ConcRefinementThreads),
+  _worker_id_offset(DirtyCardQueueSet::num_par_ids() + G1ConcRefinementThreads), // 线程偏移量，避免与其他gc线程冲突
   // forcus 最大任务数量 = 并行GC线程数
   // note 每个ParallelGC线程对应一个标记任务，任务数在VM生命周期内固定
-  _max_num_tasks(ParallelGCThreads),
+  _max_num_tasks(ParallelGCThreads), // 最大任务数 = ParallelGCThreads
   // _num_active_tasks set in set_non_marking_state()
   // _tasks set inside the constructor
   // forcus 创建任务队列集合，管理所有标记任务的本地队列
   // note 每个标记线程有独立的任务队列，减少线程间竞争，支持工作窃取负载均衡
-  _task_queues(new G1CMTaskQueueSet((int) _max_num_tasks)),
+  /*
+   * 在这里首先初始化了 G1CMTaskQueueSet 对象, _max_num_tasks = 13
+   *    _max_num_tasks = 13  = ParallelGCThreads (STW阶段,比如Young GC,Remark可用的并行线程数)
+   *        为什么这里的任务队列是13而不是3呢？因为任务队列不止在并发阶段使用，在STW阶段也需要使用
+   *    ConcGCThreads = 3 并发阶段(与应用线程同时运行的)的标记线程数
+
+   * G1CMTaskQueueSet的构造函数
+            // taskqueue.inline.hpp:37
+            主要就做了两件事情：分配了一个长度为13的空数组(13 * 8) = 104B
+            template <class T, MEMFLAGS F>
+            inline GenericTaskQueueSet<T, F>::GenericTaskQueueSet(int n) : _n(n) {
+              typedef T* GenericTaskQueuePtr;
+              _queues = NEW_C_HEAP_ARRAY(GenericTaskQueuePtr, n, F);  // note 分配 n 个指针
+              for (int i = 0; i < n; i++) {
+                _queues[i] = NULL;  // 全部初始化为 NULL
+              }
+            }
+     而在后面会进行赋值
+   */
+  _task_queues(new G1CMTaskQueueSet((int) _max_num_tasks)), // 任务队列集合，每个线程一个独立队列
   // forcus 并行任务终止器，协调多个标记线程的终止时机
   // note 当所有线程的任务队列和全局栈都为空时，才能确认标记完成
-  _terminator(ParallelTaskTerminator((int) _max_num_tasks, _task_queues)),
+  _terminator(ParallelTaskTerminator((int) _max_num_tasks, _task_queues)), // 并行终止器，协调多线程结束时机
   // forcus 两个溢出同步屏障，处理全局标记栈溢出时的线程同步
   // note 确保所有线程在重新初始化全局数据结构时处于一致状态
-  _first_overflow_barrier_sync(), // 第一屏障：停止操作全局数据
-  _second_overflow_barrier_sync(), // 第二屏障：确认新数据结构初始化完成
+  _first_overflow_barrier_sync(), // 第一屏障：停止操作全局数据 溢出同步屏障1
+  _second_overflow_barrier_sync(), // 第二屏障：确认新数据结构初始化完成 溢出同步屏障2
   // forcus 标记栈溢出标志，volatile确保多线程可见性
   // note 任何线程检测到溢出时设置，所有线程读取后进入溢出处理流程
-  _has_overflown(false),
+  _has_overflown(false),  // 标记栈溢出标志（volatile）
   // forcus 并发标记阶段标志，区分并发标记和最终标记(remark)
   // note true=与应用线程并发，false=STW的remark阶段
-  _concurrent(false),
+  _concurrent(false), // 是否处于并发阶段
   // forcus 标记中止标志，Full GC等原因导致标记周期中止
   // note 设置后所有标记线程立即停止工作，清理资源
-  _has_aborted(false),
+  _has_aborted(false),  // 标记是否被中止
   // forcus 溢出重启标志，remark阶段溢出时设置
   // note 指示需要重新开始一个完整的并发标记周期
-  _restart_for_overflow(false),
+  _restart_for_overflow(false),// 溢出后是否需要重启
   _gc_timer_cm(new (ResourceObj::C_HEAP, mtGC) ConcurrentGCTimer()),
   _gc_tracer_cm(new (ResourceObj::C_HEAP, mtGC) G1OldTracer()),
 
@@ -418,28 +456,37 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
   _num_concurrent_workers(0),
   _max_concurrent_workers(0),
 
-  _region_mark_stats(NEW_C_HEAP_ARRAY(G1RegionMarkStats, _g1h->max_regions(), mtGC)),
-  _top_at_rebuild_starts(NEW_C_HEAP_ARRAY(HeapWord*, _g1h->max_regions(), mtGC))
+  _region_mark_stats(NEW_C_HEAP_ARRAY(G1RegionMarkStats, _g1h->max_regions(), mtGC)), //  每个区域的标记统计信息
+  _top_at_rebuild_starts(NEW_C_HEAP_ARRAY(HeapWord*, _g1h->max_regions(), mtGC)) // 记录每个区域在重建开始时的 top 指针
 {
+    // forcus 将两个位图关联到实际的内存映射存储区域
   _mark_bitmap_1.initialize(g1h->reserved_region(), prev_bitmap_storage);
   _mark_bitmap_2.initialize(g1h->reserved_region(), next_bitmap_storage);
 
   // Create & start ConcurrentMark thread.
+  // forcus 创建并发标记线程 建专门的并发标记线程，如果创建失败则终止 VM 启动
   _cm_thread = new G1ConcurrentMarkThread(this);
   if (_cm_thread->osthread() == NULL) {
     vm_shutdown_during_initialization("Could not create ConcurrentMarkThread");
   }
 
   assert(CGC_lock != NULL, "CGC_lock must be initialized");
-
-  SATBMarkQueueSet& satb_qs = G1BarrierSet::satb_mark_queue_set();
-  satb_qs.set_buffer_size(G1SATBBufferSize);
-
+  // forcus 配置 SATB 队列,是 G1 的写屏障机制，用于记录并发标记期间的引用变化
+  /*
+        note SATB (Snapshot At The Beginning -- 起始快照)
+         - 并发标记开始时，对堆中所有对象关系做一个"逻辑快照"
+         应用线程修改引用前，将旧值记录到SATB 队列中
+   */
+  SATBMarkQueueSet& satb_qs = G1BarrierSet::satb_mark_queue_set(); // forcus 返回屏障集中的 SATBMarkQueueSet _satb_mark_queue_set 属性(静态属性，全局唯一)
+  satb_qs.set_buffer_size(G1SATBBufferSize); // 设置缓冲区大小为 1024 个条目，表示每个SATB缓冲区可以存储1024个指针
+  // forcus 将 g1_heap 中的 survivor 区域注册为根区域 (实际上只保存了引用)
   _root_regions.init(_g1h->survivor(), this);
-
-  if (FLAG_IS_DEFAULT(ConcGCThreads) || ConcGCThreads == 0) {
+  // forcus 计算并发工作线程数 如果用户未指定 ConcGCThreads，则根据 ParallelGCThreads 自动计算
+  if (FLAG_IS_DEFAULT(ConcGCThreads) || ConcGCThreads == 0) { // 只有用户没有指定 ConcGCThreads 时(或者指定了,但是为0)，才会进入到这个if分支
     // Calculate the number of concurrent worker threads by scaling
     // the number of parallel GC threads.
+    // note ConcGCThreads = max((ParallelGCThreads + 2) / 4, 1) 如果是并行线程数=13，那么并发线程数=3
+    // 并发线程 大致为 并行线程的1/4 (并发是与应用线程一起执行的,与并行是不同的)，所以这里不需要太多线程，否则会与应用争抢CPU资源的
     uint marking_thread_num = scale_concurrent_worker_threads(ParallelGCThreads);
     FLAG_SET_ERGO(uint, ConcGCThreads, marking_thread_num);
   }
@@ -456,7 +503,8 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
 
   _num_concurrent_workers = ConcGCThreads;
   _max_concurrent_workers = _num_concurrent_workers;
-
+  // forcus 创建工作线程池 创建名为 "G1 Conc" 的工作线程池
+  // forcus 创建 WorkGang对象
   _concurrent_workers = new WorkGang("G1 Conc", _max_concurrent_workers, false, true);
   _concurrent_workers->initialize_workers();
 
@@ -494,24 +542,44 @@ G1ConcurrentMark::G1ConcurrentMark(G1CollectedHeap* g1h,
     }
   }
 
+  // forcus 初始化全局标记栈
   if (!_global_mark_stack.initialize(MarkStackSize, MarkStackSizeMax)) {
     vm_exit_during_initialization("Failed to allocate initial concurrent mark overflow mark stack.");
   }
-
-  _tasks = NEW_C_HEAP_ARRAY(G1CMTask*, _max_num_tasks, mtGC);
+  // forcus 创建标记任务
+  /*
+   * 为每个并行线程创建：
+        G1CMTaskQueue: 本地任务队列
+        G1CMTask: 标记任务对象
+   */
+  // 在 C堆上面分配了一个指针数组(数组的每个元素是 G1CMTask* 类型的,长度为13，在当前配置下)
+  // 在下面进行赋值
+  _tasks = NEW_C_HEAP_ARRAY(G1CMTask*, _max_num_tasks, mtGC); // mtGC,内存类型 -> 用于NMT内存跟踪
+  // 分配累计虚拟时间数组(作用是记录每个Task执行标记工作的累计时间)
   _accum_task_vtime = NEW_C_HEAP_ARRAY(double, _max_num_tasks, mtGC);
 
   // so that the assertion in MarkingTaskQueue::task_queue doesn't fail
   _num_active_tasks = _max_num_tasks;
-
+  // forcus 初始化队列 13个
   for (uint i = 0; i < _max_num_tasks; ++i) {
-    G1CMTaskQueue* task_queue = new G1CMTaskQueue();
-    task_queue->initialize();
-    _task_queues->register_queue(i, task_queue);
-
-    _tasks[i] = new G1CMTask(i, this, task_queue, _region_mark_stats, _g1h->max_regions());
-
-    _accum_task_vtime[i] = 0.0;
+    G1CMTaskQueue* task_queue = new G1CMTaskQueue(); // forcus 创建队列对象(构造函数没做什么)
+    /*
+        关于 task_queue 的一些细节:
+            1. max_elems() = N-2 = 131072 - 2 = 131070 ， 为什么是 N-2，而不是N-1呢？
+     */
+    task_queue->initialize(); // forcus 为 task_queue 分配存储数组(_elems,大小为1MB) -- 大容量减少溢出到全局栈中的频率(减少线程间同步的开销)
+    _task_queues->register_queue(i, task_queue); // forcus 注册到集合，存储到上面初始化为null的_task_queues中
+    // forcus 创建具体的标记任务对象
+    // note 这个任务就是并发线程执行的操作,很重要
+    /*
+        worker_id：i - 任务编号,与工作线程对应
+        cm：this,指向 G1ConcurrentMark 对象
+        task_queue：G1CMTaskQueue*，本地任务队列（存灰色对象，上面刚创建）
+        mark_stats：_region_mark_stats：Region 统计信息数组
+        max_regions：_g1h->max_regions()：最大 Region 数量（2048）
+     */
+    _tasks[i] = new G1CMTask(i, this, task_queue, _region_mark_stats, _g1h->max_regions()); // forcus 创建任务对象
+    _accum_task_vtime[i] = 0.0; // 初始化计时
   }
 
   reset_at_marking_complete();

@@ -146,7 +146,7 @@ class JNIHandleBlock : public CHeapObj<mtInternal> {
   // Having two types of blocks complicates the code and the space overhead in negligible.
   JNIHandleBlock* _last;                        // Last block in use
   JNIHandleBlock* _pop_frame_link;              // Block to restore on PopLocalFrame call
-  oop*            _free_list;                   // Handle free list
+  oop*            _free_list;                   // Handle free list // forcus 空闲槽位链表
   int             _allocate_before_rebuild;     // Number of blocks to allocate before rebuilding free list
 
   // Check JNI, "planned capacity" for current frame (or push/ensure)

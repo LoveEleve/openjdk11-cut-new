@@ -38,13 +38,22 @@
 
 // The current implementation will exit if the allocation
 // of any worker fails.
+/*
+    在这里需要注意的是:这个方法会被调用x次
+        1. 第一次是在 G1CollectedHeap 对象的构造方法中创建 GC Thread(13个)
+        2. 第二次是在 G1ConcurrentMark 对象的构造方法中创建 G1 Conc
+        3. 后续可能还有,但是暂时不关心
+ */
 void  AbstractWorkGang::initialize_workers() {
+    // 打印日志 "Constructing work gang G1 Conc with 3 threads"
   log_develop_trace(gc, workgang)("Constructing work gang %s with %u threads", name(), total_workers());
+  // forcus 分配工作线程 指针数组(注意是指针数组,数组元素是一个指针)
+  // 宏定义展开后：_workers = (AbstractGangWorker**) AllocateHeap(3 * sizeof(AbstractGangWorker*), mtInternal);
   _workers = NEW_C_HEAP_ARRAY(AbstractGangWorker*, total_workers(), mtInternal);
   if (_workers == NULL) {
     vm_exit_out_of_memory(0, OOM_MALLOC_ERROR, "Cannot create GangWorker array.");
   }
-
+  // forcus 添加工作线程
   add_workers(true);
 }
 
@@ -58,25 +67,34 @@ AbstractGangWorker* AbstractWorkGang::install_worker(uint worker_id) {
 void AbstractWorkGang::add_workers(bool initializing) {
   add_workers(_active_workers, initializing);
 }
-
+// forcus 创建工作线程 由 UseDynamicNumberOfGCThreads 决定(默认只会创建1个活跃线程)
 void AbstractWorkGang::add_workers(uint active_workers, bool initializing) {
 
   os::ThreadType worker_type;
-  if (are_ConcurrentGC_threads()) {
-    worker_type = os::cgc_thread;
+  if (are_ConcurrentGC_threads()) { // 是否是并发线程(在 G1ConcurrentMark 构造函数中创建的线程是的，也即是并发线程)
+    worker_type = os::cgc_thread; // 线程类型为 os::cgc_thread (cgc -> Concurrent GC Thread)
   } else {
     worker_type = os::pgc_thread;
   }
-  uint previous_created_workers = _created_workers;
-
+  uint previous_created_workers = _created_workers; // 保存创建前的线程数
+  // forcus 真正的创建线程 在这里以 G1ConcurrentMark 为例
+  /*
+        active_workers = 1
+        _total_workers = 3
+        _created_workers = 0
+        worker_type = os::cgc_thread
+        initializing = true
+   */
   _created_workers = WorkerManager::add_workers(this,
                                                 active_workers,
                                                 _total_workers,
                                                 _created_workers,
                                                 worker_type,
                                                 initializing);
+  // 0 -> 1
   _active_workers = MIN2(_created_workers, _active_workers);
-
+  // -Xlog:gc+task=trace
+  // Adding initial G1 Conc(s) previously created workers 0 active workers 1 total created workers 1
   WorkerManager::log_worker_creation(this, previous_created_workers, _active_workers, _created_workers, initializing);
 }
 
@@ -263,17 +281,18 @@ class MutexGangTaskDispatcher : public GangTaskDispatcher {
 
 static GangTaskDispatcher* create_dispatcher() {
   if (UseSemaphoreGCThreadsSynchronization) {
-    return new SemaphoreGangTaskDispatcher();
+    return new SemaphoreGangTaskDispatcher(); // 信号量实现
   }
 
-  return new MutexGangTaskDispatcher();
+  return new MutexGangTaskDispatcher(); // 互斥锁 + 条件变量
 }
 
-WorkGang::WorkGang(const char* name,
-                   uint  workers,
-                   bool  are_GC_task_threads,
-                   bool  are_ConcurrentGC_threads) :
-    AbstractWorkGang(name, workers, are_GC_task_threads, are_ConcurrentGC_threads),
+WorkGang::WorkGang(const char* name, // "G1 Conc" - 线程组名称，每个线程将命名为 G1 Conc#0, G1 Conc#1, ...
+                   uint  workers, // _max_concurrent_workers - 最大线程数 之前计算的并发线程数(在这里为3)
+                   bool  are_GC_task_threads, // false - 不是STW GC任务线程
+                   bool  are_ConcurrentGC_threads) : // true - 是并发GC线程
+    AbstractWorkGang(name, workers, are_GC_task_threads, are_ConcurrentGC_threads), // 调用父类的构造函数
+    // forcus 任务分发器实例,为核心组件，负责协调主线程与工作线程之间的任务分发和同步
     _dispatcher(create_dispatcher())
 { }
 
@@ -306,15 +325,16 @@ AbstractGangWorker::AbstractGangWorker(AbstractWorkGang* gang, uint id) {
   set_name("%s#%d", gang->name(), id);
 }
 
+// forcus G1 Conc 的执行逻辑
 void AbstractGangWorker::run() {
-  initialize();
-  loop();
+  initialize(); // forcus 初始化
+  loop(); // forcus 主循环
 }
 
 void AbstractGangWorker::initialize() {
   this->initialize_named_thread();
   assert(_gang != NULL, "No gang to run in");
-  os::set_priority(this, NearMaxPriority);
+  os::set_priority(this, NearMaxPriority); // 设置线程优先级为接近最高
   log_develop_trace(gc, workgang)("Running gang worker for gang %s id %u", gang()->name(), id());
   // The VM thread should not execute here because MutexLocker's are used
   // as (opposed to MutexLockerEx's).
@@ -353,14 +373,14 @@ void GangWorker::run_task(WorkData data) {
   log_develop_trace(gc, workgang)("Finished work gang: %s task: %s worker: %u thread: " PTR_FORMAT,
                                   name(), data._task->name(), data._worker_id, p2i(Thread::current()));
 }
-
+// forcus G1 Conc 的主循环
 void GangWorker::loop() {
   while (true) {
-    WorkData data = wait_for_task();
+    WorkData data = wait_for_task(); // forcus 阻塞等待任务分发
 
-    run_task(data);
+    run_task(data); // forcus 执行任务
 
-    signal_task_done();
+    signal_task_done(); // forcus 通知完成
   }
 }
 

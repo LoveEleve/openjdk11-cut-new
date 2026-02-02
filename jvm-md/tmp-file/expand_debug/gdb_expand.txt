@@ -1,0 +1,40 @@
+# GDB 调试 expand() 方法 - 详细版
+set pagination off
+set print pretty on
+
+# 设置断点
+break G1CollectedHeap::expand
+break HeapRegionManager::make_regions_available
+break HeapRegionManager::commit_regions
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+# 在 G1CollectedHeap::expand 断点处
+print expand_bytes
+print expand_bytes / (1024*1024*1024)
+print this
+print pretouch_workers
+print pretouch_workers->_total_workers
+
+# 继续到下一个断点
+continue
+
+# 在 commit_regions 断点处
+print index
+print num_regions
+print _num_committed
+print _heap_mapper
+
+# 继续到 make_regions_available
+continue
+
+# 查看 HeapRegion 创建
+print num_regions
+print start
+
+# 完成调试
+continue
+continue
+continue
+quit

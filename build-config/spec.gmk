@@ -467,7 +467,7 @@ CFLAGS_CCACHE:=
 ADLC_CXXFLAG=-std=gnu++98
 
 # Tools that potentially need to be cross compilation aware.
-CC:=   /usr/bin/gcc
+CC:=   ccache /usr/bin/gcc
 
 # CFLAGS used to compile the jdk native libraries (C-code)
 CFLAGS_JDKLIB:=       -I$(SUPPORT_OUTPUTDIR)/modules_include/java.base       -I$(SUPPORT_OUTPUTDIR)/modules_include/java.base/$(OPENJDK_TARGET_OS_INCLUDE_SUBDIR)       -I/data/workspace/openjdk-cut-new/src/java.base/share/native/libjava       -I/data/workspace/openjdk-cut-new/src/java.base/unix/native/libjava       -I/data/workspace/openjdk-cut-new/src/hotspot/share/include       -I/data/workspace/openjdk-cut-new/src/hotspot/os/posix/include  -pipe -fstack-protector        -DLIBC=gnu -D_GNU_SOURCE -D_REENTRANT -D_LARGEFILE64_SOURCE -DLINUX -DDEBUG -fstack-protector-all --param ssp-buffer-size=1        -Wall -Wextra -Wno-unused -Wno-unused-parameter -Wformat=2 -g        -fno-strict-aliasing         -m64 -fpermissive -D_LITTLE_ENDIAN -DARCH='"amd64"'       -Damd64 -D_LP64=1   -fno-omit-frame-pointer         -fPIC 
@@ -493,7 +493,7 @@ EXTRA_CXXFLAGS = -m64 -std=c++11 -fpermissive -Wno-shift-negative-value
 EXTRA_LDFLAGS = -m64 
 EXTRA_ASFLAGS = 
 
-CXX:=   /usr/bin/g++
+CXX:=   ccache /usr/bin/g++
 
 CPP:= /usr/bin/gcc -E
 

@@ -37,26 +37,29 @@ ConcurrentGCThread::ConcurrentGCThread() :
 };
 
 void ConcurrentGCThread::create_and_start(ThreadPriority prio) {
-  if (os::create_thread(this, os::cgc_thread)) {
+  if (os::create_thread(this, os::cgc_thread)) { // forcus pthread_create()创建线程(但是怎么看着和jvm启动的时候调用的方法是一样的呢？)
     // XXX: need to set this to low priority
     // unless "aggressive mode" set; priority
     // should be just less than that of VMThread.
-    os::set_priority(this, prio);
+    os::set_priority(this, prio); // 设置优先级
     if (!_should_terminate) {
-      os::start_thread(this);
+      os::start_thread(this); // 启动线程，更准确点是唤醒子线程
     }
   }
 }
-
+/*
+ * JNI Handle
+ */
 void ConcurrentGCThread::initialize_in_thread() {
-  this->initialize_named_thread();
-  this->set_active_handles(JNIHandleBlock::allocate_block());
+  this->initialize_named_thread(); // forcus 设置内核线程的名称(同样也是G1 Main Marker),可以通过 top / ps / jstack / /proc
+  this->set_active_handles(JNIHandleBlock::allocate_block()); // mark 一下,这个JNIHandle的作用是什么？我还是有点没搞明白
   // From this time Thread::current() should be working.
   assert(this == Thread::current(), "just checking");
 }
 
 void ConcurrentGCThread::wait_for_universe_init() {
   MutexLockerEx x(CGC_lock, Mutex::_no_safepoint_check_flag);
+  // forcus 等待 _init_completed 变为true,否则阻塞在这里
   while (!is_init_completed() && !_should_terminate) {
     CGC_lock->wait(Mutex::_no_safepoint_check_flag, 1);
   }
@@ -73,11 +76,12 @@ void ConcurrentGCThread::terminate() {
   }
 }
 
+// forcus 这里是 GC Main Worker 线程要执行的run方法
 void ConcurrentGCThread::run() {
-  initialize_in_thread();
-  wait_for_universe_init();
+  initialize_in_thread(); // forcus 线程初始化
+  wait_for_universe_init(); // forcus 等待宇宙初始化完成
 
-  run_service();
+  run_service(); // forcus 执行gc服务(同样也会阻塞,等待GC发生，具体是由子类实现：G1ConcurrentMarkThread)
 
   terminate();
 }

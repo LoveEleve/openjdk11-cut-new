@@ -88,6 +88,10 @@ HeapRegion* HeapRegionManager::new_heap_region(uint hrm_index) {
    * forcus 计算Region的内存范围 - 这里与 hrm_index 有关 (这个是Region的下标,代表是第几个Region)
    * bottom = 堆基址(0x600000000) + hrm_index(第几个Region) * HeapRegion::GrainWords(4MB)
    */
+    // bottom = 0x600000000 + hrm_index * 4MB
+    // 例如 Region 0: bottom = 0x600000000
+    //      Region 1: bottom = 0x600400000
+    //      Region 2047: bottom = 0x7FFFC00000
   HeapWord* bottom = g1h->bottom_addr_for_region(hrm_index);
   // forcus 创建 MemRegion 对象 - 代表是一段连续的内存区域
   MemRegion mr(bottom, bottom + HeapRegion::GrainWords);
@@ -147,7 +151,11 @@ void HeapRegionManager::uncommit_regions(uint start, size_t num_regions) {
 // `make_regions_available(0, 2048, _workers)`
 void HeapRegionManager::make_regions_available(uint start, uint num_regions, WorkGang* pretouch_gang) {
   guarantee(num_regions > 0, "No point in calling this for zero regions");
-  // forcus 提交虚拟内存
+  // forcus 提交虚拟内存(前面创建的6个内存映射器 storage) 入参为： 0 - 2048 - GC Thread Group(13个)
+  /*
+        实际上是通过下面这个方法来提交的：以堆内存为例(其他的5个mapper是一样的逻辑)
+        mmap(0x600000000, 8GB, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0)
+   */
   commit_regions(start, num_regions, pretouch_gang);
   // forcus 循环创建HeapRegion对象 (2048个)
   for (uint i = start; i < start + num_regions; i++) {
@@ -167,12 +175,21 @@ void HeapRegionManager::make_regions_available(uint start, uint num_regions, Wor
   }
   // forcus 标记Region为可用 (标记指定范围的Region为可用状态)
   // 在这里设置为true(1),标记所有Region为可用
+  /*
+        位图结构（64 bit一组）：
+        字0:  [1111111111111111111111111111111111111111111111111111111111111111] (Region 0-63)
+        字1:  [1111111111111111111111111111111111111111111111111111111111111111] (Region 64-127)
+        ...
+        字31: [1111111111111111111111111111111111111111111111111111111111111111] (Region 1984-2047)
+   */
   _available_map.par_set_range(start, start + num_regions, BitMap::unknown_range);
   // forcus 初始化Region并加入空闲列表
   for (uint i = start; i < start + num_regions; i++) {
     assert(is_available(i), "Just made region %u available but is apparently not.", i);
     HeapRegion* hr = at(i);
     // 打印Region提交信息（如果启用）
+    // 日志的格式：[0.076s][trace][gc,region   ] G1HR COMMIT(FREE) [0x0000000600000000, 0x0000000600000000, 0x0000000600400000]
+    // FREE(空闲,已经添加到空闲链表中了)：bottom() = 0x0000000600000000 top() = 0x600000000 end() = 0x600400000
     if (G1CollectedHeap::heap()->hr_printer()->is_active()) {
       G1CollectedHeap::heap()->hr_printer()->commit(hr);
     }
@@ -180,8 +197,9 @@ void HeapRegionManager::make_regions_available(uint start, uint num_regions, Wor
     HeapWord* bottom = G1CollectedHeap::heap()->bottom_addr_for_region(i);
     MemRegion mr(bottom, bottom + HeapRegion::GrainWords);
     // forcus 初始化Region
-    hr->initialize(mr);
+    hr->initialize(mr); // 设置 _bottom, _end, _top = bottom
     // forcus 加入空闲Region列表 ==> _free_list
+    // 最终添加到 heapRegionManager 中的 _free_list
     insert_into_free_list(at(i));
   }
 }
@@ -203,14 +221,14 @@ MemoryUsage HeapRegionManager::get_auxiliary_data_memory_usage() const {
 
   return MemoryUsage(0, used_sz, committed_sz, committed_sz);
 }
-
+// 0 - 2048 - workers(13个GC Thread)
 uint HeapRegionManager::expand_by(uint num_regions, WorkGang* pretouch_workers) {
   return expand_at(0, num_regions, pretouch_workers);
 }
 
 
 uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretouch_workers) {
-  // num_regions = 2048
+  // num_regions = 2048,没有需要扩展的region，那么直接返回0
   if (num_regions == 0) {
     return 0;
   }
@@ -223,6 +241,11 @@ uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretou
   /*
    * forcus 循环查找并分配可用的Region范围
    *  - num_last_found = find_unavailable_from_idx(cur, &idx_last_found): 查找连续的未分配Region
+   *        这个方法做了什么呢？
+   *            - 扫描 _available_map 位图（初始全为0）
+   *            - 找到从索引 0 开始的连续未分配 Region
+   *            - 返回值：num_last_found = 2048
+   *
    *    这个方法会影响到两个值
    *     1. num_last_found：2048
    *     2. idx_last_found：0
@@ -230,7 +253,7 @@ uint HeapRegionManager::expand_at(uint start, uint num_regions, WorkGang* pretou
    */
   while (expanded < num_regions &&
          (num_last_found = find_unavailable_from_idx(cur, &idx_last_found)) > 0) {
-      // 2048
+      // 计算本次扩展数量 = 2048
     uint to_expand = MIN2(num_regions - expanded, num_last_found);
     // forcus 内存分配的核心方法
     make_regions_available(idx_last_found, to_expand, pretouch_workers);
