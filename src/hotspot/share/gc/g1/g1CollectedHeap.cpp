@@ -1563,11 +1563,18 @@ G1RegionToSpaceMapper *G1CollectedHeap::create_aux_memory_mapper(const char *des
 
 jint G1CollectedHeap::initialize_concurrent_refinement() {
     jint ecode = JNI_OK;
-    _cr = G1ConcurrentRefine::create(&ecode);
+    _cr = G1ConcurrentRefine::create(&ecode); // forcus 创建并发精炼器
     return ecode;
 }
 
 jint G1CollectedHeap::initialize_young_gen_sampling_thread() {
+    // forcus 创建采样线程
+    /*
+        定期扫描年轻代的所有 Region，统计它们的 RSet 大小，然后动态调整年轻代的目标大小(每300ms采样一次)
+        为什么要这么做呢？
+            1. 预测 GC 暂停时间：RSet 越大，GC 时扫描时间越长
+            2. 动态调整年轻代大小：如果 RSet 太大，就减少年轻代 Region 数量，保证暂停时间在目标范围内
+     */
     _young_gen_sampling_thread = new G1YoungRemSetSamplingThread();
     if (_young_gen_sampling_thread->osthread() == NULL) {
         vm_shutdown_during_initialization("Could not create G1YoungRemSetSamplingThread");
@@ -2204,61 +2211,234 @@ jint G1CollectedHeap::initialize() {
 
     // Perform any initialization actions delegated to the policy.
     // forcus g1策略初始化
+    /*
+        设置年轻代大小边界 / 启动收集集合的增量构建机制，此时 2048个region已经创建并且初始化完毕，并且都已经在 heapRegionManager._free_list属性中了
+     */
     g1_policy()->init(this, &_collection_set);
-
-    G1BarrierSet::satb_mark_queue_set().initialize(SATB_Q_CBL_mon,
-                                                   SATB_Q_FL_lock,
-                                                   G1SATBProcessCompletedThreshold,
-                                                   Shared_SATB_Q_lock);
-
+    // forcus satb_mark_queue_set(jvm全局唯一，管理所有线程的SATB队列) 初始化
+    /*
+       入参：
+            1. "SATB_Q_CBL_mon": monitor锁，用来保护“已填满的缓冲区队列”
+                    多个线程可能同时往完成队列里放缓冲区
+                    需要一个锁来保证线程安全
+            2. "SATB_Q_FL_lock":  一个锁（Mutex），用来保护"空闲缓冲区池"
+                    缓冲区用完后不销毁，放回空闲池重复利用
+                    多线程抢空闲缓冲区时需要锁
+            3. process_completed_threshold = 触发处理的阈值
+                     当完成队列里有 20 个缓冲区时，开始处理
+            4. "Shared_SATB_Q_lock":保护"共享 SATB 队列"的锁
+                     普通 Java 线程各自有自己的队列（线程本地）
+                     但 VM 线程、GC 线程没有，它们共用一个队列
+     */
+    G1BarrierSet::satb_mark_queue_set().initialize(SATB_Q_CBL_mon, // "SATB_Q_CBL_mon"
+                                                   SATB_Q_FL_lock, // "SATB_Q_FL_lock"
+                                                   G1SATBProcessCompletedThreshold, // val = 20,来自 G1SATBProcessCompletedThreshold
+                                                   Shared_SATB_Q_lock); // "Shared_SATB_Q_lock"
+    // forcus 创建"并发精炼"线程，用来处理脏卡（跨代引用）
     jint ecode = initialize_concurrent_refinement();
     if (ecode != JNI_OK) {
         return ecode;
     }
-
+    // forcus 创建采样线程
     ecode = initialize_young_gen_sampling_thread();
     if (ecode != JNI_OK) {
         return ecode;
     }
-
-    G1BarrierSet::dirty_card_queue_set().initialize(DirtyCardQ_CBL_mon,
-                                                    DirtyCardQ_FL_lock,
-                                                    (int) concurrent_refine()->yellow_zone(),
-                                                    (int) concurrent_refine()->red_zone(),
-                                                    Shared_DirtyCardQ_lock,
-                                                    NULL,  // fl_owner
-                                                    true); // init_free_ids
-
+    // forcus 初始化全局脏卡队列集合
+    /*
+        这是主角——所有 Java 线程的脏卡最终都汇聚到这里
+            1. 当完成的缓冲区数量 ≥ 39 时，唤醒精炼线程处理
+            2. 队列最多 65 个缓冲区，超过就让应用线程帮忙处理
+            3. 自己管理空闲缓冲区池(fl_owner = null)
+            4. init_free_ids = true(初始化并行处理用的 ID 集合)
+     */
+    G1BarrierSet::dirty_card_queue_set().initialize(DirtyCardQ_CBL_mon, // 完成缓冲区列表 的锁
+                                                    DirtyCardQ_FL_lock, // 空闲缓冲区池 的锁
+                                                    (int) concurrent_refine()->yellow_zone(), // = 39，触发精炼的阈值
+                                                    (int) concurrent_refine()->red_zone(), // = 65，队列长度上限
+                                                    Shared_DirtyCardQ_lock, // 共享队列的锁
+                                                    NULL,  // fl_owner  // 空闲缓冲区池的所有者（自己）
+                                                    true); // init_free_ids  // 初始化空闲 ID 集合
+    // forcus G1堆自己的脏卡队列集合
+    /*
+        1. process_completed_threshold = -1 永远不会触发自动处理
+        2. max_completed_queue = -1 队列长度无限制
+        3. fl_owner 第一个队列 	不自己管理空闲缓冲区，借用第一个的
+     */
     dirty_card_queue_set().initialize(DirtyCardQ_CBL_mon,
                                       DirtyCardQ_FL_lock,
-                                      -1, // never trigger processing
-                                      -1, // no limit on length
+                                      -1, // never trigger processing  // 永不触发处理
+                                      -1, // no limit on length // 队列长度无限制
                                       Shared_DirtyCardQ_lock,
-                                      &G1BarrierSet::dirty_card_queue_set());
+                                      &G1BarrierSet::dirty_card_queue_set()); // 共享第一个的空闲缓冲区池
 
     // Here we allocate the dummy HeapRegion that is required by the
     // G1AllocRegion class.
+    // forcus 创建一个假的（dummy）Region
     HeapRegion *dummy_region = _hrm.get_dummy_region();
 
     // We'll re-use the same region whether the alloc region will
     // require BOT updates or not and, if it doesn't, then a non-young
     // region will complain that it cannot support allocations without
     // BOT updates. So we'll tag the dummy region as eden to avoid that.
-    dummy_region->set_eden();
+    /*
+        _bottom = 0x600000000                    ← Region 起始地址
+        _top    = 0x600400000                    ← 当前已使用到这里
+        _end    = 0x600400000                    ← Region 结束地址
+     */
+    dummy_region->set_eden(); // 把它标记为 Eden 类型
     // Make sure it's full.
-    dummy_region->set_top(dummy_region->end());
-    G1AllocRegion::setup(this, dummy_region);
+    dummy_region->set_top(dummy_region->end()); // 把它标记为"满的"（top = end）
+    // note 注意哦,这里和之前分配的2048个HeapRegion中的第0个是不一样的对象,这个dummy没有注册到Region数组中
+    // 只是保存在 G1AllocRegion._dummy_region 属性中
+    /*
+        问题背景为：G1 使用 G1AllocRegion 类来管理当前正在分配对象的 Region
+            {
+                 HeapRegion* volatile _alloc_region; // 当前正在分配的 Region
+                 static HeapRegion* _dummy_region; // 静态的 dummy region
+            }
+        问题：在某些时刻（比如 GC 过程中），可能没有可用的 Region 来分配对象。这时 _alloc_region 应该指向什么？
+        解决方案：用一个"满的"假 Region 作为占位符！
+            没有可用 Region 时：指向 dummy region
+            _alloc_region ─────► [dummy_region]
+            top = end
+            free() = 0
+            分配必定失败！
+        核心作用是保证：任何在 dummy region 上的分配都会立即失败
+        --- 这里的作用是空值的优雅处理?? 没太看明白～
+     */
+    G1AllocRegion::setup(this, dummy_region); // forcus 设置为 G1AllocRegion 的静态 dummy region
+    // forcus 把 _mutator_alloc_region（Java 应用线程分配对象用的 Region）初始化为指向 dummy_region
+    /*
+        forcus 这里有个核心的对象：_allocator(G1Allocator类型的)
+        {
+             MutatorAllocRegion _mutator_alloc_region;  // Java线程分配普通对象用
+             // GC 期间使用的：
+             SurvivorGCAllocRegion _survivor_gc_alloc_region;  // 复制存活对象到 Survivor
+             OldGCAllocRegion _old_gc_alloc_region;            // 晋升对象到 Old
+        }
 
+        当java线程第一次在region上分配对象时，就会返回null，然后进入到 slow_path，去 _free_list上获取一个新的region，然后就可以开始分配了
+     */
     _allocator->init_mutator_alloc_region();
 
     // Do create of the monitoring and management support so that
     // values in the heap have been properly initialized.
+    /*
+        forcus G1MonitoringSupport 是 G1 GC 的监控支持类，为以下工具提供监控数据：
+            jstat -gc / jstat -gcutil   - JVM 性能计数器统计工具
+            MemoryService - Java 内存管理服务（MemoryMXBean）
+            Tracing - JVM 追踪系统
+            JConsole/VisualVM
+     */
     _g1mm = new G1MonitoringSupport(this);
+    /*
+        问题背景：Java 程序中存在大量内容相同的 String 对象
+            String s1 = "hello";  →  s1.value = char[]{'h','e','l','l','o'}
+            String s2 = "hello";  →  s2.value = char[]{'h','e','l','l','o'} (重复!)
+        解决: 让多个 String 共享同一个底层 char[]/byte[]
+             去重后: s1.value = s2.value = 同一个 char[]
+        核心组件：
+            1. G1StringDedup-Queue: 候选队列（存储待处理的String候选）
+            2. StringDedup-Table:去重哈希表(存储所有唯一的char[]/byte[])
+            3. StringDedup-Thread：后台线程(从队列取出候选,然后执行去重操作)
 
+        # 启用字符串去重 (必须配合 G1 GC)
+        -XX:+UseG1GC -XX:+UseStringDeduplication
+
+        # 设置年龄阈值 (默认=3, 即 String 存活 3 次 GC 后才考虑去重)
+        -XX:StringDeduplicationAgeThreshold=3
+
+        # 查看去重统计日志
+        -Xlog:gc+stringdedup=debug
+
+        forcus mark一下，后续再深入研究
+
+        这里有个问题：StringTable 和 这里的 StringDedupTable 是什么关系？
+     */
     G1StringDedup::initialize();
+    /*
+        forcus 为什么需要 PreservedMarksSet？
+        1. 背景
+              在 G1 GC 的 Evacuation（转移） 阶段，当把对象从一个 Region 复制到另一个 Region 时，可能会发生 Evacuation Failure（转移失败），原因通常是：
+                - 堆内存不足：没有足够的空间存放复制的对象
+                - to-space exhausted：目标空间耗尽
+              当 evacuation 失败时，GC 需要使用对象的 mark word（对象头）来存储 self-forwarding pointer（指向自己的转发指针）。
+              但 mark word 中可能包含重要信息需要保留：
+              64位 mark word 结构:
+                ┌────────────────────────────────────────────────────────────────┐
+                │ unused:25 │ hash:31 │ unused:1 │ age:4 │ biased_lock:1 │ lock:2│
+                └────────────────────────────────────────────────────────────────┘
+                                           需要保留的信息:
+                                           - identity hash code (一旦计算就不能丢失)
+                                           - 偏向锁状态 (bias pattern)
+                                           - 锁状态 (如果对象被锁定)
 
+              关键点：PreservedMarksSet 就是用来在 evacuation 失败时，临时保存这些需要被覆盖的 mark word，GC 结束后再恢复
+
+     */
+    /*
+        PreservedMarksSet _preserved_marks_set
+        {
+            ┌─────────────────────────────────────────────────────────────────────────┐
+            │                        PreservedMarksSet                                │
+            │ ┌─────────────────────────────────────────────────────────────────────┐ │
+            │ │ _in_c_heap: true          // 是否在 C 堆分配                         │ │
+            │ │ _num: ParallelGCThreads   // 栈的数量 = GC 线程数                    │ │
+            │ │ _stacks: Padded<PreservedMarks>*  // 栈数组指针                      │ │
+            │ └─────────────────────────────────────────────────────────────────────┘ │
+            │                                │                                        │
+            │                                ▼                                        │
+            │  ┌──────────────────────────────────────────────────────────────────┐  │
+            │  │              _stacks[0..ParallelGCThreads-1]                      │  │
+            │  │  ┌───────────────┐ ┌───────────────┐     ┌───────────────┐       │  │
+            │  │  │Padded<PM>[0]  │ │Padded<PM>[1]  │ ... │Padded<PM>[N-1]│       │  │
+            │  │  │  ┌─────────┐  │ │  ┌─────────┐  │     │  ┌─────────┐  │       │  │
+            │  │  │  │PreservedM│ │ │  │PreservedM│ │     │  │PreservedM│ │       │  │
+            │  │  │  │_stack    │ │ │  │_stack    │ │     │  │_stack    │ │       │  │
+            │  │  │  │  ↓       │ │ │  │  ↓       │ │     │  │  ↓       │ │       │  │
+            │  │  │  │ Stack<..>│ │ │  │ Stack<..>│ │     │  │ Stack<..>│ │       │  │
+            │  │  │  └─────────┘  │ │  └─────────┘  │     │  └─────────┘  │       │  │
+            │  │  │  padding...   │ │  padding...   │     │  padding...   │       │  │
+            │  │  └───────────────┘ └───────────────┘     └───────────────┘       │  │
+            │  │        ↑                                                          │  │
+            │  │   每个 GC Worker 线程独占一个栈，避免锁竞争                        │  │
+            │  └──────────────────────────────────────────────────────────────────┘  │
+            └─────────────────────────────────────────────────────────────────────────┘
+
+        }
+     */
     _preserved_marks_set.init(ParallelGCThreads);
+    /*
+        Collection Set 是 G1 GC 的核心概念之一，它表示本次 GC 需要回收的 Region 集合
+        CSet 的特点：
+            Young GC：CSet 包含所有 Eden + Survivor Region
+            Mixed GC：CSet 包含所有 Young Region + 部分垃圾较多的 Old Region
+        数据结构:
+           class G1CollectionSet {
+                  G1CollectedHeap* _g1h;                    // G1堆引用
+                  G1Policy* _policy;                        // G1策略引用
+                  CollectionSetChooser* _cset_chooser;      // Old Region 选择器
 
+                  // Region 计数
+                  uint _eden_region_length;                 // Eden Region 数量
+                  uint _survivor_region_length;             // Survivor Region 数量
+                  uint _old_region_length;                  // Old Region 数量
+
+                  // 核心数据结构：Region 索引数组
+                  uint* _collection_set_regions;            // ← initialize() 分配
+                  volatile size_t _collection_set_cur_length;  // 当前长度
+                  size_t _collection_set_max_length;        // ← initialize() 设置
+
+                  // 增量构建相关
+                  CSetBuildType _inc_build_state;           // 构建状态 (Active/Inactive)
+                  size_t _inc_bytes_used_before;            // 增量构建时已用字节数
+                  size_t _inc_recorded_rs_lengths;          // RSet 长度累计
+                  double _inc_predicted_elapsed_time_ms;    // 预测耗时
+  // ...
+};
+
+     */
     _collection_set.initialize(max_regions());
 
     return JNI_OK;

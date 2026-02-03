@@ -81,7 +81,7 @@ uint G1YoungGenSizer::calculate_default_max_length(uint new_number_of_heap_regio
 void G1YoungGenSizer::recalculate_min_max_young_length(uint number_of_heap_regions, uint* min_young_length, uint* max_young_length) {
   assert(number_of_heap_regions > 0, "Heap must be initialized");
 
-  switch (_sizer_kind) {
+  switch (_sizer_kind) { // 默认为0
     case SizerDefaults:
       *min_young_length = calculate_default_min_length(number_of_heap_regions);
       *max_young_length = calculate_default_max_length(number_of_heap_regions);
@@ -107,13 +107,14 @@ void G1YoungGenSizer::recalculate_min_max_young_length(uint number_of_heap_regio
 
   assert(*min_young_length <= *max_young_length, "Invalid min/max young gen size values");
 }
-
+// number_of_heap_regions = 2048 (8GB HeapRegion = 4MB)
 void G1YoungGenSizer::adjust_max_new_size(uint number_of_heap_regions) {
 
   // We need to pass the desired values because recalculation may not update these
   // values in some cases.
-  uint temp = _min_desired_young_length;
-  uint result = _max_desired_young_length;
+  // 默认计算方式 (SizerDefaults)
+  uint temp = _min_desired_young_length;   // 2048 × 5% = 102 个 Region (408MB)
+  uint result = _max_desired_young_length; // 2048 × 60% = 1228 个 Region (4.9GB)
   recalculate_min_max_young_length(number_of_heap_regions, &temp, &result);
 
   size_t max_young_size = result * HeapRegion::GrainBytes;

@@ -203,8 +203,9 @@ SATBMarkQueueSet::SATBMarkQueueSet() :
 void SATBMarkQueueSet::initialize(Monitor* cbl_mon, Mutex* fl_lock,
                                   int process_completed_threshold,
                                   Mutex* lock) {
+  // forcus 调用父类初始化方法 -- max_completed_queue = -1 (表示无限制)
   PtrQueueSet::initialize(cbl_mon, fl_lock, process_completed_threshold, -1);
-  _shared_satb_queue.set_lock(lock);
+  _shared_satb_queue.set_lock(lock); // 设置共享队列的锁
 }
 
 void SATBMarkQueueSet::handle_zero_index_for_thread(JavaThread* t) {

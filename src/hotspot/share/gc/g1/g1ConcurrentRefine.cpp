@@ -65,23 +65,23 @@ G1ConcurrentRefineThreadControl::~G1ConcurrentRefineThreadControl() {
   }
   FREE_C_HEAP_ARRAY(G1ConcurrentRefineThread*, _threads);
 }
-
+// num_max_threads = 13(在当前机器配置下)
 jint G1ConcurrentRefineThreadControl::initialize(G1ConcurrentRefine* cr, uint num_max_threads) {
   assert(cr != NULL, "G1ConcurrentRefine must not be NULL");
-  _cr = cr;
-  _num_max_threads = num_max_threads;
-
+  _cr = cr; // 保存精炼器指针
+  _num_max_threads = num_max_threads; // 最大线程数 = 13
+  // forcus  分配线程指针数组
   _threads = NEW_C_HEAP_ARRAY_RETURN_NULL(G1ConcurrentRefineThread*, num_max_threads, mtGC);
   if (_threads == NULL) {
     vm_shutdown_during_initialization("Could not allocate thread holder array.");
     return JNI_ENOMEM;
   }
-
+  // forcus 由 UseDynamicNumberOfGCThreads 参数控制是否开始就创建所有的线程(默认为true,也即动态扩展线程，初始化时只会创建1个线程)
   for (uint i = 0; i < num_max_threads; i++) {
     if (UseDynamicNumberOfGCThreads && i != 0 /* Always start first thread. */) {
       _threads[i] = NULL;
     } else {
-      _threads[i] = create_refinement_thread(i, true);
+      _threads[i] = create_refinement_thread(i, true); // forcus 初始时只创建1个 GC Refine 线程
       if (_threads[i] == NULL) {
         vm_shutdown_during_initialization("Could not allocate refinement threads.");
         return JNI_ENOMEM;
@@ -219,11 +219,11 @@ G1ConcurrentRefine::G1ConcurrentRefine(size_t green_zone,
                                        size_t yellow_zone,
                                        size_t red_zone,
                                        size_t min_yellow_zone_size) :
-  _thread_control(),
-  _green_zone(green_zone),
-  _yellow_zone(yellow_zone),
-  _red_zone(red_zone),
-  _min_yellow_zone_size(min_yellow_zone_size)
+  _thread_control(), // 线程控制器
+  _green_zone(green_zone), // green zone 13
+  _yellow_zone(yellow_zone), // yellow zone 39
+  _red_zone(red_zone), // red zone 65
+  _min_yellow_zone_size(min_yellow_zone_size) // min yellow zone size 26
 {
   assert_zone_constraints_gyr(green_zone, yellow_zone, red_zone);
 }
@@ -275,6 +275,15 @@ static size_t calc_init_red_zone(size_t green, size_t yellow) {
 }
 
 G1ConcurrentRefine* G1ConcurrentRefine::create(jint* ecode) {
+  // forcus 计算三个区域的大小
+  /*
+        三色区域
+         green_zone  = 13 (精炼线程正常工作)
+         yellow_zone = 39 (唤醒更多精炼线程)
+         red_zone    = 65 (应用线程也要帮忙！)
+         min_yellow_zone_size = 26
+         这是控制精炼线程工作强度的机制：
+   */
   size_t min_yellow_zone_size = calc_min_yellow_zone_size();
   size_t green_zone = calc_init_green_zone();
   size_t yellow_zone = calc_init_yellow_zone(green_zone, min_yellow_zone_size);
@@ -286,7 +295,7 @@ G1ConcurrentRefine* G1ConcurrentRefine::create(jint* ecode) {
             "red: " SIZE_FORMAT ", "
             "min yellow size: " SIZE_FORMAT,
             green_zone, yellow_zone, red_zone, min_yellow_zone_size);
-
+  // forcus 创建对象(保存区域边界到成员变量中)
   G1ConcurrentRefine* cr = new G1ConcurrentRefine(green_zone,
                                                   yellow_zone,
                                                   red_zone,
@@ -297,7 +306,7 @@ G1ConcurrentRefine* G1ConcurrentRefine::create(jint* ecode) {
     vm_shutdown_during_initialization("Could not create G1ConcurrentRefine");
     return NULL;
   }
-
+    // forcus 创建13个并发精炼线程 (GC Refine#0~12) -- 实际上是只创建1个
   *ecode = cr->initialize();
   return cr;
 }

@@ -93,8 +93,41 @@ void G1CollectionSet::init_region_lengths(uint eden_cset_region_length,
 
 void G1CollectionSet::initialize(uint max_region_length) {
   guarantee(_collection_set_regions == NULL, "Must only initialize once.");
-  _collection_set_max_length = max_region_length;
-  _collection_set_regions = NEW_C_HEAP_ARRAY(uint, max_region_length, mtGC);
+  _collection_set_max_length = max_region_length; // 保存最大容量 = 2048
+  /*
+                                 G1CollectionSet
+        ┌──────────────────────────────────────────────────────────────────┐
+        │  _g1h ──────────────────────────→ G1CollectedHeap               │
+        │  _policy ───────────────────────→ G1Policy                       │
+        │  _cset_chooser ─────────────────→ CollectionSetChooser          │
+        │                                                                  │
+        │  _eden_region_length     = 0     (初始为0,GC时设置)              │
+        │  _survivor_region_length = 0                                     │
+        │  _old_region_length      = 0                                     │
+        │                                                                  │
+        │  _collection_set_max_length = 2048 ← initialize() 设置          │
+        │  _collection_set_cur_length = 0    (当前CSet中的Region数)        │
+        │  _collection_set_regions ──────┐   ← initialize() 分配          │
+        │                                │                                 │
+        │  _inc_build_state = Inactive   │                                 │
+        │  _inc_bytes_used_before = 0    │                                 │
+        │  _inc_recorded_rs_lengths = 0  │                                 │
+        └────────────────────────────────│─────────────────────────────────┘
+                                         │
+                                         ▼
+                    ┌─────────────────────────────────────────────────┐
+                    │          _collection_set_regions (C堆)          │
+                    │  ┌────┬────┬────┬────┬────┬─────────┬────┐     │
+                    │  │ r0 │ r1 │ r2 │ r3 │ r4 │  ...    │r2047│    │
+                    │  └────┴────┴────┴────┴────┴─────────┴────┘     │
+                    │   uint uint uint uint uint          uint        │
+                    │   4B   4B   4B   4B   4B            4B          │
+                    │                                                 │
+                    │   存储 HeapRegion 的索引 (hrm_index)            │
+                    │   容量: 2048 个 uint = 8KB                      │
+                    └─────────────────────────────────────────────────┘
+   */
+  _collection_set_regions = NEW_C_HEAP_ARRAY(uint, max_region_length, mtGC); // 在 C 堆分配数组
 }
 
 void G1CollectionSet::set_recorded_rs_lengths(size_t rs_lengths) {
@@ -131,7 +164,7 @@ void G1CollectionSet::start_incremental_building() {
   _inc_recorded_rs_lengths_diffs = 0;
   _inc_predicted_elapsed_time_ms = 0.0;
   _inc_predicted_elapsed_time_ms_diffs = 0.0;
-  _inc_build_state = Active;
+  _inc_build_state = Active; // forcus 上面的都是清0操作，这行状态修改最为重要(这代表CSet可以接受新的Region了)
 }
 
 void G1CollectionSet::finalize_incremental_building() {

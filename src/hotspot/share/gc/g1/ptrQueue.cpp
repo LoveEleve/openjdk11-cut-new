@@ -115,8 +115,8 @@ void PtrQueueSet::initialize(Monitor* cbl_mon,
                              int process_completed_threshold,
                              int max_completed_queue,
                              PtrQueueSet *fl_owner) {
-  _max_completed_queue = max_completed_queue;
-  _process_completed_threshold = process_completed_threshold;
+  _max_completed_queue = max_completed_queue; // 完成缓冲区队列无上限(-1)
+  _process_completed_threshold = process_completed_threshold; // 20
   _completed_queue_padding = 0;
   assert(cbl_mon != NULL && fl_lock != NULL, "Init order issue?");
   _cbl_mon = cbl_mon;

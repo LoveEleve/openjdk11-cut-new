@@ -27,34 +27,41 @@
 #include "memory/allocation.inline.hpp"
 #include "memory/resourceArea.hpp"
 #include "runtime/os.hpp"
-
+/*
+    计数器创建	                jstat 对应名称	                                含义	jstat 列
+    collector.0.invocations	    sun.gc.collector.0.invocations	                Young/Mixed GC 次数	YGC
+    collector.0.time	        sun.gc.collector.0.time	Young/Mixed             GC 耗时	YGCT
+    collector.1.invocations	    sun.gc.collector.1.invocations	                Full GC 次数	FGC
+    collector.1.time	        sun.gc.collector.1.time	                        Full GC 耗时	FGCT
+ */
 CollectorCounters::CollectorCounters(const char* name, int ordinal) {
 
   if (UsePerfData) {
     EXCEPTION_MARK;
     ResourceMark rm;
-
+      // 创建命名空间: "sun.gc.collector.{ordinal}"
     const char* cns = PerfDataManager::name_space("collector", ordinal);
 
     _name_space = NEW_C_HEAP_ARRAY(char, strlen(cns)+1, mtGC);
     strcpy(_name_space, cns);
 
+      // 1. collector.N.name        - GC名称 (字符串常量)
     char* cname = PerfDataManager::counter_name(_name_space, "name");
     PerfDataManager::create_string_constant(SUN_GC, cname, name, CHECK);
-
+      // 2. collector.N.invocations - GC调用次数
     cname = PerfDataManager::counter_name(_name_space, "invocations");
     _invocations = PerfDataManager::create_counter(SUN_GC, cname,
                                                    PerfData::U_Events, CHECK);
-
+      // 3. collector.N.time        - GC总耗时
     cname = PerfDataManager::counter_name(_name_space, "time");
     _time = PerfDataManager::create_counter(SUN_GC, cname, PerfData::U_Ticks,
                                             CHECK);
-
+      // 4. collector.N.lastEntryTime - 最近一次GC开始时间
     cname = PerfDataManager::counter_name(_name_space, "lastEntryTime");
     _last_entry_time = PerfDataManager::create_variable(SUN_GC, cname,
                                                         PerfData::U_Ticks,
                                                         CHECK);
-
+      // 5. collector.N.lastExitTime  - 最近一次GC结束时间
     cname = PerfDataManager::counter_name(_name_space, "lastExitTime");
     _last_exit_time = PerfDataManager::create_variable(SUN_GC, cname,
                                                        PerfData::U_Ticks,

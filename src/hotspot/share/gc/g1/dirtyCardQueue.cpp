@@ -153,13 +153,18 @@ void DirtyCardQueueSet::initialize(Monitor* cbl_mon,
                                    Mutex* lock,
                                    DirtyCardQueueSet* fl_owner,
                                    bool init_free_ids) {
-  PtrQueueSet::initialize(cbl_mon,
+    // 调用父类初始化
+    PtrQueueSet::initialize(cbl_mon,
                           fl_lock,
                           process_completed_threshold,
                           max_completed_queue,
                           fl_owner);
+
+    // 设置缓冲区大小
   set_buffer_size(G1UpdateBufferSize);
+  // 给共享队列设置锁
   _shared_dirty_card_queue.set_lock(lock);
+  // 如果需要，初始化并行处理 ID 集合
   if (init_free_ids) {
     _free_ids = new FreeIdSet(num_par_ids(), _cbl_mon);
   }

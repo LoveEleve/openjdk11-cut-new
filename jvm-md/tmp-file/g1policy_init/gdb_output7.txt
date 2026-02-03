@@ -1,0 +1,100 @@
+Thread 2 "java" hit Breakpoint 1, G1Policy::init (this=0x7ffff0038910, g1h=0x7ffff00324c0, collection_set=0x7ffff00329d8) at /data/workspace/openjdk-cut-new/src/hotspot/share/gc/g1/g1Policy.cpp:80
+warning: Source file is more recent than executable.
+80	  _g1h = g1h; // 设置G1堆引用
+(gdb) Continuing.
+[New Thread 0x7fffc33f36c0 (LWP 763443)]
+[New Thread 0x7fffc32f16c0 (LWP 763444)]
+[0.339s][trace][gc,region   ] G1HR ALLOC(EDEN) [0x00000007ffc00000, 0x00000007ffc00000, 0x0000000800000000]
+[New Thread 0x7fffc296e6c0 (LWP 763451)]
+[New Thread 0x7fffc286c6c0 (LWP 763452)]
+[New Thread 0x7fffc276c6c0 (LWP 763453)]
+[New Thread 0x7fffc26146c0 (LWP 763454)]
+[New Thread 0x7fffc21ff6c0 (LWP 763455)]
+[New Thread 0x7fffc20ff6c0 (LWP 763456)]
+[New Thread 0x7fffc1fff6c0 (LWP 763457)]
+[New Thread 0x7fffc1eff6c0 (LWP 763458)]
+[New Thread 0x7fffc1dff6c0 (LWP 763459)]
+[New Thread 0x7fffc1cff6c0 (LWP 763460)]
+[0.843s][trace][gc,region   ] G1HR ALLOC(EDEN) [0x00000007ff800000, 0x00000007ff800000, 0x00000007ffc00000]
+[New Thread 0x7fffc1bff6c0 (LWP 763461)]
+[New Thread 0x7fffc1aff6c0 (LWP 763462)]
+[New Thread 0x7fffc19ff6c0 (LWP 763463)]
+[1.030s][trace][gc,region   ] G1HR ALLOC(EDEN) [0x00000007ff400000, 0x00000007ff400000, 0x00000007ff800000]
+[New Thread 0x7fffc18ff6c0 (LWP 763464)]
+[New Thread 0x7fffc17ff6c0 (LWP 763465)]
+[New Thread 0x7fffc16ff6c0 (LWP 763466)]
+[1.140s][trace][gc,workgang ] Running work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0
+[1.140s][trace][gc,workgang ] Finished work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0 thread: 0x00007ffff0040800
+[1.299s][trace][gc,region   ] G1HR ALLOC(EDEN) [0x00000007ff000000, 0x00000007ff000000, 0x00000007ff400000]
+[1.317s][trace][gc,workgang ] Running work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0
+[1.317s][trace][gc,workgang ] Finished work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0 thread: 0x00007ffff0040800
+[New Thread 0x7fffc15ff6c0 (LWP 763467)]
+hello jvm
+[Thread 0x7fffc15ff6c0 (LWP 763467) exited]
+[Thread 0x7fffc32f16c0 (LWP 763444) exited]
+[Thread 0x7fffc33f36c0 (LWP 763443) exited]
+[Thread 0x7ffff43f06c0 (LWP 763441) exited]
+[Thread 0x7fffc26146c0 (LWP 763454) exited]
+[1.368s][trace][gc,workgang ] Running work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0
+[1.368s][trace][gc,workgang ] Finished work gang: GC Thread#0 task: Parallel Safepoint Cleanup worker: 0 thread: 0x00007ffff0040800
+[1.374s][trace][gc,workgang ] Running work gang: GC Thread#0 task: Parallel verify task worker: 0
+[1.814s][trace][gc,workgang ] Finished work gang: GC Thread#0 task: Parallel verify task worker: 0 thread: 0x00007ffff0040800
+[Thread 0x7fffc296e6c0 (LWP 763451) exited]
+[Thread 0x7ffff780b6c0 (LWP 763439) exited]
+[Thread 0x7fffc17ff6c0 (LWP 763465) exited]
+[Thread 0x7fffc18ff6c0 (LWP 763464) exited]
+[Thread 0x7fffc19ff6c0 (LWP 763463) exited]
+[Thread 0x7fffc1aff6c0 (LWP 763462) exited]
+[Thread 0x7fffc1bff6c0 (LWP 763461) exited]
+[Thread 0x7fffc1cff6c0 (LWP 763460) exited]
+[Thread 0x7fffc1dff6c0 (LWP 763459) exited]
+[Thread 0x7fffc1eff6c0 (LWP 763458) exited]
+[Thread 0x7fffc1fff6c0 (LWP 763457) exited]
+[Thread 0x7fffc20ff6c0 (LWP 763456) exited]
+[Thread 0x7fffc21ff6c0 (LWP 763455) exited]
+[Thread 0x7fffc276c6c0 (LWP 763453) exited]
+[Thread 0x7fffc286c6c0 (LWP 763452) exited]
+[Thread 0x7ffff42ee6c0 (LWP 763442) exited]
+[Thread 0x7ffff51ff6c0 (LWP 763440) exited]
+[Thread 0x7ffff7f7a740 (LWP 763436) exited]
+[Thread 0x7fffc16ff6c0 (LWP 763466) exited]
+[New process 763436]
+[Inferior 1 (process 763436) exited normally]
+(gdb) (gdb) 
+
+==================== [1] G1Policy::init() 入口 ====================
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "g1h" in current context.
+(gdb) No symbol "collection_set" in current context.
+(gdb) No symbol "collection_set" in current context.
+(gdb) 
+--- _young_gen_sizer 状态 (init 前，构造函数已设置) ---
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) 
+--- G1CollectedHeap 状态 ---
+(gdb) No symbol "g1h" in current context.
+(gdb) No symbol "g1h" in current context.
+(gdb) No symbol "g1h" in current context.
+(gdb) (gdb) The program is not being run.
+(gdb) The program is not being run.
+(gdb) 
+
+==================== [2] G1Policy::init() 执行完毕 ====================
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) 
+--- 年轻代配置结果 ---
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.
+(gdb) 
+--- _young_gen_sizer 更新后的状态 ---
+(gdb) No symbol "this" in current context.
+(gdb) No symbol "this" in current context.

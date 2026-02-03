@@ -163,7 +163,7 @@ void G1AllocRegion::init() {
   trace("initializing");
   assert_alloc_region(_alloc_region == NULL && _used_bytes_before == 0, "pre-condition");
   assert_alloc_region(_dummy_region != NULL, "should have been set");
-  _alloc_region = _dummy_region;
+  _alloc_region = _dummy_region; // forcus
   _count = 0;
   trace("initialized");
 }

@@ -37,29 +37,29 @@ HSpaceCounters::HSpaceCounters(const char* name_space,
   if (UsePerfData) {
     EXCEPTION_MARK;
     ResourceMark rm;
-
+      // 创建命名空间: "sun.gc.{name_space}.space.{ordinal}"
     const char* cns =
       PerfDataManager::name_space(name_space, "space", ordinal);
 
     _name_space = NEW_C_HEAP_ARRAY(char, strlen(cns)+1, mtGC);
     strcpy(_name_space, cns);
-
+      // 1. space.N.name         - 空间名称
     const char* cname = PerfDataManager::counter_name(_name_space, "name");
     PerfDataManager::create_string_constant(SUN_GC, cname, name, CHECK);
-
+      // 2. space.N.maxCapacity  - 最大容量 (常量)
     cname = PerfDataManager::counter_name(_name_space, "maxCapacity");
     PerfDataManager::create_constant(SUN_GC, cname, PerfData::U_Bytes,
                                      (jlong)max_size, CHECK);
-
+      // 3. space.N.capacity     - 当前容量 (可变)
     cname = PerfDataManager::counter_name(_name_space, "capacity");
     _capacity = PerfDataManager::create_variable(SUN_GC, cname,
                                                  PerfData::U_Bytes,
                                                  initial_capacity, CHECK);
-
+      // 4. space.N.used         - 当前使用量 (可变, 初始=0)
     cname = PerfDataManager::counter_name(_name_space, "used");
     _used = PerfDataManager::create_variable(SUN_GC, cname, PerfData::U_Bytes,
                                              (jlong) 0, CHECK);
-
+      // 5. space.N.initCapacity - 初始容量 (常量)
     cname = PerfDataManager::counter_name(_name_space, "initCapacity");
     PerfDataManager::create_constant(SUN_GC, cname, PerfData::U_Bytes,
                                      initial_capacity, CHECK);

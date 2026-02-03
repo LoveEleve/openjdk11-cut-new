@@ -90,7 +90,12 @@ void G1Policy::init(G1CollectedHeap* g1h, G1CollectionSet* collection_set) {
       - max_desired_young_length = 2048 * 60% = 1228个Region (4.9GB)
       - 自适应模式：年轻代大小会根据分配速率在102-1228个Region间动态调整
    */
-  if (!adaptive_young_list_length()) {
+  /*
+        1. 自适应模式（默认）-- 没有设置 -XX:NewSize=MaxNewSize -- 年轻代大小动态调整
+        2. 固定模式  -- 设置了 -XX:NewSize = MaxNewSize 或 -XX:NewRatio -- 年轻代大小固定(有两种方式，一种是固定大小,比如说是2GB,另外一种是比例,比如 新生代：老年代 = 3:1)
+            这里就有一个问题了,这两种模式各有什么优缺点呢？通常在生产环境下会如何配置呢？
+   */
+  if (!adaptive_young_list_length()) { // 如果没有设置相关的参数，那么 adaptive_young_list_length() == true
     _young_list_fixed_length = _young_gen_sizer.min_desired_young_length();
   }
   // forcus 年轻代大小边界调整
@@ -106,16 +111,35 @@ void G1Policy::init(G1CollectedHeap* g1h, G1CollectionSet* collection_set) {
             - **GC暂停时间目标**：用户设置的MaxGCPauseMillis
             - **分配速率**：应用程序的内存分配速度
             - **存活率预测**：年轻代对象的存活概率
-        假设MaxGCPauseMillis = 200ms
-            预测的记忆集长度 = 1000
-            计算得出：
-            - young_list_target_length = 128个Region (512MB)
-            - young_list_max_length = 256个Region (1GB)
+   */
+  /*
+        这是最复杂的一步，会计算：
+            1. _young_list_target_length：当前年轻代目标长度（当前年轻代应该有多少个Region,比如128）
+                    _young_list_target_length ≈ 102-256 Regions (取决于预测)
+            2. _young_list_max_length：年轻代最大长度(最多能有多少个Region，比如1228)
+                    _young_list_max_length = min(1228, 2048 - reserve - survivor)
+
+        为什么要计算这个呢？
+            因为G1的目标是：(比如)每次GC的暂停时间尽量接近 200 ms
+                年轻代太大：要回收的对象多 -> 时间超过200ms
+                年轻代太小：GC频繁
+        所以需要动态的计算出一个合适的年轻代大小：简化版公式：
+                目标年轻代大小 = f(暂停时间目标, 记忆集大小, 存活率预测, 空闲Region数)
+                因为初始化时(程序还没跑，没有历史数据，所以使用默认值为 102 个Region)
+        ====
+        最终的值为:
+            _young_list_target_length = 102 = 当前年轻代目标大小 = 102 个 Region = 408 MB
+            _young_list_fixed_length = 0 = 固定模式未启用（因为是自适应模式）
+            _young_list_max_length = 108 = 	当前允许的最大值 = 108 个 Region = 432 MB (这个上限可以扩展，但是最大不能超过1228个Region)
+
+
    */
   update_young_list_max_and_target_length();
   // We may immediately start allocating regions and placing them on the
   // collection set list. Initialize the per-collection set info
   // forcus 收集集合增量构建初始化
+  // 将收集集合的状态从 Inactive 改为 Active，开始增量式地添加年轻代 Region
+  // 可以简单理解为: 从现在开始，新分配的Region都记录下来
   _collection_set->start_incremental_building();
 }
 

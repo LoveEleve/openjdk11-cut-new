@@ -30,11 +30,57 @@
 
 template <typename Q, typename S>
 void StringDedup::initialize_impl() {
-  if (UseStringDeduplication) {
-    _enabled = true;
-    StringDedupQueue::create<Q>();
-    StringDedupTable::create();
-    StringDedupThreadImpl<S>::create();
+  if (UseStringDeduplication) { // UseStringDeduplication = 1
+    _enabled = true;// 设置启用标志
+    /*
+        G1StringDedupQueue
+        {
+            _cursor(0),          // 当前消费位置
+            _cancel(false),      // 取消标志
+            _empty(true),        // 队列空标志
+            _dropped(0) {        // 丢弃计数
+            _nqueues = ParallelGCThreads;  // 13 个队列 (计算出来的13个并行线程数,实际上我的为16C)
+             _queues = NEW_C_HEAP_ARRAY(G1StringDedupWorkerQueue, _nqueues, mtGC);
+             for (size_t i = 0; i < _nqueues; i++) {
+                new (_queues + i) G1StringDedupWorkerQueue(..., _max_size);  // 每个队列最大 100万
+              }
+        }
+        forcus 从这个可以看出来,每个 GC Worker 有独立队列
+            每个 Worker 往自己的队列 push，无锁竞争
+            去重线程 round-robin 从各队列 pop
+     */
+    StringDedupQueue::create<Q>(); // step-1: 创建队列(G1StringDedupQueue)
+    /*
+        StringDedupTable
+        {
+            _size = 1024
+            _entries = 0
+            _grow_threshold = 2048 (200% 负载时扩容 - 1024 * 2.0 = 2048)
+            _shrink_threshold = 682 (67% 负载时缩容 1024 * 0.67 = 682)
+            _hash_seed = 0
+            _buckets = 0x7ffff0c89780 (哈希桶数组)
+                {
+                        [0] NULL → StringDedupEntry → StringDedupEntry → NULL (链表)
+                            {
+                                _next: StringDedupEntry* : 链表下一个
+                                 _hash: unsigned int: 哈希值
+                                 _latin1: bool  : 是否 Latin1 编码
+                                 _obj: typeArrayOop  : 指向 char[]/byte[] (弱引用)
+                            }
+                        [1] NULL
+                        [2] NULL
+                }
+        }
+     */
+    StringDedupTable::create();  // step-2: 创建哈希表
+    /*
+        StringDedupThread // 继承自 ConcurrentGCThread
+        {
+            线程名设为 "StrDedup"
+            // 创建并启动线程
+        }
+     */
+    StringDedupThreadImpl<S>::create(); // step-3: 创建后台线程
   }
 }
 

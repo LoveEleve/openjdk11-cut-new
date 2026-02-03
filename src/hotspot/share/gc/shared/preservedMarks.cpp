@@ -78,14 +78,18 @@ void RemoveForwardedPointerClosure::do_object(oop obj) {
 void PreservedMarksSet::init(uint num) {
   assert(_stacks == NULL && _num == 0, "do not re-initialize");
   assert(num > 0, "pre-condition");
+  // 根据 _in_c_heap 决定在哪里分配内存
   if (_in_c_heap) {
+      // NEW_C_HEAP_ARRAY 分配 num 个 Padded<PreservedMarks> 大小的连续内存
     _stacks = NEW_C_HEAP_ARRAY(Padded<PreservedMarks>, num, mtGC);
   } else {
     _stacks = NEW_RESOURCE_ARRAY(Padded<PreservedMarks>, num);
   }
+  // 使用 placement new 在预分配的内存上构造对象
   for (uint i = 0; i < num; i += 1) {
-    ::new (_stacks + i) PreservedMarks();
+    ::new (_stacks + i) PreservedMarks(); // placement new 在已分配内存上调用 PreservedMarks() 构造函数
   }
+  // 设置数量
   _num = num;
 
   assert_empty();

@@ -135,6 +135,8 @@ static const char* DEBUG_INJECTED_ARGS[] = {
     // "-Xlog:gc+marking=trace",
     "-Xlog:gc+workgang=trace",
     "-Xlog:gc+region=trace", // region提交日志
+    "-Xlog:gc+ergo+refine=debug",
+    "-Xlog:gc=info",
     
     // 调试选项
     // "-XX:+PrintFlagsFinal",
