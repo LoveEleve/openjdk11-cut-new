@@ -36,7 +36,9 @@ class MetaspacePerfCounters: public CHeapObj<mtInternal> {
   PerfVariable*      _max_capacity;
 
   PerfVariable* create_variable(const char *ns, const char *name, size_t value, TRAPS) {
-    const char *path = PerfDataManager::counter_name(ns, name);
+      // 构建完整路径：sun.gc.{ns}.{name}
+    const char *path = PerfDataManager::counter_name(ns, name); // 如 "sun.gc.metaspace.capacity"
+      // 在 PerfData 内存区域创建变量
     return PerfDataManager::create_variable(SUN_GC, path, PerfData::U_Bytes, value, THREAD);
   }
 
@@ -49,11 +51,12 @@ class MetaspacePerfCounters: public CHeapObj<mtInternal> {
   MetaspacePerfCounters(const char* ns, size_t min_capacity, size_t curr_capacity, size_t max_capacity, size_t used) {
     EXCEPTION_MARK;
     ResourceMark rm;
-
-    create_constant(ns, "minCapacity", min_capacity, THREAD);
-    _capacity = create_variable(ns, "capacity", curr_capacity, THREAD);
-    _max_capacity = create_variable(ns, "maxCapacity", max_capacity, THREAD);
-    _used = create_variable(ns, "used", used, THREAD);
+      // 创建常量（不可变）
+    create_constant(ns, "minCapacity", min_capacity, THREAD); // sun.gc.metaspace.minCapacity
+      // 创建变量（可更新）
+    _capacity = create_variable(ns, "capacity", curr_capacity, THREAD);  // sun.gc.metaspace.capacity
+    _max_capacity = create_variable(ns, "maxCapacity", max_capacity, THREAD); // sun.gc.metaspace.maxCapacity
+    _used = create_variable(ns, "used", used, THREAD);  // sun.gc.metaspace.used
   }
 
   void update(size_t capacity, size_t max_capacity, size_t used) {
@@ -82,8 +85,11 @@ void MetaspaceCounters::initialize_performance_counters() {
     assert(_perf_counters == NULL, "Should only be initialized once");
 
     size_t min_capacity = 0;
-    _perf_counters = new MetaspacePerfCounters("metaspace", min_capacity,
-                                               capacity(), max_capacity(), used());
+    _perf_counters = new MetaspacePerfCounters("metaspace",  // 命名空间
+                                               min_capacity, // = 0
+                                               capacity(),// 调用 MetaspaceUtils::committed_bytes()
+                                               max_capacity(), // 调用 MetaspaceUtils::reserved_bytes()
+                                               used());  // 调用 MetaspaceUtils::used_bytes()
   }
 }
 
@@ -124,6 +130,7 @@ void CompressedClassSpaceCounters::initialize_performance_counters() {
 
     if (UseCompressedClassPointers) {
       size_t min_capacity = 0;
+
       _perf_counters = new MetaspacePerfCounters(ns, min_capacity, capacity(),
                                                  max_capacity(), used());
     } else {

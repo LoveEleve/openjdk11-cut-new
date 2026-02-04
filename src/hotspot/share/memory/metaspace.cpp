@@ -185,6 +185,14 @@ size_t MetaspaceGC::dec_capacity_until_GC(size_t v) {
 void MetaspaceGC::initialize() {
   // Set the high-water mark to MaxMetapaceSize during VM initializaton since
   // we can't do a GC during initialization.
+  // forcus 设置 Metaspace 的 GC 触发阈值
+  /*
+        初始化时设置为最大值，避免启动期间触发 GC
+        为什么设为无限大？
+            JVM 启动时要加载大量核心类
+            此时不希望因为 Metaspace 满而触发 GC
+            启动完成后会调用 post_initialize() 重新设置合理阈值
+   */
   _capacity_until_GC = MaxMetaspaceSize;
 }
 
@@ -1083,6 +1091,7 @@ void Metaspace::allocate_metaspace_compressed_klass_ptrs(char* requested_addr, a
   bool large_pages = false;
 
 #if !(defined(AARCH64) || defined(PPC64))
+  // forcus  在 x86_64 上，直接在请求的地址分配
   ReservedSpace metaspace_rs = ReservedSpace(compressed_class_space_size(),
                                              _reserve_alignment,
                                              large_pages,
@@ -1155,9 +1164,11 @@ void Metaspace::allocate_metaspace_compressed_klass_ptrs(char* requested_addr, a
       // by 1GB each time, until we reach an address that will no longer allow
       // use of CDS with compressed klass pointers.
       char *addr = requested_addr;
+
       while (!metaspace_rs.is_reserved() && (addr + increment > addr) &&
              can_use_cds_with_metaspace_addr(addr + increment, cds_base)) {
         addr = addr + increment;
+          // 在任意地址分配（最后的手段）
         metaspace_rs = ReservedSpace(compressed_class_space_size(),
                                      _reserve_alignment, large_pages, addr);
       }
@@ -1168,7 +1179,9 @@ void Metaspace::allocate_metaspace_compressed_klass_ptrs(char* requested_addr, a
     // metaspace as if UseCompressedClassPointers is off because too much
     // initialization has happened that depends on UseCompressedClassPointers.
     // So, UseCompressedClassPointers cannot be turned off at this point.
+      // forcus 如果分配失败，尝试其他地址...
     if (!metaspace_rs.is_reserved()) {
+        // 在任意地址分配（最后的手段）
       metaspace_rs = ReservedSpace(compressed_class_space_size(),
                                    _reserve_alignment, large_pages);
       if (!metaspace_rs.is_reserved()) {
@@ -1188,9 +1201,26 @@ void Metaspace::allocate_metaspace_compressed_klass_ptrs(char* requested_addr, a
         "Could not allocate metaspace at a compatible address");
   }
 #endif
+  // forcus  设置压缩类指针的编码参数
+  /*
+        narrow_klass._base = 0x800000000
+        narrow_klass._shift = 0  (因为 33GB - 32GB = 1GB < 4GB，不需要 shift)
+        假设某个 Klass 位于地址 0x800001000：
+
+        narrow_klass = (0x800001000 - 0x800000000) >> 0
+                     = 0x1000
+                     = 4096
+
+        存储在对象头中：4 字节的值 4096
+
+        解码时：
+        klass_address = 0x800000000 + (4096 << 0)
+                      = 0x800001000 ✓
+
+   */
   set_narrow_klass_base_and_shift((address)metaspace_rs.base(),
                                   UseSharedSpaces ? (address)cds_base : 0);
-
+  // forcus  初始化类空间的 VirtualSpaceList
   initialize_class_space(metaspace_rs);
 
   LogTarget(Trace, gc, metaspace) lt;
@@ -1222,7 +1252,69 @@ void Metaspace::initialize_class_space(ReservedSpace rs) {
   assert(rs.size() >= CompressedClassSpaceSize,
          SIZE_FORMAT " != " SIZE_FORMAT, rs.size(), CompressedClassSpaceSize);
   assert(using_class_space(), "Must be using class space");
+    // forcus 创建压缩类空间的 VirtualSpaceList
+    /*
+     ┌─────────────────────────────────────────────────────────────────────────────────┐
+│  VirtualSpaceList @ 0x7ffff0c8ca80 (构造完成后)                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  _is_class = true                                                               │
+│  _reserved_words = 134217728 (1GB)                                              │
+│  _committed_words = 0                                                           │
+│  _virtual_space_count = 1                                                       │
+│  _envelope_lo = 0x800000000                                                     │
+│  _envelope_hi = 0x840000000                                                     │
+│                                                                                 │
+│  _virtual_space_list ────────┐                                                  │
+│  _current_virtual_space ─────┤                                                  │
+│                              │                                                  │
+│                              ▼                                                  │
+│        ┌─────────────────────────────────────────────────────────────┐          │
+│        │  VirtualSpaceNode @ 0x7ffff0c8cb00                          │          │
+│        ├─────────────────────────────────────────────────────────────┤          │
+│        │  _next = NULL                                               │          │
+│        │  _is_class = true                                           │          │
+│        │  _container_count = 0                                       │          │
+│        │  _top = 0x800000000                                         │          │
+│        │                                                             │          │
+│        │  _rs (ReservedSpace):                                       │          │
+│        │    _base = 0x800000000                                      │          │
+│        │    _size = 1GB                                              │          │
+│        │                                                             │          │
+│        │  _virtual_space (VirtualSpace):                             │          │
+│        │    _low_boundary = 0x800000000                              │          │
+│        │    _high_boundary = 0x840000000                             │          │
+│        │    _low = _high = 0x800000000 (已提交 = 0)                  │          │
+│        │                                                             │          │
+│        │  _occupancy_map:                                            │          │
+│        │    记录 1GB / 1KB = 1M 个位置的使用情况                     │          │
+│        │    两层位图：chunk_start_map + in_use_map                   │          │
+│        └─────────────────────────────────────────────────────────────┘          │
+│                                                                                 │
+│                              │                                                  │
+│                              ▼                                                  │
+│        ┌─────────────────────────────────────────────────────────────┐          │
+│        │          物理内存视图 (0x800000000 ~ 0x840000000)           │          │
+│        ├─────────────────────────────────────────────────────────────┤          │
+│        │                                                             │          │
+│        │  ┌─────────────────────────────────────────────────────┐    │          │
+│        │  │                                                     │    │          │
+│        │  │               已预留，但未提交的 1GB                 │    │          │
+│        │  │               (虚拟地址空间已占用)                   │    │          │
+│        │  │               (物理内存还没分配)                     │    │          │
+│        │  │                                                     │    │          │
+│        │  │    当需要分配 Chunk 时，才会按需提交物理内存         │    │          │
+│        │  │                                                     │    │          │
+│        │  └─────────────────────────────────────────────────────┘    │          │
+│        │  ↑                                                     ↑    │          │
+│        │ _top                                              end       │          │
+│        └─────────────────────────────────────────────────────────────┘          │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+     */
   _class_space_list = new VirtualSpaceList(rs);
+    // forcus 创建压缩类空间的 ChunkManager
   _chunk_manager_class = new ChunkManager(true/*is_class*/);
 
   if (!_class_space_list->initialization_succeeded()) {
@@ -1290,12 +1382,15 @@ void Metaspace::ergo_initialize() {
 }
 
 void Metaspace::global_initialize() {
+    // forcus 初始化 MetaspaceGC
   MetaspaceGC::initialize();
 
+  // skip
 #if INCLUDE_CDS
   if (DumpSharedSpaces) {
     MetaspaceShared::initialize_dumptime_shared_and_meta_spaces();
-  } else if (UseSharedSpaces) {
+  }
+  else if (UseSharedSpaces) {
     // If any of the archived space fails to map, UseSharedSpaces
     // is reset to false. Fall through to the
     // (!DumpSharedSpaces && !UseSharedSpaces) case to set up class
@@ -1307,35 +1402,82 @@ void Metaspace::global_initialize() {
 #endif // INCLUDE_CDS
   {
 #ifdef _LP64
+      // forcus 分配压缩类空间（64位系统）
+      /*
+            什么是压缩类空间？在 64 位 JVM 中，每个 Java 对象头都包含一个指向其类信息（Klass）的指针。为了节省内存，JVM 使用压缩类指针，将 64 位指针压缩为 32 位。
+       */
     if (using_class_space()) {
-      char* base = (char*)align_up(Universe::heap()->reserved_region().end(), _reserve_alignment);
+      char* base = (char*)align_up(Universe::heap()->reserved_region().end(), _reserve_alignment); // base = 0x800000000  (32GB，紧挨着堆末尾，24GB ~ 32GB为堆空间)
+      // forcus
       allocate_metaspace_compressed_klass_ptrs(base, 0);
     }
 #endif // _LP64
   }
 
+  /*
+                ┌─────────────────────────────────────────────────────────────────────────────────────┐
+                │                              JVM 虚拟地址空间布局                                    │
+                ├─────────────────────────────────────────────────────────────────────────────────────┤
+                │                                                                                     │
+                │  0x600000000  ┌───────────────────────────────────────────┐                         │
+                │               │                                           │                         │
+                │               │              Java 堆 (8 GB)               │                         │
+                │               │         0x600000000 ~ 0x800000000         │                         │
+                │               │                                           │                         │
+                │  0x800000000  ├───────────────────────────────────────────┤                         │
+                │               │                                           │                         │
+                │               │         压缩类空间 (1 GB)                  │                         │
+                │               │         0x800000000 ~ 0x840000000         │                         │
+                │               │       存储 Klass 结构（类元数据）          │                         │
+                │               │                                           │                         │
+                │  0x840000000  └───────────────────────────────────────────┘                         │
+                │                                                                                     │
+                │                           ... 中间有空隙 ...                                        │
+                │                                                                                     │
+                │  0x7fffc29f0000  ┌───────────────────────────────────────────┐                      │
+                │                  │                                           │                      │
+                │                  │         数据元空间 (8 MB)                  │ ← 新创建的！         │
+                │                  │     0x7fffc29f0000 ~ 0x7fffc31f0000       │                      │
+                │                  │  存储 Method、ConstantPool、Bytecode 等   │                      │
+                │                  │                                           │                      │
+                │  0x7fffc31f0000  └───────────────────────────────────────────┘                      │
+                │                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+
+   */
+    // forcus 数据元空间（_space_list）初始化详解
+    // forcus 计算首个 Chunk 大小
   // Initialize these before initializing the VirtualSpaceList
+  // 	InitialBootClassLoaderMetaspaceSize = 启动类加载器的初始元空间大小 4 MB
   _first_chunk_word_size = InitialBootClassLoaderMetaspaceSize / BytesPerWord;
-  _first_chunk_word_size = align_word_size_up(_first_chunk_word_size);
+  _first_chunk_word_size = align_word_size_up(_first_chunk_word_size); // 4 MB 这是 Bootstrap ClassLoader # 分配的第一个 Chunk 的大小，用于存储 JDK 核心类（如 java.lang.Object、java.lang.String）的元数据
   // Make the first class chunk bigger than a medium chunk so it's not put
   // on the medium chunk list.   The next chunk will be small and progress
   // from there.  This size calculated by -version.
   _first_class_chunk_word_size = MIN2((size_t)MediumChunk*6,
                                      (CompressedClassSpaceSize/BytesPerWord)*2);
-  _first_class_chunk_word_size = align_word_size_up(_first_class_chunk_word_size);
+  _first_class_chunk_word_size = align_word_size_up(_first_class_chunk_word_size); // 首个类 Chunk 大小 384 KB  # 首个类 Chunk 设计得比 MediumChunk 大，是为了避免被放入 Medium 空闲链表，而是作为 Humongous Chunk 单独处理
   // Arbitrarily set the initial virtual space to a multiple
   // of the boot class loader size.
-  size_t word_size = VIRTUALSPACEMULTIPLIER * _first_chunk_word_size;
+  // forcus 计算初始虚拟空间大小
+  size_t word_size = VIRTUALSPACEMULTIPLIER * _first_chunk_word_size; // 初始虚拟空间大小  8 MB # 为什么是 2 倍？ 预留一些增长空间，避免频繁扩展虚拟空间
   word_size = align_up(word_size, Metaspace::reserve_alignment_words());
-
+  // forcus 创建 VirtualSpaceList 和 ChunkManager
   // Initialize the list of virtual spaces.
-  _space_list = new VirtualSpaceList(word_size);
+  _space_list = new VirtualSpaceList(word_size); // 预留 8MB 虚拟内存
   _chunk_manager_metadata = new ChunkManager(false/*metaspace*/);
 
   if (!_space_list->initialization_succeeded()) {
     vm_exit_during_initialization("Unable to setup metadata virtual space list.", NULL);
   }
-
+  // forcus 创建追踪器,什么都没做,在C堆上面分配了一个对象而已(不是java堆)
+  /*
+        但是在运行时：负责向 JFR 报告以下事件
+            EventMetaspaceGCThreshold     - GC 阈值变化
+            EventMetaspaceAllocationFailure - 分配失败
+            EventMetaspaceOOM             - 内存溢出
+        可通过 JFR 录制分析 Metaspace 问题,jcmd <pid> JFR.start
+   */
   _tracer = new MetaspaceTracer();
 
   _initialized = true;

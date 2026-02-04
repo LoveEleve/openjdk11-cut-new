@@ -76,7 +76,7 @@ void SymbolTable::initialize_symbols(int arena_alloc_size) {
   if (arena_alloc_size == 0) {
     _arena = new (mtSymbol) Arena(mtSymbol);
   } else {
-    _arena = new (mtSymbol) Arena(mtSymbol, arena_alloc_size);
+    _arena = new (mtSymbol) Arena(mtSymbol, arena_alloc_size); // forcus Arena 的作用：预分配一大块内存，用于快速分配永久 Symbol。避免频繁调用 malloc。
   }
 }
 

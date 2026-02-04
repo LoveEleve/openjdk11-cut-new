@@ -1,0 +1,14 @@
+# GDB 调试脚本：验证 Metaspace::global_initialize()
+# 使用方法: gdb -x gdb_metaspace_init2.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set breakpoint pending on
+
+# 设置断点
+break metaspace.cpp:1292
+break metaspace.cpp:1293
+break metaspace.cpp:1319
+break metaspace.cpp:1333
+
+# 运行程序
+run -Xms8g -Xmx8g -version

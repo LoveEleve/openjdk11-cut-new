@@ -106,7 +106,7 @@ private:
 
   static void create_table() {
     assert(_the_table == NULL, "One string table allowed.");
-    _the_table = new StringTable();
+    _the_table = new StringTable(); // forcus 在 进程堆上 分配一个 StringTable对象
   }
 
   static void do_concurrent_work(JavaThread* jt);

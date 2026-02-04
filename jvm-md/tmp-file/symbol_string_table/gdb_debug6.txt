@@ -1,0 +1,31 @@
+set pagination off
+set confirm off
+
+b JNI_CreateJavaVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xlog:gc=off -version
+
+b StringTable::StringTable
+c
+printf "\n===== StringTable::StringTable entry =====\n"
+bt 5
+printf "this = "
+p this
+printf "StringTableSize = "
+p StringTableSize
+finish
+printf "\n===== After StringTable constructed =====\n"
+printf "_the_table (still NULL) = "
+p StringTable::_the_table
+printf "*this (completed) = "
+p *this
+printf "_local_table = "
+p this->_local_table
+printf "_weak_handles = "
+p this->_weak_handles
+printf "*_weak_handles = "
+p *this->_weak_handles
+printf "_current_size = "
+p this->_current_size
+
+c
+quit

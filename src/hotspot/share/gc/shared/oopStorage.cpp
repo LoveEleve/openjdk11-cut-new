@@ -720,16 +720,16 @@ const size_t initial_active_array_size = 8;
 OopStorage::OopStorage(const char* name,
                        Mutex* allocation_mutex,
                        Mutex* active_mutex) :
-  _name(dup_name(name)),
-  _active_array(ActiveArray::create(initial_active_array_size)),
-  _allocation_list(),
-  _deferred_updates(NULL),
-  _allocation_mutex(allocation_mutex),
-  _active_mutex(active_mutex),
-  _allocation_count(0),
-  _concurrent_iteration_active(false)
+  _name(dup_name(name)), // 复制名称字符串
+  _active_array(ActiveArray::create(initial_active_array_size)),  // 创建活动数组(大小=8)
+  _allocation_list(), // 初始化分配列表
+  _deferred_updates(NULL), // 延迟更新链表
+  _allocation_mutex(allocation_mutex), // 保存分配锁
+  _active_mutex(active_mutex), // 保存活动锁
+  _allocation_count(0), // 已分配条目数 = 0
+  _concurrent_iteration_active(false) // 没有并发迭代在进行
 {
-  _active_array->increment_refcount();
+  _active_array->increment_refcount();  // 活动数组引用计数+1
   assert(_active_mutex->rank() < _allocation_mutex->rank(),
          "%s: active_mutex must have lower rank than allocation_mutex", _name);
   assert(_active_mutex->_safepoint_check_required != Mutex::_safepoint_check_always,

@@ -39,12 +39,75 @@
 #include "utilities/ostream.hpp"
 
 namespace metaspace {
+/*
+ ┌─────────────────────────────────────────────────────────────────────────────────┐
+│  ChunkManager @ 0x7ffff0c8cb80 (构造完成后)                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  _is_class = true                                                               │
+│  _free_chunks_total = 0 (当前没有空闲 Chunk)                                    │
+│  _free_chunks_count = 0                                                         │
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐      │
+│  │  _free_chunks[0] (SpecializedIndex)                                   │      │
+│  │  ┌─────────────────────────────────────────────────────────────────┐  │      │
+│  │  │  _size = 128 words (1KB)                                        │  │      │
+│  │  │  _count = 0                                                     │  │      │
+│  │  │  _head = NULL ──→ 空链表                                        │  │      │
+│  │  │  _tail = NULL                                                   │  │      │
+│  │  │                                                                 │  │      │
+│  │  │  用途：存储释放的 1KB 大小的 Chunk                              │  │      │
+│  │  │        适合存储小型 Klass (Lambda 表达式类等)                   │  │      │
+│  │  └─────────────────────────────────────────────────────────────────┘  │      │
+│  └───────────────────────────────────────────────────────────────────────┘      │
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐      │
+│  │  _free_chunks[1] (SmallIndex)                                         │      │
+│  │  ┌─────────────────────────────────────────────────────────────────┐  │      │
+│  │  │  _size = 256 words (2KB)                                        │  │      │
+│  │  │  _count = 0                                                     │  │      │
+│  │  │  _head = NULL ──→ 空链表                                        │  │      │
+│  │  │  _tail = NULL                                                   │  │      │
+│  │  │                                                                 │  │      │
+│  │  │  用途：存储释放的 2KB 大小的 Chunk                              │  │      │
+│  │  │        适合普通类的 Klass                                       │  │      │
+│  │  └─────────────────────────────────────────────────────────────────┘  │      │
+│  └───────────────────────────────────────────────────────────────────────┘      │
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐      │
+│  │  _free_chunks[2] (MediumIndex)                                        │      │
+│  │  ┌─────────────────────────────────────────────────────────────────┐  │      │
+│  │  │  _size = 4096 words (32KB)                                      │  │      │
+│  │  │  _count = 0                                                     │  │      │
+│  │  │  _head = NULL ──→ 空链表                                        │  │      │
+│  │  │  _tail = NULL                                                   │  │      │
+│  │  │                                                                 │  │      │
+│  │  │  用途：存储释放的 32KB 大小的 Chunk                             │  │      │
+│  │  │        适合复杂类的 Klass (很多方法/字段的类)                   │  │      │
+│  │  └─────────────────────────────────────────────────────────────────┘  │      │
+│  └───────────────────────────────────────────────────────────────────────┘      │
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐      │
+│  │  _humongous_dictionary (红黑树，存储 > 32KB 的大 Chunk)              │      │
+│  │  ┌─────────────────────────────────────────────────────────────────┐  │      │
+│  │  │  _total_size = 0                                                │  │      │
+│  │  │  _total_free_blocks = 0                                         │  │      │
+│  │  │  _root = NULL ──→ 空树                                          │  │      │
+│  │  │                                                                 │  │      │
+│  │  │  用途：存储超大 Chunk（Bootstrap ClassLoader 等）               │  │      │
+│  │  │        使用红黑树而非链表，因为大小不固定                        │  │      │
+│  │  └─────────────────────────────────────────────────────────────────┘  │      │
+│  └───────────────────────────────────────────────────────────────────────┘      │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
+ */
 ChunkManager::ChunkManager(bool is_class)
       : _is_class(is_class), _free_chunks_total(0), _free_chunks_count(0) {
-  _free_chunks[SpecializedIndex].set_size(get_size_for_nonhumongous_chunktype(SpecializedIndex, is_class));
-  _free_chunks[SmallIndex].set_size(get_size_for_nonhumongous_chunktype(SmallIndex, is_class));
-  _free_chunks[MediumIndex].set_size(get_size_for_nonhumongous_chunktype(MediumIndex, is_class));
+  // forcus 初始化三个空闲链表的 Chunk 大小
+  _free_chunks[SpecializedIndex].set_size(get_size_for_nonhumongous_chunktype(SpecializedIndex, is_class));  // 128 words = 1KB
+  _free_chunks[SmallIndex].set_size(get_size_for_nonhumongous_chunktype(SmallIndex, is_class)); // 256 words = 2KB
+  _free_chunks[MediumIndex].set_size(get_size_for_nonhumongous_chunktype(MediumIndex, is_class));  // 4096 words = 32KB
 }
 
 void ChunkManager::remove_chunk(Metachunk* chunk) {

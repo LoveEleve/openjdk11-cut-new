@@ -171,11 +171,69 @@ public:
 
   // Size of one bucket in the string table.  Used when checking for rollover.
   static uint bucket_size() { return sizeof(HashtableBucket<mtSymbol>); }
+/*
+    +------------------------+
+    |     SymbolTable        | 0x7ffff0c92b60
+    |------------------------|
+    | _the_table (static)    |
+    | _needs_rehashing       |
+    | _table_size = 20011    |
+    | _buckets ─────────────────────┐
+    | _free_list = NULL      |      │
+    | _entry_size = 24       |      │
+    | _number_of_entries = 0 |      │
+    +------------------------+      │
+                                    │
+    +------------------------+      │
+    |        Arena           | 0x7ffff0c92bd0
+    |------------------------|      │
+    | _flags = mtSymbol      |      │
+    | _first ────────────────────────────┐
+    | _chunk ────────────────────────────┤
+    | _hwm   ─────────────────┐    │    │
+    | _max   ─────────────────┼────┤    │
+    | _size_in_bytes = 360KB  |    │    │
+    +------------------------+     │    │
+                                   │    │
+                                   ▼    ▼
+    +-----------------------------+ 0x7ffff4021030
+    |          Chunk              |
+    |-----------------------------|
+    | _next = NULL                |
+    | _len = 368640 (360KB)       |
+    |-----------------------------|
+    | 数据区域                    | ← _hwm 指向这里
+    | (用于分配 Symbol)           |
+    |                             |
+    |                             | ← _max 指向这里
+    +-----------------------------+ 0x7ffff407b050
 
+                                   ▼ (稍后分配)
+    +-----------------------------+ 0x7ffff407c030
+    |    HashtableBucket[20011]   |
+    |-----------------------------|
+    | bucket[0]._entry = NULL     |
+    | bucket[1]._entry = NULL     |
+    | ...                         |
+    | bucket[20010]._entry = NULL |
+    +-----------------------------+ (约 156KB)
+
+ */
   static void create_table() {
     assert(_the_table == NULL, "One symbol table allowed.");
-    _the_table = new SymbolTable();
-    initialize_symbols(symbol_alloc_arena_size);
+    // forcus 关键理解：SymbolTable 是一个可重哈希的哈希表，用于存储 JVM 中所有的 Symbol（类名、方法名、字段名等）
+    /*
+        最终调用到基类的构造方法:
+        // 分配 table_size 个 HashtableBucket，每个 bucket 8 字节（64位系统）
+        // 20011 * 8 = 160,088 字节 ≈ 156KB
+              initialize(table_size, entry_size, 0);
+              _buckets = NEW_C_HEAP_ARRAY2(HashtableBucket<F>, table_size, F, CURRENT_PC);
+              for (int index = 0; index < _table_size; index++) {
+                _buckets[index].clear();
+              }
+     */
+    _the_table = new SymbolTable(); // 创建哈希表
+    initialize_symbols(symbol_alloc_arena_size); // forcus 创建Arena (360KB)
   }
 
   static unsigned int hash_symbol(const char* s, int len);

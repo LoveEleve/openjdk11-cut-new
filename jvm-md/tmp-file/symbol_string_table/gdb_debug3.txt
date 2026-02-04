@@ -1,0 +1,73 @@
+set pagination off
+set confirm off
+
+b JNI_CreateJavaVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xlog:gc=off -version
+
+b SymbolTable::initialize_symbols
+b StringTable::StringTable
+c
+
+printf "\n===== SymbolTable::initialize_symbols =====\n"
+bt 5
+printf "arena_alloc_size = "
+p arena_alloc_size
+printf "SymbolTableSize = "
+p SymbolTableSize
+printf "_the_table (before) = "
+p SymbolTable::_the_table
+printf "_arena (before) = "
+p SymbolTable::_arena
+finish
+printf "_arena (after) = "
+p SymbolTable::_arena
+printf "*_arena = "
+p *SymbolTable::_arena
+printf "_arena->_first = "
+p SymbolTable::_arena->_first
+printf "_arena->_chunk = "
+p SymbolTable::_arena->_chunk
+printf "*_arena->_chunk = "
+p *SymbolTable::_arena->_chunk
+printf "sizeof(HashtableBucket) = "
+p sizeof(HashtableBucket<Symbol*>)
+printf "_the_table size = "
+p SymbolTable::_the_table->_table_size
+printf "_the_table hash buckets = "
+p SymbolTable::_the_table->_buckets
+printf "*_the_table = "
+p *SymbolTable::_the_table
+
+c
+
+printf "\n===== StringTable::StringTable =====\n"
+bt 5
+printf "StringTableSize = "
+p StringTableSize
+printf "this (raw) = "
+p this
+
+# 单步执行完构造函数内的所有语句
+n
+n
+n
+n
+n
+n
+n
+n
+
+printf "\n--- After constructor body ---\n"
+printf "*this = "
+p *this
+printf "_weak_handles = "
+p this->_weak_handles
+printf "*_weak_handles = "
+p *this->_weak_handles
+printf "_local_table = "
+p this->_local_table
+printf "_current_size = "
+p this->_current_size
+
+c
+quit

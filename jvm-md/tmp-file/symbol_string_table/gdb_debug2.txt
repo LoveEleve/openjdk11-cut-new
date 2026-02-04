@@ -1,0 +1,56 @@
+set pagination off
+set confirm off
+
+b JNI_CreateJavaVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xlog:gc=off -version
+
+b SymbolTable::initialize_symbols
+b StringTable::StringTable
+c
+
+printf "\n===== SymbolTable::initialize_symbols =====\n"
+bt 5
+printf "arena_alloc_size = "
+p arena_alloc_size
+printf "SymbolTableSize = "
+p SymbolTableSize
+printf "_the_table before = "
+p SymbolTable::_the_table
+printf "_arena before = "
+p SymbolTable::_arena
+finish
+printf "_arena after = "
+p SymbolTable::_arena
+printf "*_arena = "
+p *SymbolTable::_arena
+printf "_arena->_first = "
+p SymbolTable::_arena->_first
+printf "_arena->_chunk = "
+p SymbolTable::_arena->_chunk
+printf "*_arena->_chunk = "
+p *SymbolTable::_arena->_chunk
+
+c
+
+printf "\n===== StringTable::StringTable =====\n"
+bt 5
+printf "StringTableSize = "
+p StringTableSize
+printf "this = "
+p this
+finish
+printf "_the_table after = "
+p StringTable::_the_table
+printf "*_the_table = "
+p *StringTable::_the_table
+printf "_weak_handles = "
+p StringTable::_the_table->_weak_handles
+printf "*_weak_handles = "
+p *StringTable::_the_table->_weak_handles
+printf "_local_table = "
+p StringTable::_the_table->_local_table
+printf "_current_size = "
+p StringTable::_the_table->_current_size
+
+c
+quit

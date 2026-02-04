@@ -1,0 +1,27 @@
+set pagination off
+set confirm off
+
+b JNI_CreateJavaVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xlog:gc=off -version
+
+# 设置断点在 StringTable 构造函数最后一行
+b stringTable.cpp:195
+c
+
+printf "\n===== StringTable (before return) =====\n"
+bt 5
+printf "this = "
+p this
+printf "*this = "
+p *this
+printf "_local_table = "
+p this->_local_table
+printf "_weak_handles = "
+p this->_weak_handles
+printf "*_weak_handles = "
+p *this->_weak_handles
+printf "_current_size = "
+p this->_current_size
+
+c
+quit

@@ -1,0 +1,139 @@
+# GDB 调试脚本：验证 Metaspace::global_initialize()
+# 使用方法: gdb -x gdb_metaspace_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+# 设置断点
+break Metaspace::global_initialize
+
+# 运行程序
+run -Xms8g -Xmx8g -version
+
+# 断点 1: 进入 global_initialize
+# 显示当前位置
+echo =====================================================\n
+echo === Metaspace::global_initialize() 入口 ===\n
+echo =====================================================\n
+
+# 查看 MetaspaceGC 初始化前的状态
+echo \n=== MetaspaceGC 初始化前 ===\n
+print MetaspaceGC::_capacity_until_GC
+
+# 执行 MetaspaceGC::initialize()
+next
+echo \n=== MetaspaceGC::initialize() 执行后 ===\n
+print MetaspaceGC::_capacity_until_GC
+print (MetaspaceGC::_capacity_until_GC) / (1024*1024*1024.0)
+
+# 查看 MaxMetaspaceSize
+echo \n=== MaxMetaspaceSize ===\n
+print MaxMetaspaceSize
+print (MaxMetaspaceSize) / (1024*1024*1024.0)
+
+# 跳过 CDS 相关代码到压缩类空间分配
+break Metaspace::allocate_metaspace_compressed_klass_ptrs
+continue
+
+echo \n=====================================================\n
+echo === allocate_metaspace_compressed_klass_ptrs 入口 ===\n
+echo =====================================================\n
+
+# 查看参数
+echo \n=== 请求的基地址 (堆结束地址对齐后) ===\n
+print/x requested_addr
+print (void*)requested_addr
+
+# 查看 compressed_class_space_size
+echo \n=== CompressedClassSpaceSize ===\n
+print Metaspace::compressed_class_space_size()
+print Metaspace::compressed_class_space_size() / (1024*1024)
+
+# 继续执行，返回 global_initialize
+finish
+
+# 查看 _first_chunk_word_size 计算
+echo \n=====================================================\n
+echo === 首个 Chunk 大小计算 ===\n
+echo =====================================================\n
+
+# 查看 InitialBootClassLoaderMetaspaceSize
+echo \n=== InitialBootClassLoaderMetaspaceSize (默认 4MB) ===\n
+print InitialBootClassLoaderMetaspaceSize
+print InitialBootClassLoaderMetaspaceSize / (1024*1024.0)
+
+# 单步执行查看 _first_chunk_word_size
+next
+echo \n=== _first_chunk_word_size (对齐前) ===\n
+print Metaspace::_first_chunk_word_size
+print Metaspace::_first_chunk_word_size * 8 / 1024
+
+next
+echo \n=== _first_chunk_word_size (对齐后) ===\n
+print Metaspace::_first_chunk_word_size
+print Metaspace::_first_chunk_word_size * 8 / 1024
+
+# 查看 MediumChunk 大小 (8K words)
+echo \n=== MediumChunk 大小 (8K words = 64KB) ===\n
+print (int)metaspace::MediumChunk
+
+# 查看 _first_class_chunk_word_size
+next
+next
+echo \n=== _first_class_chunk_word_size ===\n
+print Metaspace::_first_class_chunk_word_size
+print Metaspace::_first_class_chunk_word_size * 8 / 1024
+
+# 查看 VirtualSpaceList 初始大小
+echo \n=== VirtualSpaceList 初始大小 ===\n
+print VIRTUALSPACEMULTIPLIER
+
+# 继续到创建 _space_list
+break metaspace.cpp:1333
+continue
+
+echo \n=====================================================\n
+echo === VirtualSpaceList 和 ChunkManager 创建 ===\n
+echo =====================================================\n
+
+echo \n=== VirtualSpaceList 请求的 word_size ===\n
+print word_size
+print word_size * 8 / (1024*1024.0)
+
+# 继续完成初始化
+next
+next
+next
+next
+
+echo \n=== Metaspace 初始化完成后 ===\n
+print Metaspace::_space_list
+print Metaspace::_chunk_manager_metadata
+print Metaspace::_initialized
+
+# 查看 VirtualSpaceList 内部状态
+echo \n=== VirtualSpaceList 状态 ===\n
+print Metaspace::_space_list->_reserved_words
+print Metaspace::_space_list->_committed_words
+print Metaspace::_space_list->_virtual_space_count
+
+echo \n=====================================================\n
+echo === 内存布局概览 ===\n
+echo =====================================================\n
+
+# 打印堆信息
+echo \n=== Java 堆范围 ===\n
+print Universe::_collectedHeap->_reserved
+print/x Universe::_collectedHeap->_reserved._start
+print/x Universe::_collectedHeap->_reserved._end
+
+# 打印压缩类空间信息
+echo \n=== 压缩类空间范围 ===\n
+print Metaspace::_class_space_list
+print/x Metaspace::_class_space_list->_envelope_lo
+print/x Metaspace::_class_space_list->_envelope_hi
+
+# 打印压缩类指针信息
+echo \n=== 压缩类指针编码 ===\n
+print/x Universe::_narrow_klass._base
+print Universe::_narrow_klass._shift
+
+echo \n=== 调试完成 ===\n
+continue

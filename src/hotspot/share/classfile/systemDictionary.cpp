@@ -3043,10 +3043,35 @@ void SystemDictionary::combine_shared_dictionaries() {
 }
 
 void SystemDictionary::initialize_oop_storage() {
+    /*
+        OopStorage 内部结构:
+        ┌─────────────────────────────────────────────────────────────┐
+        │  _active_array (活动块数组)                                 │
+        │  ┌─────────────────────────────────────────────────────┐   │
+        │  │ Block* │ Block* │ Block* │ Block* │ ... │           │   │
+        │  │   ↓    │   ↓    │   ↓    │   ↓    │     │           │   │
+        │  └────┼───┴────┼───┴────┼───┴────┼───┴─────┴───────────┘   │
+        │       │        │        │        │                         │
+        │       ▼        ▼        ▼        ▼                         │
+        │   ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐                     │
+        │   │Block0│ │Block1│ │Block2│ │Block3│ ...                 │
+        │   │ oop[]│ │ oop[]│ │ oop[]│ │ oop[]│                     │
+        │   │bitmap│ │bitmap│ │bitmap│ │bitmap│                     │
+        │   └──────┘ └──────┘ └──────┘ └──────┘                     │
+        │                                                            │
+        │  VMWeakActive_lock: 保护 _active_array 的修改              │
+        │  VMWeakAlloc_lock:  保护单个 Block 内的分配/释放            │
+        └─────────────────────────────────────────────────────────────┘
+
+        分离两把锁的好处：
+        - GC 遍历时只需要 active_lock
+        - 分配/释放条目只需要 alloc_lock
+        - 减少锁竞争，提高并发性能
+     */
   _vm_weak_oop_storage =
-    new OopStorage("VM Weak Oop Handles",
-                   VMWeakAlloc_lock,
-                   VMWeakActive_lock);
+    new OopStorage("VM Weak Oop Handles",  // 名称（用于日志和调试）
+                   VMWeakAlloc_lock, // 分配锁 - 分配/释放条目时的锁
+                   VMWeakActive_lock);  // 活动锁 -	管理活动块数组的锁
 }
 
 OopStorage* SystemDictionary::vm_weak_oop_storage() {

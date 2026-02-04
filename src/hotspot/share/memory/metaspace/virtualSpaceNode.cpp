@@ -496,7 +496,75 @@ Metachunk* VirtualSpaceNode::get_chunk_vs(size_t chunk_word_size) {
   Metachunk* result = take_from_committed(chunk_word_size);
   return result;
 }
+/*
+        ┌─────────────────────────────────────────────────────────────────────┐
+        │  VirtualSpace 初始化后的状态                                         │
+        ├─────────────────────────────────────────────────────────────────────┤
+        │                                                                     │
+        │    _low_boundary = 0x800000000  ─┬─ 整个空间的起始                  │
+        │    _low          = 0x800000000  ─┤                                  │
+        │    _high         = 0x800000000  ─┴─ 已提交区域的边界（当前为空）    │
+        │                                                                     │
+        │    _high_boundary = 0x840000000  ── 整个空间的结束                  │
+        │                                                                     │
+        │    示意图：                                                         │
+        │                                                                     │
+        │    0x800000000                                    0x840000000       │
+        │         │                                              │            │
+        │         ▼                                              ▼            │
+        │         ┌──────────────────────────────────────────────┐            │
+        │         │                                              │            │
+        │         │        Reserved (1GB 虚拟地址空间)           │            │
+        │         │                                              │            │
+        │         │   ┌──────────────────────────────────────┐   │            │
+        │         │   │ Committed = 0                        │   │            │
+        │         │   │ (还没提交任何物理内存)               │   │            │
+        │         │   └──────────────────────────────────────┘   │            │
+        │         │   ↑                                          │            │
+        │         │ _low = _high (表示已提交大小为 0)            │            │
+        │         │                                              │            │
+        │         └──────────────────────────────────────────────┘            │
+        │         ↑                                              ↑            │
+        │   _low_boundary                              _high_boundary         │
+        │                                                                     │
+        └─────────────────────────────────────────────────────────────────────┘
 
+        ┌─────────────────────────────────────────────────────────────────────┐
+        │                    OccupancyMap 占用位图                             │
+        ├─────────────────────────────────────────────────────────────────────┤
+        │                                                                     │
+        │  OccupancyMap 是一个位图，用于跟踪 VirtualSpaceNode 中的 Chunk：    │
+        │                                                                     │
+        │  - 每 1 个 bit 代表 1 个最小 Chunk (128 words = 1KB)                │
+        │  - 1GB / 1KB = 1048576 个位置                                       │
+        │  - 需要 1048576 / 8 = 131072 字节 = 128KB 的位图数据                │
+        │                                                                     │
+        │  有两层位图：                                                        │
+        │                                                                     │
+        │  Layer 0 - chunk_start_map（标记 Chunk 起始位置）                   │
+        │  ┌────────────────────────────────────────────────────────────┐     │
+        │  │ bit: 0  1  2  3  4  5  6  7  8  ...                        │     │
+        │  │      1  0  0  0  1  0  0  0  1  ...                        │     │
+        │  │      ↑           ↑           ↑                             │     │
+        │  │      Chunk1起始  Chunk2起始  Chunk3起始                     │     │
+        │  └────────────────────────────────────────────────────────────┘     │
+        │                                                                     │
+        │  Layer 1 - in_use_map（标记 Chunk 是否正在使用）                    │
+        │  ┌────────────────────────────────────────────────────────────┐     │
+        │  │ bit: 0  1  2  3  4  5  6  7  8  ...                        │     │
+        │  │      1  1  1  1  0  0  0  0  1  ...                        │     │
+        │  │      ↑─────────↑ ↑─────────↑ ↑                             │     │
+        │  │      Chunk1使用中 Chunk2空闲  Chunk3使用中                  │     │
+        │  └────────────────────────────────────────────────────────────┘     │
+        │                                                                     │
+        │  用途：                                                              │
+        │  1. 快速判断某位置是否是 Chunk 起始                                  │
+        │  2. 快速判断 Chunk 是否空闲（用于合并）                              │
+        │  3. 遍历所有 Chunk 时不需要链表                                      │
+        │                                                                     │
+        └─────────────────────────────────────────────────────────────────────┘
+
+ */
 bool VirtualSpaceNode::initialize() {
 
   if (!_rs.is_reserved()) {
@@ -512,19 +580,27 @@ bool VirtualSpaceNode::initialize() {
   // ReservedSpaces marked as special will have the entire memory
   // pre-committed. Setting a committed size will make sure that
   // committed_size and actual_committed_size agrees.
+  // 计算预提交大小 ，默认为 0
   size_t pre_committed_size = _rs.special() ? _rs.size() : 0;
-
+  // forcus 初始化 VirtualSpace
+  // 这个方法设置 _virtual_space 的各种边界指针
   bool result = virtual_space()->initialize_with_granularity(_rs, pre_committed_size,
       Metaspace::commit_alignment());
   if (result) {
     assert(virtual_space()->committed_size() == virtual_space()->actual_committed_size(),
         "Checking that the pre-committed memory was registered by the VirtualSpace");
-
+   // forcus 设置 _top 指针（指向可分配区域的起始）,  _top = 0x800000000
     set_top((MetaWord*)virtual_space()->low());
   }
 
   // Initialize Occupancy Map.
   const size_t smallest_chunk_size = is_class() ? ClassSpecializedChunk : SpecializedChunk;
+  // forcus 创建 OccupancyMap（占用位图） smallest_chunk_size = 128 words = 1KB
+  /*
+        bottom(): // 起始地址 = 0x800000000
+        reserved_words() // 总字数 = 134217728 words = 1GB
+        smallest_chunk_size // 最小 Chunk 大小 = 128 words
+   */
   _occupancy_map = new OccupancyMap(bottom(), reserved_words(), smallest_chunk_size);
 
   return result;

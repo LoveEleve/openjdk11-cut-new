@@ -184,14 +184,17 @@ static size_t ceil_pow_2(uintx val) {
 
 StringTable::StringTable() : _local_table(NULL), _current_size(0), _has_work(0),
   _needs_rehashing(false), _weak_handles(NULL), _items(0), _uncleaned_items(0) {
-  _weak_handles = new OopStorage("StringTable weak",
+  // forcus 创建 OopStorage（弱引用存储）
+    _weak_handles = new OopStorage("StringTable weak",
                                  StringTableWeakAlloc_lock,
                                  StringTableWeakActive_lock);
-  size_t start_size_log_2 = ceil_pow_2(StringTableSize);
-  _current_size = ((size_t)1) << start_size_log_2;
+    // forcus 计算哈希表初始大小
+  size_t start_size_log_2 = ceil_pow_2(StringTableSize); // 默认 65536 → log2 = 16
+  _current_size = ((size_t)1) << start_size_log_2; // 2^16 = 65536
   log_trace(stringtable)("Start size: " SIZE_FORMAT " (" SIZE_FORMAT ")",
                          _current_size, start_size_log_2);
-  _local_table = new StringTableHash(start_size_log_2, END_SIZE, REHASH_LEN);
+  // forcus 创建 ConcurrentHashTable
+  _local_table = new StringTableHash(start_size_log_2, END_SIZE, REHASH_LEN); // 参数：初始大小 log2=16, 最大大小 log2=24, rehash 链长阈值=100
 }
 
 size_t StringTable::item_added() {

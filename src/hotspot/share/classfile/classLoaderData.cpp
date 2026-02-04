@@ -86,12 +86,65 @@ volatile size_t ClassLoaderDataGraph::_num_array_classes = 0;
 volatile size_t ClassLoaderDataGraph::_num_instance_classes = 0;
 
 ClassLoaderData * ClassLoaderData::_the_null_class_loader_data = NULL;
+/*
+     ┌─────────────────────────────────────────────────────────────────────────────────────┐
+    │                    ClassLoaderData @ 0x7ffff0c8e040                                 │
+    │                    (Bootstrap ClassLoader / Null ClassLoader)                       │
+    ├─────────────────────────────────────────────────────────────────────────────────────┤
+    │                                                                                     │
+    │  _class_loader = NULL              ← 没有对应的 Java ClassLoader 对象              │
+    │  _class_loader_klass = NULL        ← 没有对应的 Klass                              │
+    │  _is_anonymous = false             ← 非匿名类加载器                                │
+    │  _keep_alive = 1                   ← 永远存活，不会被卸载                          │
+    │  _unloading = false                                                                │
+    │                                                                                     │
+    │  _metaspace = NULL                 ← 延迟创建，需要时才分配                        │
+    │  _metaspace_lock @ 0x7ffff0c8e120  ← Metaspace 分配锁                              │
+    │                                                                                     │
+    │  _klasses = NULL                   ← 还没有加载任何类                              │
+    │                                                                                     │
+    │  _packages @ 0x7ffff0c8e1f0 ───────┐                                               │
+    │                                    │                                               │
+    │         ┌──────────────────────────▼─────────────────────────────┐                 │
+    │         │  PackageEntryTable (size=109)                          │                 │
+    │         │  存储: java.lang, java.util, java.io, ...              │                 │
+    │         └────────────────────────────────────────────────────────┘                 │
+    │                                                                                     │
+    │  _unnamed_module @ 0x7ffff0c8e970 ─┐                                               │
+    │                                    │                                               │
+    │         ┌──────────────────────────▼─────────────────────────────┐                 │
+    │         │  ModuleEntry (boot unnamed module)                     │                 │
+    │         │  存储不属于任何命名模块的类                            │                 │
+    │         └────────────────────────────────────────────────────────┘                 │
+    │                                                                                     │
+    │  _dictionary @ 0x7ffff0c8ea10 ─────┐                                               │
+    │                                    │                                               │
+    │         ┌──────────────────────────▼─────────────────────────────┐                 │
+    │         │  Dictionary (类字典)                                   │                 │
+    │         │  存储已加载的 InstanceKlass                            │                 │
+    │         │  如: java.lang.Object, java.lang.String, ...           │                 │
+    │         └────────────────────────────────────────────────────────┘                 │
+    │                                                                                     │
+    │  _next = NULL                      ← 链表下一个节点                                │
+    │                                                                                     │
+    └─────────────────────────────────────────────────────────────────────────────────────┘
+                                             │
+                                             │ 同时也是
+                                             ▼
+    ┌─────────────────────────────────────────────────────────────────────────────────────┐
+    │  ClassLoaderDataGraph::_head = 0x7ffff0c8e040                                       │
+    │  所有 ClassLoaderData 的链表头                                                      │
+    └─────────────────────────────────────────────────────────────────────────────────────┘
 
+ */
 void ClassLoaderData::init_null_class_loader_data() {
   assert(_the_null_class_loader_data == NULL, "cannot initialize twice");
   assert(ClassLoaderDataGraph::_head == NULL, "cannot initialize twice");
-
+  // forcus 创建 ClassLoaderData 对象
+  // Handle() 创建一个 null handle，表示没有对应的 Java ClassLoader
+  // false 表示不是匿名类
   _the_null_class_loader_data = new ClassLoaderData(Handle(), false);
+  // 设置为 ClassLoaderDataGraph 的头节点
   ClassLoaderDataGraph::_head = _the_null_class_loader_data;
   assert(_the_null_class_loader_data->is_the_null_class_loader_data(), "Must be");
 
@@ -140,19 +193,32 @@ void ClassLoaderData::initialize_name(Handle class_loader) {
   // Can't throw InternalError and SymbolTable doesn't throw OOM anymore.
   _name_and_id = SymbolTable::new_symbol(cl_instance_name_and_id, CATCH);
 }
-
+/*
+    forcus ClassLoaderDataGraph 是一个全局链表，管理所有的 ClassLoaderData
+    {
+        class ClassLoaderDataGraph : public AllStatic {
+          static ClassLoaderData* _head;      // 链表头
+          static ClassLoaderData* _unloading; // 正在卸载的 CLD 链表
+          // ...
+        };
+    }
+ */
 ClassLoaderData::ClassLoaderData(Handle h_class_loader, bool is_anonymous) :
   _is_anonymous(is_anonymous),
   // An anonymous class loader data doesn't have anything to keep
   // it from being unloaded during parsing of the anonymous class.
   // The null-class-loader should always be kept alive.
+  // forcus 关键：如果是匿名类或 null loader，_keep_alive = 1（永不卸载）
   _keep_alive((is_anonymous || h_class_loader.is_null()) ? 1 : 0),
   _metaspace(NULL), _unloading(false), _klasses(NULL),
   _modules(NULL), _packages(NULL), _unnamed_module(NULL), _dictionary(NULL),
   _claimed(0), _modified_oops(true), _accumulated_modified_oops(false),
   _jmethod_ids(NULL), _handles(), _deallocate_list(NULL),
   _next(NULL),
-  _class_loader_klass(NULL), _name(NULL), _name_and_id(NULL),
+  _class_loader_klass(NULL),   // null loader 没有 klass
+  _name(NULL),
+  _name_and_id(NULL),
+  // forcus 创建 Metaspace 分配锁 保护 Metaspace 分配操作的线程安全
   _metaspace_lock(new Mutex(Monitor::leaf+1, "Metaspace allocation lock", true,
                             Monitor::_safepoint_check_never)) {
 
@@ -169,6 +235,9 @@ ClassLoaderData::ClassLoaderData(Handle h_class_loader, bool is_anonymous) :
     // A ClassLoaderData created solely for an anonymous class should never have a
     // ModuleEntryTable or PackageEntryTable created for it. The defining package
     // and module for an anonymous class will be found in its host class.
+    // forcus PackageEntryTable（包入口表）
+    // 作用：存储 Bootstrap ClassLoader 加载的所有包信息（如 java.lang、java.util）
+    // 为什么是 109？ 这是一个质数，作为哈希表大小可以减少冲突
     _packages = new PackageEntryTable(PackageEntryTable::_packagetable_entry_size);
     if (h_class_loader.is_null()) {
       // Create unnamed module for boot loader
@@ -177,6 +246,9 @@ ClassLoaderData::ClassLoaderData(Handle h_class_loader, bool is_anonymous) :
       // Create unnamed module for all other loaders
       _unnamed_module = ModuleEntry::create_unnamed_module(this);
     }
+    // forcus Dictionary（类字典）
+    // 作用：存储该 ClassLoader 已加载的所有类（InstanceKlass）
+    // 当调用 ClassLoader.loadClass("java.lang.String") 时，会先在 Dictionary 中查找是否已加载
     _dictionary = create_dictionary();
   }
 

@@ -695,14 +695,102 @@ jint universe_init() {
   if (status != JNI_OK) {
     return status;
   }
+  // forcus 创建一个用于存储 VM 内部弱引用 的容器
+  /*
+    1. 什么是 OopStorage ?
+            OopStorage 是 JVM 内部用来存储 oop（对象指针）引用的容器
+            为什么需要它？
+            JVM 内部有很多地方需要持有对 Java 对象的引用，比如：
+                JNI 全局引用
+                字符串常量池
+                类加载器引用
+                VM 内部弱引用 ← 这里创建的就是这个
+        问题：这些引用散落在 JVM 各处，GC 怎么找到它们？
+        解决：把它们集中存放到 OopStorage 里，GC 可以统一遍历
+        ┌─────────────────────────────────────────────────────────┐
+        │                    OopStorage                           │
+        │  "VM Weak Oop Handles"                                  │
+        │  ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐     │
+        │  │ oop │ oop │ oop │ oop │ oop │ ... │ ... │ ... │     │
+        │  │  ↓  │  ↓  │  ↓  │  ↓  │  ↓  │     │     │     │     │
+        │  │ Obj │ Obj │ Obj │ Obj │ Obj │     │     │     │     │
+        │  └─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘     │
+        │                                                         │
+        │  GC 可以统一扫描这里的所有引用                           │
+        └─────────────────────────────────────────────────────────┘
 
+    2. 为什么叫"Weak Oop"？
+        Weak（弱）引用的特点：
+            不会阻止对象被 GC 回收
+            如果对象只有弱引用指向它，GC 可以回收该对象
+            回收后，弱引用会被清除（变成 NULL）
+
+   */
   SystemDictionary::initialize_oop_storage();
 
+
+  /*
+        Metaspace（元空间） 是 JVM 存储类元数据的内存区域
+            什么是类元数据？
+                1. 类结构信息：类名、父类、接口列表、修饰符
+                2. 字段信息：字段名、类型、访问权限
+                3. 方法信息：方法名、参数、返回值、字节码
+                4. 常量池：字符串、数字、符号引用
+                5. 注解信息
+                6. JIT 编译相关数据
+        为什么不放在堆里？
+            类元数据的生命周期与 Java 对象不同
+            类通常长期存在，不适合频繁 GC
+            分离可以减少 Full GC 压力
+   */
   Metaspace::global_initialize();
 
   // Initialize performance counters for metaspaces
-  MetaspaceCounters::initialize_performance_counters();
-  CompressedClassSpaceCounters::initialize_performance_counters();
+  /*
+        什么是性能计数器？
+            性能计数器 (Performance Counters / PerfData) 是 JVM 的内部监控机制，用于：
+                - 通过 jstat 命令查看 JVM 状态
+                - 通过 jconsole / VisualVM 等工具监控
+                - 被 Java Management API (java.lang.management) 使用
+        简单说：这两个方法创建了 8 个性能计数器（4个常量 + 4个变量），用于让外部工具（jstat、jconsole）能够监控 Metaspace 的内存使用情况
+   */
+    /*
+      ┌─────────────────────────────────────────────────────────────────────────────────────┐
+      │                          PerfData 内存区域（共享内存映射）                          │
+      ├─────────────────────────────────────────────────────────────────────────────────────┤
+      │                                                                                     │
+      │  ┌───────────────────────────────────────────────────────────────────────────────┐  │
+      │  │  sun.gc.metaspace（整体 Metaspace 计数器）                                    │  │
+      │  ├───────────────────────────────────────────────────────────────────────────────┤  │
+      │  │  minCapacity  [常量] = 0                                                      │  │
+      │  │  capacity     [变量] = 0 → 运行时会增长                                       │  │
+      │  │  maxCapacity  [变量] = 1,082,130,432 (≈1032 MB)                               │  │
+      │  │  used         [变量] = 0 → 运行时会增长                                       │  │
+      │  └───────────────────────────────────────────────────────────────────────────────┘  │
+      │                                                                                     │
+      │  ┌───────────────────────────────────────────────────────────────────────────────┐  │
+      │  │  sun.gc.compressedclassspace（压缩类空间计数器）                              │  │
+      │  ├───────────────────────────────────────────────────────────────────────────────┤  │
+      │  │  minCapacity  [常量] = 0                                                      │  │
+      │  │  capacity     [变量] = 0 → 运行时会增长                                       │  │
+      │  │  maxCapacity  [变量] = 1,073,741,824 (= 1GB)                                  │  │
+      │  │  used         [变量] = 0 → 运行时会增长                                       │  │
+      │  └───────────────────────────────────────────────────────────────────────────────┘  │
+      │                                                                                     │
+      └─────────────────────────────────────────────────────────────────────────────────────┘
+
+      # 查看 Metaspace 使用情况
+      jstat -gc <pid>
+
+      # 输出列说明：
+      # MC   - Metaspace Capacity (已提交)
+      # MU   - Metaspace Used (已使用)
+      # CCSC - Compressed Class Space Capacity
+      # CCSU - Compressed Class Space Used
+
+     */
+  MetaspaceCounters::initialize_performance_counters(); // 初始化 Metaspace 整体计数器
+  CompressedClassSpaceCounters::initialize_performance_counters(); // 初始化压缩类空间计数器
 
   AOTLoader::universe_init();
 
@@ -713,16 +801,40 @@ jint universe_init() {
 
   // Create memory for metadata.  Must be after initializing heap for
   // DumpSharedSpaces.
+  /*
+        forcus 什么是 Null Class Loader Data
+            ootstrap ClassLoader（启动类加载器） 是 JVM 中最特殊的类加载器：
+            它用 C++ 实现，没有对应的 Java 对象
+            在 Java 代码中，ClassLoader.getClassLoader() 返回 null 表示 Bootstrap ClassLoader
+            它负责加载 JDK 核心类（java.lang.*、java.util.* 等）
+       _the_null_class_loader_data 就是为这个"null 类加载器"创建的 ClassLoaderData 对象
+   */
   ClassLoaderData::init_null_class_loader_data();
 
   // We have a heap so create the Method* caches before
   // Metaspace::initialize_shared_spaces() tries to populate them.
-  Universe::_finalizer_register_cache = new LatestMethodCache();
-  Universe::_loader_addClass_cache    = new LatestMethodCache();
-  Universe::_pd_implies_cache         = new LatestMethodCache();
-  Universe::_throw_illegal_access_error_cache = new LatestMethodCache();
-  Universe::_throw_no_such_method_error_cache = new LatestMethodCache();
-  Universe::_do_stack_walk_cache = new LatestMethodCache();
+  // forcus
+  /*
+        class LatestMethodCache : public CHeapObj<mtClass> {
+         private:
+          Klass*  _klass;        // 方法所属的类
+          int     _method_idnum; // 方法在类中的编号
+
+         public:
+          LatestMethodCache() { _klass = NULL; _method_idnum = -1; }  // 构造时只是清零
+
+          void    init(Klass* k, Method* m);  // 后续真正初始化
+          Method* get_method();               // 获取缓存的方法
+        };
+        作用：缓存 JVM 内部频繁调用的 Java 方法指针，避免每次都通过查找获取
+   */
+  // 这里的构造函数只是创建空对象( _klass = NULL, _method_idnum = -1 ),真正的初始化在 Universe::initialize_known_methods() 中
+  Universe::_finalizer_register_cache = new LatestMethodCache(); // Finalizer.register(Object) 注册需要执行 finalizer 的对象
+  Universe::_loader_addClass_cache    = new LatestMethodCache(); // ClassLoader.addClass(Class) 类加载器注册已加载的类
+  Universe::_pd_implies_cache         = new LatestMethodCache(); // ProtectionDomain.impliesCreateAccessControlContext() 安全检查
+  Universe::_throw_illegal_access_error_cache = new LatestMethodCache(); // Unsafe.throwIllegalAccessError() 抛出非法访问异常
+  Universe::_throw_no_such_method_error_cache = new LatestMethodCache(); // 	Unsafe.throwNoSuchMethodError() 抛出方法不存在异常
+  Universe::_do_stack_walk_cache = new LatestMethodCache(); // AbstractStackWalker.doStackWalk(...) 栈遍历回调
 
 #if INCLUDE_CDS
   if (UseSharedSpaces) {
@@ -736,6 +848,7 @@ jint universe_init() {
   } else
 #endif
   {
+    // forcus 初始化 符号表 与 字符串表
     SymbolTable::create_table();
     StringTable::create_table();
 
@@ -811,9 +924,33 @@ jint Universe::initialize_heap() {
     return status;
   }
   log_info(gc)("Using %s", _collectedHeap->name());
+  /*
+        TLAB (Thread Local Allocation Buffer) 是每个线程私有的内存分配缓冲区，用于加速对象分配
+        ThreadLocalAllocBuffer::set_max_size() : 这是一个静态方法，设置所有 TLAB 的最大尺寸上限
+        G1_Heap->max_tlab_size() = (region_size / 2) = 2MB
+        设计原因:
+            1. TLAB 必须能完整放入单个 Region
+            2. 对象 > 巨型阈值 会被分配为 Humongous 对象（跨多个 Region）
+            3. TLAB 内的对象永远 < 巨型阈值，所以 TLAB 本身也必须 < 巨型阈值
+            4. 这样保证 TLAB 不会触发巨型对象分配逻辑
+       涉及到另外一个核心的类：
+        ThreadLocalAllocBuffer (每个线程一个实例)
+            ┌─────────────────────────────────────────────────────────────────┐
+            │  实例成员:                                                      │
+            │  _start          ─→ TLAB 起始地址                              │
+            │  _top            ─→ 下一个分配位置                             │
+            │  _end            ─→ 分配结束位置                               │
+            │  _allocation_end ─→ 实际 TLAB 结束位置                         │
+            │  _desired_size   ─→ 期望大小 (动态调整)                        │
+            │                                                                 │
+            │  静态成员:                                                      │
+            │  _max_size       ─→ TLAB 最大尺寸上限 ← 本方法设置             │
+            │  _target_refills ─→ 期望的重填次数                             │
+            └─────────────────────────────────────────────────────────────────┘
 
+   */
   ThreadLocalAllocBuffer::set_max_size(Universe::heap()->max_tlab_size());
-
+ // forcus 根据堆地址范围，确定压缩指针的 base 和 shift
 #ifdef _LP64
   if (UseCompressedOops) {
     // Subtract a page because something can get allocated at heap base.
@@ -856,11 +993,11 @@ jint Universe::initialize_heap() {
 
   // We will never reach the CATCH below since Exceptions::_throw will cause
   // the VM to exit if an exception is thrown during initialization
-
+  // 默认就是使用的
   if (UseTLAB) {
     assert(Universe::heap()->supports_tlab_allocation(),
            "Should support thread-local allocation buffers");
-    ThreadLocalAllocBuffer::startup_initialization();
+    ThreadLocalAllocBuffer::startup_initialization(); // forcus 执行 TLAB的启动初始化
   }
   return JNI_OK;
 }

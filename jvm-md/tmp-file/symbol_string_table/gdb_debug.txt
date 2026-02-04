@@ -1,0 +1,52 @@
+set pagination off
+set confirm off
+
+# 首先断点在 JNI_CreateJavaVM，等libjvm.so加载
+b JNI_CreateJavaVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+# 现在libjvm.so已加载，设置内部断点
+b SymbolTable::initialize_symbols
+b StringTable::StringTable
+
+printf "\n========== BREAKPOINTS ==========\n"
+info breakpoints
+
+# 继续执行到 SymbolTable::initialize_symbols
+c
+
+printf "\n========== SymbolTable::initialize_symbols ==========\n"
+bt 5
+printf "\n--- Parameters ---\n"
+p arena_alloc_size
+p SymbolTableSize
+printf "\n--- Before Arena ---\n"
+p SymbolTable::_the_table
+p SymbolTable::_arena
+
+# 执行到Arena创建后
+finish
+
+printf "\n--- After Arena ---\n"
+p SymbolTable::_arena
+p *SymbolTable::_arena
+
+# 继续到 StringTable::StringTable
+c
+
+printf "\n========== StringTable::StringTable ==========\n"
+bt 5
+printf "\n--- Parameters ---\n"
+p StringTableSize
+printf "\n--- this pointer ---\n"
+p this
+
+# 执行完构造函数
+finish
+
+printf "\n--- After Construction ---\n"
+p StringTable::_the_table
+p *StringTable::_the_table
+
+c
+quit
