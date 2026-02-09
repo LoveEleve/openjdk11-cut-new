@@ -1,0 +1,64 @@
+# os::init() GDB 验证脚本
+#
+# 使用方法:
+#   cd /data/workspace/openjdk-cut-new
+#   gdb -x jvm-md/OSInit/gdb_os_init.txt \
+#       ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+#
+# JVM 参数:
+#   -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set pagination off
+set print pretty on
+
+# 在 os::init() 设置断点
+break os::init
+
+# 在 os::init 结束时设置断点（通过行号）
+break os_linux.cpp:5817
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========================================\n"
+printf "         os::init() 断点命中           \n"
+printf "========================================\n\n"
+
+printf "========== os::init() 开始执行 ==========\n\n"
+
+# 继续执行到函数结束
+continue
+
+printf "\n========== os::init() 执行完成 ==========\n\n"
+
+# 打印时钟信息
+printf "========== 时钟信息 ==========\n"
+print clock_tics_per_sec
+
+# 打印内存页信息
+printf "\n========== 内存页信息 ==========\n"
+print os::Linux::_page_size
+
+# 打印系统信息
+printf "\n========== 系统信息 ==========\n"
+print os::Linux::_processor_count
+print os::Linux::_physical_memory
+
+# 打印 OS 版本
+printf "\n========== OS 版本信息 ==========\n"
+print os::Linux::_os_version
+
+# 打印主线程
+printf "\n========== 主线程信息 ==========\n"
+print os::Linux::_main_thread
+
+# 验证随机数种子
+printf "\n========== 随机数种子 ==========\n"
+print _rand_seed
+
+printf "\n========================================\n"
+printf "         GDB 验证完成          \n"
+printf "========================================\n"
+
+# 继续运行
+continue

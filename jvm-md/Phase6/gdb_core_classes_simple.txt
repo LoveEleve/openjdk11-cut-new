@@ -1,0 +1,17 @@
+set pagination off
+set print pretty on
+
+# 断点: initialize_class 函数
+b thread.cpp:1165
+commands
+silent
+printf ">>> initialize_class: "
+call class_name->print()
+printf "\n"
+continue
+end
+
+# 启动 JVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+quit

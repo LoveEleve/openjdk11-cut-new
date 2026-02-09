@@ -1,0 +1,57 @@
+# GDB 验证脚本：E.5.2 工作窃取 + E.5.3 疏散失败统计
+# 标准条件：-Xms8g -Xmx8g -XX:+UseG1GC
+
+# 设置断点
+break g1CollectedHeap.cpp:1535
+
+# 运行
+run -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+# ========== RefToScanQueueSet 验证 ==========
+echo \n========== RefToScanQueueSet ==========\n
+p _task_queues
+p _task_queues->_n
+p _task_queues->_queues
+
+# 查看第一个队列的详细信息
+echo \n========== Queue[0] 详情 ==========\n
+p *_task_queues->_queues[0]
+
+# ========== EvacuationFailedInfo 数组 ==========
+echo \n========== EvacuationFailedInfo 数组 ==========\n
+p _evacuation_failed_info_array
+p _evacuation_failed_info_array[0]
+p sizeof(EvacuationFailedInfo)
+
+# 验证每个线程的统计初始状态
+echo \n========== 所有线程的初始统计 ==========\n
+p _evacuation_failed_info_array[0]._count
+p _evacuation_failed_info_array[1]._count
+p _evacuation_failed_info_array[12]._count
+
+# ========== 全局标志 ==========
+echo \n========== 全局失败标志 ==========\n
+p _evacuation_failed
+
+# ========== 终止协议参数 ==========
+echo \n========== 工作窃取参数 ==========\n
+p WorkStealingHardSpins
+p WorkStealingSpinToYieldRatio  
+p WorkStealingYieldsBeforeSleep
+p WorkStealingSleepMillis
+
+# ========== 数组大小计算 ==========
+echo \n========== 内存布局 ==========\n
+# RefToScanQueueSet: 13 个队列
+# EvacuationFailedInfo 数组: 13 × sizeof(EvacuationFailedInfo)
+p sizeof(CopyFailedInfo)
+p ParallelGCThreads
+
+# ========== 预期输出 ==========
+# _task_queues->_n = 13
+# _evacuation_failed = false
+# _evacuation_failed_info_array[i]._count = 0 (全部为 0)
+# WorkStealingHardSpins = 4096
+# WorkStealingSpinToYieldRatio = 10
+# WorkStealingYieldsBeforeSleep = 5000
+# WorkStealingSleepMillis = 1

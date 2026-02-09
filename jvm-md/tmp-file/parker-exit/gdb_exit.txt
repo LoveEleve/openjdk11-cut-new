@@ -1,0 +1,47 @@
+set pagination off
+set print pretty on
+
+b JavaThread::exit
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== JavaThread::exit #1 ==========\n"
+printf "this: %p\n", this
+printf "destroy_vm: %d\n", destroy_vm
+printf "exit_type: %d (0=normal,1=jni_detach)\n", exit_type
+printf "terminated: %d\n", this->_terminated
+printf "is_compiler: %d\n", this->_is_compiler_thread
+printf "threadObj: %p\n", this->threadObj()
+
+printf "\n--- Parker ---\n"
+printf "parker: %p\n", this->_parker
+printf "parker->_counter: %d\n", this->_parker->_counter
+printf "parker->_cur_index: %d\n", this->_parker->_cur_index
+printf "parker->AssociatedWith: %p\n", this->_parker->AssociatedWith
+
+printf "\n--- ParkEvent ---\n"
+printf "SleepEvent: %p\n", this->_SleepEvent
+printf "ParkEvent: %p\n", this->_ParkEvent
+printf "MuxEvent: %p\n", this->_MuxEvent
+printf "SleepEvent->_event: %d\n", this->_SleepEvent->_event
+printf "ParkEvent->_event: %d\n", this->_ParkEvent->_event
+
+printf "\n--- sizeof ---\n"
+printf "sizeof(Parker): %lu\n", sizeof(Parker)
+printf "sizeof(ParkEvent): %lu\n", sizeof(ParkEvent)
+printf "sizeof(PlatformParker): %lu\n", sizeof(os::PlatformParker)
+printf "sizeof(PlatformEvent): %lu\n", sizeof(os::PlatformEvent)
+printf "sizeof(pthread_mutex_t): %lu\n", sizeof(pthread_mutex_t)
+printf "sizeof(pthread_cond_t): %lu\n", sizeof(pthread_cond_t)
+
+c
+
+printf "\n========== JavaThread::exit #2 ==========\n"
+printf "this: %p\n", this
+printf "destroy_vm: %d\n", destroy_vm
+printf "exit_type: %d\n", exit_type
+printf "terminated: %d\n", this->_terminated
+
+delete breakpoints
+c
+quit

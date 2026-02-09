@@ -1,0 +1,122 @@
+# GDB 验证 PerRegionTable & OtherRegionsTable
+# 标准环境: -Xms8g -Xmx8g -XX:+UseG1GC
+
+set pagination off
+set print pretty on
+
+# 在 G1CollectedHeap::initialize 后断点
+break G1CollectedHeap::initialize
+run -XX:+UseG1GC -Xms8g -Xmx8g -version
+
+# 继续到初始化完成
+continue
+
+printf "\n========================================\n"
+printf "   PerRegionTable & OtherRegionsTable   \n"
+printf "          GDB 验证数据                   \n"
+printf "========================================\n"
+
+# 验证基本常量
+printf "\n【基本常量验证】\n"
+printf "HeapRegion::GrainBytes      = %u (应为 4194304 = 4MB)\n", HeapRegion::GrainBytes
+printf "HeapRegion::CardsPerRegion  = %u (应为 8192 = 4MB/512B)\n", HeapRegion::CardsPerRegion
+printf "G1RSetRegionEntries         = %d\n", G1RSetRegionEntries
+printf "G1RSetSparseRegionEntries   = %d\n", G1RSetSparseRegionEntries
+
+# 获取 G1CollectedHeap 实例
+set $g1h = G1CollectedHeap::heap()
+set $hrm = $g1h->_hrm
+printf "\nRegion 数量: %u\n", $hrm->_num_regions
+
+# 获取第一个 Region 的 RemSet
+set $first_region = $hrm->_regions[0]
+set $hrs = $first_region->_rem_set
+set $ort = &$hrs->_other_regions
+
+printf "\n========================================\n"
+printf "     OtherRegionsTable 结构分析         \n"
+printf "========================================\n"
+printf "地址: %p\n", $ort
+printf "sizeof(OtherRegionsTable): %zu bytes\n", sizeof(OtherRegionsTable)
+printf "\n【字段偏移】\n"
+printf "_g1h                        @ offset %zu = %p\n", (size_t)&$ort->_g1h - (size_t)$ort, $ort->_g1h
+printf "_m                          @ offset %zu = %p\n", (size_t)&$ort->_m - (size_t)$ort, $ort->_m
+printf "_hr                         @ offset %zu = %p\n", (size_t)&$ort->_hr - (size_t)$ort, $ort->_hr
+printf "_coarse_map                 @ offset %zu\n", (size_t)&$ort->_coarse_map - (size_t)$ort
+printf "_n_coarse_entries           @ offset %zu = %zu\n", (size_t)&$ort->_n_coarse_entries - (size_t)$ort, $ort->_n_coarse_entries
+printf "_fine_grain_regions         @ offset %zu = %p\n", (size_t)&$ort->_fine_grain_regions - (size_t)$ort, $ort->_fine_grain_regions
+printf "_n_fine_entries             @ offset %zu = %zu\n", (size_t)&$ort->_n_fine_entries - (size_t)$ort, $ort->_n_fine_entries
+printf "_first_all_fine_prts        @ offset %zu = %p\n", (size_t)&$ort->_first_all_fine_prts - (size_t)$ort, $ort->_first_all_fine_prts
+printf "_sparse_table               @ offset %zu\n", (size_t)&$ort->_sparse_table - (size_t)$ort
+
+printf "\n【静态成员】\n"
+printf "_max_fine_entries           = %zu\n", OtherRegionsTable::_max_fine_entries
+printf "_mod_max_fine_entries_mask  = %zu\n", OtherRegionsTable::_mod_max_fine_entries_mask
+printf "_n_coarsenings              = %d\n", OtherRegionsTable::_n_coarsenings
+
+printf "\n========================================\n"
+printf "       Coarse Bitmap 分析               \n"
+printf "========================================\n"
+printf "_coarse_map._size           = %zu bits\n", $ort->_coarse_map._size
+printf "_coarse_map size in bytes   = %zu bytes\n", $ort->_coarse_map._size / 8
+printf "(应为 2048 bits = 256 bytes)\n"
+
+printf "\n========================================\n"
+printf "       Fine-grain Table 分析            \n"
+printf "========================================\n"
+printf "Fine Table 槽位数           = %zu\n", OtherRegionsTable::_max_fine_entries
+printf "Fine Table 大小             = %zu bytes\n", OtherRegionsTable::_max_fine_entries * 8
+printf "当前 _n_fine_entries        = %zu\n", $ort->_n_fine_entries
+
+printf "\n========================================\n"
+printf "       PerRegionTable 分析              \n"
+printf "========================================\n"
+printf "sizeof(PerRegionTable):     %zu bytes\n", sizeof(PerRegionTable)
+
+if $ort->_n_fine_entries > 0
+    printf "\n【第一个 PRT 详情】\n"
+    set $first_prt = $ort->_first_all_fine_prts
+    printf "PRT 地址:                   %p\n", $first_prt
+    printf "_hr (Region 指针)           @ offset %zu = %p\n", (size_t)&$first_prt->_hr - (size_t)$first_prt, $first_prt->_hr
+    printf "_bm._map                    @ offset %zu = %p\n", (size_t)&$first_prt->_bm._map - (size_t)$first_prt, $first_prt->_bm._map
+    printf "_bm._size                   @ offset %zu = %zu bits\n", (size_t)&$first_prt->_bm._size - (size_t)$first_prt, $first_prt->_bm._size
+    printf "Bitmap 大小                 = %zu bytes\n", $first_prt->_bm._size / 8
+    printf "_occupied                   @ offset %zu = %d\n", (size_t)&$first_prt->_occupied - (size_t)$first_prt, $first_prt->_occupied
+    printf "_next                       @ offset %zu = %p\n", (size_t)&$first_prt->_next - (size_t)$first_prt, $first_prt->_next
+    printf "_prev                       @ offset %zu = %p\n", (size_t)&$first_prt->_prev - (size_t)$first_prt, $first_prt->_prev
+    printf "_collision_list_next        @ offset %zu = %p\n", (size_t)&$first_prt->_collision_list_next - (size_t)$first_prt, $first_prt->_collision_list_next
+else
+    printf "\n当前没有 Fine-grain PRT (跳过 PRT 详情)\n"
+end
+
+printf "\n========================================\n"
+printf "       SparsePRT 分析                   \n"
+printf "========================================\n"
+set $sparse = &$ort->_sparse_table
+printf "SparsePRT 地址:             %p\n", $sparse
+printf "sizeof(SparsePRT):          %zu bytes\n", sizeof(SparsePRT)
+printf "SparsePRTEntry::cards_num() = %d\n", SparsePRTEntry::cards_num()
+printf "sizeof(SparsePRTEntry)      = %zu bytes\n", SparsePRTEntry::size()
+
+printf "\n========================================\n"
+printf "       内存占用估算                     \n"
+printf "========================================\n"
+set $ort_size = sizeof(OtherRegionsTable)
+set $coarse_size = 256
+set $fine_table_size = OtherRegionsTable::_max_fine_entries * 8
+printf "OtherRegionsTable 对象:     %zu bytes\n", $ort_size
+printf "Coarse Bitmap:              %zu bytes\n", $coarse_size
+printf "Fine Hash Table:            %zu bytes\n", $fine_table_size
+printf "基础总计 (不含 PRTs):       %zu bytes (~6.5KB)\n", $ort_size + $coarse_size + $fine_table_size
+
+if $ort->_n_fine_entries > 0
+    set $prt_size = 1080
+    printf "每个 PRT:                   ~%d bytes\n", $prt_size
+    printf "当前 %zu 个 PRT 占用:       ~%zu bytes\n", $ort->_n_fine_entries, $ort->_n_fine_entries * $prt_size
+end
+
+printf "\n========================================\n"
+printf "            验证完成!                   \n"
+printf "========================================\n"
+
+quit

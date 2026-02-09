@@ -1,0 +1,34 @@
+set pagination off
+set print pretty on
+
+b Parker::park
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== Parker::park ==========\n"
+printf "this: %p\n", this
+printf "_counter: %d\n", this->_counter
+printf "_cur_index: %d\n", this->_cur_index
+printf "sizeof(Parker): %lu\n", sizeof(Parker)
+printf "sizeof(ParkEvent): %lu\n", sizeof(ParkEvent)
+printf "sizeof(PlatformParker): %lu\n", sizeof(os::PlatformParker)
+printf "sizeof(PlatformEvent): %lu\n", sizeof(os::PlatformEvent)
+printf "sizeof(pthread_mutex_t): %lu\n", sizeof(pthread_mutex_t)
+printf "sizeof(pthread_cond_t): %lu\n", sizeof(pthread_cond_t)
+
+set $jt = (JavaThread*)Thread::current()
+printf "\nJavaThread: %p\n", $jt
+printf "parker: %p\n", $jt->_parker
+printf "SleepEvent: %p\n", $jt->_SleepEvent
+printf "_ParkEvent: %p\n", $jt->_ParkEvent
+printf "_MuxEvent: %p\n", $jt->_MuxEvent
+
+c
+
+printf "\n========== Parker::park 2nd call ==========\n"
+printf "_counter: %d\n", this->_counter
+printf "isAbsolute: %d\n", isAbsolute
+printf "time: %ld\n", time
+
+delete breakpoints
+c
+quit

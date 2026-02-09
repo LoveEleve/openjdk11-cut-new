@@ -1,0 +1,59 @@
+# stubRoutines_init1() GDB 验证脚本
+# 文件：jvm-md/StubRoutines/gdb_stubRoutines_init1.txt
+# 用法：gdb -x jvm-md/StubRoutines/gdb_stubRoutines_init1.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在 stubRoutines_init1 之后
+b init.cpp:119
+run -Xms256m -Xmx256m -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# === StubRoutines 代码块 ===
+printf "\n========== StubRoutines Code Blocks ==========\n"
+printf "_code1 address: %p\n", StubRoutines::_code1
+printf "_code2 address: %p (should be NULL at this point)\n", StubRoutines::_code2
+
+# === 核心桩代码入口 ===
+printf "\n========== Core Stub Entries ==========\n"
+printf "_call_stub_entry:          %p\n", StubRoutines::_call_stub_entry
+printf "_call_stub_return_address: %p\n", StubRoutines::_call_stub_return_address
+printf "_catch_exception_entry:    %p\n", StubRoutines::_catch_exception_entry
+printf "_forward_exception_entry:  %p\n", StubRoutines::_forward_exception_entry
+
+# === 异常抛出桩 ===
+printf "\n========== Exception Throw Stubs ==========\n"
+printf "_throw_StackOverflowError_entry:         %p\n", StubRoutines::_throw_StackOverflowError_entry
+printf "_throw_delayed_StackOverflowError_entry: %p\n", StubRoutines::_throw_delayed_StackOverflowError_entry
+
+# === 原子操作桩 ===
+printf "\n========== Atomic Operation Stubs ==========\n"
+printf "_atomic_xchg_entry:         %p\n", StubRoutines::_atomic_xchg_entry
+printf "_atomic_xchg_long_entry:    %p\n", StubRoutines::_atomic_xchg_long_entry
+printf "_atomic_cmpxchg_entry:      %p\n", StubRoutines::_atomic_cmpxchg_entry
+printf "_atomic_cmpxchg_byte_entry: %p\n", StubRoutines::_atomic_cmpxchg_byte_entry
+printf "_atomic_cmpxchg_long_entry: %p\n", StubRoutines::_atomic_cmpxchg_long_entry
+printf "_atomic_add_entry:          %p\n", StubRoutines::_atomic_add_entry
+printf "_atomic_add_long_entry:     %p\n", StubRoutines::_atomic_add_long_entry
+printf "_fence_entry:               %p\n", StubRoutines::_fence_entry
+
+# === SafeFetch 桩 ===
+printf "\n========== SafeFetch Stubs ==========\n"
+printf "_safefetch32_entry:          %p\n", StubRoutines::_safefetch32_entry
+printf "_safefetch32_fault_pc:       %p\n", StubRoutines::_safefetch32_fault_pc
+printf "_safefetch32_continuation_pc: %p\n", StubRoutines::_safefetch32_continuation_pc
+printf "_safefetchN_entry:           %p\n", StubRoutines::_safefetchN_entry
+
+# === 反汇编 call_stub 前 20 条指令 ===
+printf "\n========== Disassemble call_stub (first 20 instructions) ==========\n"
+x/20i StubRoutines::_call_stub_entry
+
+# === 反汇编 atomic_cmpxchg ===
+printf "\n========== Disassemble atomic_cmpxchg ==========\n"
+x/10i StubRoutines::_atomic_cmpxchg_entry
+
+# === 反汇编 fence ===
+printf "\n========== Disassemble fence ==========\n"
+x/5i StubRoutines::_fence_entry
+
+quit

@@ -1,0 +1,100 @@
+---
+description: 分层剥离法：把复杂代码按层剥离，先看核心骨干逻辑。适合"这段代码太复杂看不懂"
+alwaysApply: false
+enabled: true
+updatedAt: 2026-02-07T03:27:56.616Z
+provider: 
+---
+
+# Read-Layered：分层剥离法
+
+## 适用场景
+- "这段代码太复杂，看不懂"
+- 一个函数几百行，宏、模板、错误处理、平台分支混在一起
+- 需要从混乱中提取核心逻辑
+
+## 核心原则
+**复杂代码之所以复杂，是因为多个关注点交织在一起。把它们一层层剥开，每次只关注一个层面。**
+
+## JVM 源码中常见的"层"
+
+从外到内，依次剥离：
+
+| 层 | 内容 | 处理方式 |
+|----|------|---------|
+| 第1层 | **日志/Trace** | `log_debug`、`log_trace`、`EventXxx` → 直接忽略 |
+| 第2层 | **断言/检查** | `assert`、`guarantee`、`DEBUG_ONLY` → 记下检查条件，然后忽略 |
+| 第3层 | **统计/计数** | `_counter++`、`Atomic::inc`（非业务逻辑的统计） → 忽略 |
+| 第4层 | **错误处理** | `TRAPS`、`CHECK`、`THROW`、异常路径 → 标记后忽略，只看正常路径 |
+| 第5层 | **平台分支** | `#ifdef LINUX`、`#ifdef X86` → 只看当前平台（linux x86-64） |
+| 第6层 | **宏展开** | `TRAPS`→`Thread* THREAD`、`CHECK`→异常检查 → 手动展开核心宏 |
+| 第7层 | **模板/泛型** | 模板特化 → 确定具体类型后展开 |
+| 第8层 | **性能优化** | fast path / slow path、缓存、批处理 → 先只看 slow path（完整逻辑），再看 fast path 优化了什么 |
+| **剩下的** | **核心逻辑** | 这才是真正要理解的代码 |
+
+## 执行步骤
+
+### Step 1：原始代码快照
+- 读取目标函数的完整源码
+- 记录总行数，感受复杂度
+
+### Step 2：逐层剥离
+按上面的顺序，逐层处理：
+- 每剥一层，用注释标记被忽略的部分：`/* [日志] */`、`/* [断言] */`
+- 每剥完一层，看一眼剩余代码，感受是否变清晰了
+- 直到剩下核心逻辑
+
+### Step 3：理解核心骨干
+对剥离后的核心代码：
+- 用自然语言写出伪代码（不超过 20 行）
+- 标注每一步的目的
+- 这个伪代码就是这段代码"真正在做的事"
+
+### Step 4：按需回填
+理解了核心逻辑后，根据需要回填被剥离的层：
+- 如果需要理解错误处理 → 回填第4层
+- 如果需要理解性能优化 → 回填第8层
+- 如果需要理解宏 → 回填第6层
+- **不需要的层永远不回填**
+
+### Step 5：输出分析结论
+1. **核心逻辑伪代码**：剥离后的骨干（≤20行）
+2. **各层标注**：哪些代码属于哪一层，占比多少
+3. **关键宏展开**：如果涉及重要的宏，给出展开结果
+4. **正常路径 vs 异常路径**：分别描述
+
+## JVM 常见宏速查表
+
+在剥离过程中常遇到的宏：
+
+```cpp
+// 异常处理相关
+TRAPS          → Thread* THREAD（额外参数，用于传递异常）
+CHECK          → THREAD); if (HAS_PENDING_EXCEPTION) return; (0
+CHECK_(result) → THREAD); if (HAS_PENDING_EXCEPTION) return result; (0
+THROW(name)    → { Exceptions::_throw(THREAD, name); return; }
+
+// 句柄相关
+Handle(obj)    → 在当前线程的 HandleArea 分配一个间接指针
+HandleMark hm  → 标记 HandleArea 的水位，析构时回退
+
+// 锁相关
+MutexLocker ml(lock)  → 构造时加锁，析构时解锁
+
+// GC 屏障
+oopDesc::bs()->write_ref_field(p, v) → G1 写屏障
+
+// 调试相关
+NOT_PRODUCT(code)  → 只在 debug 版本执行
+DEBUG_ONLY(code)   → 只在 debug 版本执行
+```
+
+## 注意事项
+- **剥离是为了理解，不是为了删代码**——剥离后的代码不能运行，只是帮助理解
+- 剥离的顺序很重要，先剥最"外围"的（日志），最后才是核心逻辑
+- 如果剥完所有层后核心逻辑仍然很复杂（>50行），说明需要配合 Read-TopDown 继续分解
+- 这个方法特别适合和 Read-TopDown 组合使用：TopDown 找到关键函数 → Layered 剥离该函数
+
+## 源码项目路径
+- HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`
+- 已有分析文档：`/data/workspace/openjdk-cut-new/jvm-md/`

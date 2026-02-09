@@ -1,0 +1,138 @@
+---
+description: GDB 内存检查：打印对象地址、字段值、内存布局，验证数据结构分析。
+alwaysApply: false
+enabled: true
+updatedAt: 2026-02-07T03:32:33.925Z
+provider: 
+---
+
+# JVM-GDB-Memory：内存检查验证
+
+## 适用场景
+- 验证"数据结构是不是这样的"
+- 打印对象的真实内存内容
+- 确认字段值、对象大小、内存布局
+
+## 标准环境
+```
+JVM：/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+参数：-Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+临时文件：/data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题名>/
+```
+
+## 执行步骤
+
+### Step 1：确定要检查的对象
+- 对象类型
+- 如何获取对象地址（全局指针？局部变量？在断点处获取？）
+
+### Step 2：获取对象地址
+常见方式：
+```gdb
+# 全局单例
+p Universe::_collectedHeap
+p G1CollectedHeap::_g1h
+
+# 通过断点获取局部变量
+b TargetFunction
+# 命中后：
+p this
+p &local_var
+
+# 通过线程获取
+p Thread::current()
+p JavaThread::current()->_anchor
+```
+
+### Step 3：检查对象内容
+
+```gdb
+# 打印对象大小
+p sizeof(ClassName)
+
+# 打印所有字段（如果 GDB 支持）
+p *((ClassName*)地址)
+
+# 打印特定字段
+p ((ClassName*)地址)->_field1
+p ((ClassName*)地址)->_field2
+
+# 打印字段偏移量
+p (size_t)&((ClassName*)0)->_field1
+p (size_t)&((ClassName*)0)->_field2
+
+# 原始内存内容（8字节为单位，十六进制）
+x/Ngx 地址     # N = sizeof / 8
+
+# 打印数组内容
+p ((ClassName*)地址)->_array[0]
+p ((ClassName*)地址)->_array[1]
+
+# 打印指针指向的内容
+p *((ClassName*)地址)->_pointer_field
+```
+
+### Step 4：构建内存布局
+基于 GDB 数据，填写内存布局表：
+
+```
+对象地址：0x7f1234567890
+对象大小：sizeof = XXX bytes
+
+偏移      字段名            值                  含义
+────────────────────────────────────────────────────
+0x000     [vtable ptr]     0x7f...             虚函数表
+0x008     _field1          0x00000100          = 256
+0x010     _field2          0x7f...             → 指向 XXX 对象
+0x018     [padding]        0x0000000000000000  对齐填充
+0x020     _field3          0x00000001          = true
+...
+```
+
+### Step 5：验证与源码一致性
+- 每个字段值与源码中的赋值逻辑对比
+- 确认值是否合理
+- 标注异常值或需要进一步分析的值
+
+### Step 6：输出验证结论
+1. **对象基本信息**：类型、地址、大小
+2. **内存布局表**：如 Step 4
+3. **关键字段分析**：重要字段的值和含义
+4. **子结构展开**：指针字段指向的对象也要检查（递归）
+5. **GDB 原始命令和输出**：完整记录
+
+## 实用命令组合
+
+```gdb
+# 一次性打印对象概况
+define dump_obj
+  set $obj = (ClassName*)$arg0
+  printf "=== %s @ %p ===\n", "ClassName", $obj
+  printf "sizeof = %lu\n", sizeof(ClassName)
+  p *$obj
+  printf "--- raw memory ---\n"
+  x/16gx $obj
+end
+
+# 打印数组所有元素
+define dump_array
+  set $arr = $arg0
+  set $len = $arg1
+  set $i = 0
+  while $i < $len
+    printf "[%d] = ", $i
+    p $arr[$i]
+    set $i = $i + 1
+  end
+end
+```
+
+## 注意事项
+- 检查指针时要判断是否为 NULL，避免 GDB 崩溃
+- 大对象（>1KB）的原始内存不要全部 dump，只 dump 关键区域
+- 对齐填充的值通常是 0，但不保证
+- 如果字段是 union 类型，要确认当前生效的是哪个成员
+
+## 源码项目路径
+- HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`
+- GDB 目标：`/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java`

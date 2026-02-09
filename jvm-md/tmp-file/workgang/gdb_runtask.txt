@@ -1,0 +1,61 @@
+set pagination off
+set print pretty on
+
+b WorkGang::run_task(AbstractGangTask*, unsigned int, bool)
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 第一次 run_task
+printf "\n========== run_task #1 ==========\n"
+printf "gang: %s\n", this->_name
+printf "total_workers: %u\n", this->_total_workers
+printf "active_workers: %u\n", this->_active_workers
+printf "created_workers: %u\n", this->_created_workers
+printf "task name: %s\n", task->_name
+printf "num_workers: %u\n", num_workers
+printf "add_foreground_work: %d\n", add_foreground_work
+c
+
+# 第二次 run_task
+printf "\n========== run_task #2 ==========\n"
+printf "gang: %s\n", this->_name
+printf "task name: %s\n", task->_name
+printf "num_workers: %u\n", num_workers
+c
+
+# 第三次 run_task
+printf "\n========== run_task #3 ==========\n"
+printf "gang: %s\n", this->_name
+printf "task name: %s\n", task->_name
+printf "num_workers: %u\n", num_workers
+c
+
+# 第四次 run_task
+printf "\n========== run_task #4 ==========\n"
+printf "gang: %s\n", this->_name
+printf "task name: %s\n", task->_name
+printf "num_workers: %u\n", num_workers
+c
+
+# 第五次 run_task
+printf "\n========== run_task #5 ==========\n"
+printf "gang: %s\n", this->_name
+printf "task name: %s\n", task->_name
+printf "num_workers: %u\n", num_workers
+c
+
+# 第六次
+printf "\n========== run_task #6 ==========\n"
+printf "gang: %s\n", this->_name
+printf "task name: %s\n", task->_name
+printf "num_workers: %u\n", num_workers
+c
+
+# 第七次
+printf "\n========== run_task #7 ==========\n"
+printf "gang: %s\n", this->_name
+printf "task name: %s\n", task->_name
+printf "num_workers: %u\n", num_workers
+
+delete breakpoints
+c
+quit

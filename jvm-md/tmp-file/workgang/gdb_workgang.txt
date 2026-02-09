@@ -1,0 +1,22 @@
+set pagination off
+set print pretty on
+b WorkGang::WorkGang
+b GangWorker::loop
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+printf "\n========== WorkGang #1 ==========\n"
+printf "name: %s\n", name
+printf "workers: %u\n", workers
+printf "are_GC_task_threads: %d\n", are_GC_task_threads
+printf "are_ConcurrentGC_threads: %d\n", are_ConcurrentGC_threads
+c
+printf "\n========== WorkGang #2 ==========\n"
+printf "name: %s\n", name
+printf "workers: %u\n", workers
+printf "are_GC_task_threads: %d\n", are_GC_task_threads
+printf "are_ConcurrentGC_threads: %d\n", are_ConcurrentGC_threads
+c
+printf "\n========== GangWorker::loop #1 ==========\n"
+printf "this: %p\n", this
+printf "worker id: %u\n", this->_id
+c
+quit

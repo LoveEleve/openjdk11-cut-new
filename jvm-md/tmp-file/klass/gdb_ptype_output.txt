@@ -1,0 +1,170 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+warning: File "/data/workspace/openjdk-cut-new/.gdbinit" auto-loading has been declined by your `auto-load safe-path' set to "$debugdir:$datadir/auto-load".
+To enable execution of this file add
+	add-auto-load-safe-path /data/workspace/openjdk-cut-new/.gdbinit
+line to your configuration file "/root/.gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/root/.gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+No source file named instanceKlass.cpp.
+Breakpoint 1 (instanceKlass.cpp:430) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+[New Thread 0x7ffff780b6c0 (LWP 1952824)]
+[New Thread 0x7ffff55ff6c0 (LWP 1952847)]
+[New Thread 0x7ffff44f26c0 (LWP 1952848)]
+[New Thread 0x7ffff43f06c0 (LWP 1952849)]
+[New Thread 0x7fffcf4f46c0 (LWP 1952850)]
+[New Thread 0x7fffcf3f26c0 (LWP 1952851)]
+[Switching to Thread 0x7ffff780b6c0 (LWP 1952824)]
+
+Thread 2 "java" hit Breakpoint 1, InstanceKlass::InstanceKlass (this=0x800001040, parser=..., kind=0, id=InstanceKlassID) at /data/workspace/openjdk-cut-new/src/hotspot/share/oops/instanceKlass.cpp:430
+430	}
+/* offset      |    size */  type = class Klass : public Metadata {
+                             protected:
+/*     12      |       4 */    jint _layout_helper;
+/*     16      |       4 */    const KlassID _id;
+/*     20      |       4 */    juint _super_check_offset;
+/*     24      |       8 */    Symbol *_name;
+/*     32      |       8 */    Klass *_secondary_super_cache;
+/*     40      |       8 */    Array<Klass*> *_secondary_supers;
+/*     48      |      64 */    Klass *_primary_supers[8];
+/*    112      |       8 */    class OopHandle {
+                                 private:
+/*    112      |       8 */        oop *_obj;
+
+                                   /* total size (bytes):    8 */
+                               } _java_mirror;
+/*    120      |       8 */    Klass *_super;
+/*    128      |       8 */    Klass *_subklass;
+/*    136      |       8 */    Klass *_next_sibling;
+/*    144      |       8 */    Klass *_next_link;
+/*    152      |       8 */    ClassLoaderData *_class_loader_data;
+/*    160      |       4 */    jint _modifier_flags;
+/*    164      |       4 */    class AccessFlags {
+                                 private:
+/*    164      |       4 */        jint _flags;
+
+                                   /* total size (bytes):    4 */
+                               } _access_flags;
+/*    168      |       8 */    traceid _trace_id;
+/*    176      |       8 */    jlong _last_biased_lock_bulk_revocation_time;
+/*    184      |       8 */    markOop _prototype_header;
+/*    192      |       4 */    jint _biased_lock_revocation_count;
+/*    196      |       4 */    int _vtable_len;
+                             private:
+/*    200      |       2 */    jshort _shared_class_path_index;
+/*    202      |       2 */    u2 _shared_class_flags;
+/*    204      |       4 */    narrowOop _archived_mirror;
+                             public:
+                               static const int _lh_neutral_value;
+                               static const int _lh_instance_slow_path_bit;
+                               static const int _lh_log2_element_size_shift;
+                               static const int _lh_log2_element_size_mask;
+                               static const int _lh_element_type_shift;
+                               static const int _lh_element_type_mask;
+                               static const int _lh_header_size_shift;
+                               static const int _lh_header_size_mask;
+                               static const int _lh_array_tag_bits;
+                               static const int _lh_array_tag_shift;
+                               static const int _lh_array_tag_obj_value;
+                               static const unsigned int _lh_array_tag_type_value;
+
+                               /* total size (bytes):  208 */
+                             }
+/* offset      |    size */  type = class InstanceKlass : public Klass {
+                             public:
+                               static const KlassID ID;
+                             protected:
+/*    208      |       8 */    Annotations *_annotations;
+/*    216      |       8 */    PackageEntry *_package_entry;
+/*    224      |       8 */    Klass * volatile _array_klasses;
+/*    232      |       8 */    ConstantPool *_constants;
+/*    240      |       8 */    Array<unsigned short> *_inner_classes;
+/*    248      |       8 */    Array<unsigned short> *_nest_members;
+/*    256      |       2 */    jushort _nest_host_index;
+/* XXX  6-byte hole      */
+/*    264      |       8 */    InstanceKlass *_nest_host;
+/*    272      |       8 */    const char *_source_debug_extension;
+/*    280      |       8 */    Symbol *_array_name;
+/*    288      |       4 */    int _nonstatic_field_size;
+/*    292      |       4 */    int _static_field_size;
+/*    296      |       2 */    u2 _generic_signature_index;
+/*    298      |       2 */    u2 _source_file_name_index;
+/*    300      |       2 */    u2 _static_oop_field_count;
+/*    302      |       2 */    u2 _java_fields_count;
+/*    304      |       4 */    int _nonstatic_oop_map_size;
+/*    308      |       4 */    int _itable_len;
+/*    312      |       1 */    bool _is_marked_dependent;
+/*    313      |       1 */    bool _is_being_redefined;
+                               static const unsigned int _misc_kind_field_size;
+                               static const unsigned int _misc_kind_field_pos;
+                               static const unsigned int _misc_kind_field_mask;
+                               static const unsigned int _misc_kind_other;
+                               static const unsigned int _misc_kind_reference;
+                               static const unsigned int _misc_kind_class_loader;
+                               static const unsigned int _misc_kind_mirror;
+/*    314      |       2 */    u2 _misc_flags;
+/*    316      |       2 */    u2 _minor_version;
+/*    318      |       2 */    u2 _major_version;
+/*    320      |       8 */    Thread *_init_thread;
+/*    328      |       8 */    OopMapCache * volatile _oop_map_cache;
+/*    336      |       8 */    JNIid *_jni_ids;
+/*    344      |       8 */    jmethodID * volatile _methods_jmethod_ids;
+/*    352      |       8 */    intptr_t _dep_context;
+/*    360      |       8 */    nmethod *_osr_nmethods_head;
+/*    368      |       8 */    BreakpointInfo *_breakpoints;
+/*    376      |       8 */    InstanceKlass *_previous_versions;
+/*    384      |       8 */    JvmtiCachedClassFileData *_cached_class_file;
+/*    392      |       2 */    volatile u2 _idnum_allocated_count;
+/*    394      |       1 */    u1 _init_state;
+/*    395      |       1 */    u1 _reference_type;
+/*    396      |       2 */    u2 _this_class_index;
+/* XXX  2-byte hole      */
+/*    400      |       8 */    JvmtiCachedClassFieldMap *_jvmti_cached_class_field_map;
+/*    408      |       4 */    int _verify_count;
+/* XXX  4-byte hole      */
+/*    416      |       8 */    Array<Method*> *_methods;
+/*    424      |       8 */    Array<Method*> *_default_methods;
+/*    432      |       8 */    Array<Klass*> *_local_interfaces;
+/*    440      |       8 */    Array<Klass*> *_transitive_interfaces;
+/*    448      |       8 */    Array<int> *_method_ordering;
+/*    456      |       8 */    Array<int> *_default_vtable_indices;
+/*    464      |       8 */    Array<unsigned short> *_fields;
+                             private:
+                               static bool _has_previous_versions;
+
+                               /* total size (bytes):  472 */
+                             }
+/* offset      |    size */  type = class ArrayKlass : public Klass {
+                             private:
+/*    208      |       4 */    int _dimension;
+/* XXX  4-byte hole      */
+/*    216      |       8 */    Klass * volatile _higher_dimension;
+/*    224      |       8 */    Klass * volatile _lower_dimension;
+
+                               /* total size (bytes):  232 */
+                             }
+/* offset      |    size */  type = class ObjArrayKlass : public ArrayKlass {
+                             public:
+                               static const KlassID ID;
+                             private:
+/*    232      |       8 */    Klass *_element_klass;
+/*    240      |       8 */    Klass *_bottom_klass;
+
+                               /* total size (bytes):  248 */
+                             }
+/* offset      |    size */  type = class TypeArrayKlass : public ArrayKlass {
+                             public:
+                               static const KlassID ID;
+                             private:
+/*    232      |       4 */    jint _max_length;
+/* XXX  4-byte padding   */
+
+                               /* total size (bytes):  240 */
+                             }

@@ -1,0 +1,62 @@
+set pagination off
+set print pretty on
+
+b WorkGang::WorkGang
+b AbstractWorkGang::initialize_workers
+b GangWorker::loop
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 第一次 WorkGang 构造 - GC Thread
+printf "\n========== WorkGang #1 构造 ==========\n"
+printf "name: %s\n", name
+printf "workers: %u\n", workers
+printf "are_GC_task_threads: %d\n", are_ConcurrentGC_threads ? 0 : 1
+printf "are_ConcurrentGC_threads: %d\n", are_ConcurrentGC_threads
+printf "sizeof(WorkGang): %lu\n", sizeof(WorkGang)
+printf "sizeof(AbstractWorkGang): %lu\n", sizeof(AbstractWorkGang)
+printf "sizeof(GangWorker): %lu\n", sizeof(GangWorker)
+printf "sizeof(AbstractGangWorker): %lu\n", sizeof(AbstractGangWorker)
+printf "sizeof(SemaphoreGangTaskDispatcher): %lu\n", sizeof(SemaphoreGangTaskDispatcher)
+printf "sizeof(WorkGangBarrierSync): %lu\n", sizeof(WorkGangBarrierSync)
+printf "sizeof(SubTasksDone): %lu\n", sizeof(SubTasksDone)
+printf "sizeof(AbstractGangTask): %lu\n", sizeof(AbstractGangTask)
+c
+
+# initialize_workers 第一次
+printf "\n========== initialize_workers #1 ==========\n"
+printf "gang name: %s\n", this->_name
+printf "total_workers: %u\n", this->_total_workers
+printf "active_workers: %u\n", this->_active_workers
+printf "created_workers: %u\n", this->_created_workers
+c
+
+# GangWorker::loop 第一个 worker
+printf "\n========== GangWorker::loop (GC Thread#0) ==========\n"
+printf "this: %p\n", this
+printf "worker id: %u\n", this->_id
+printf "gang: %p\n", this->_gang
+printf "gang name: %s\n", this->_gang->_name
+c
+
+# 第二次 WorkGang 构造 - G1 Conc
+printf "\n========== WorkGang #2 构造 ==========\n"
+printf "name: %s\n", name
+printf "workers: %u\n", workers
+printf "are_GC_task_threads: %d\n", are_GC_task_threads
+printf "are_ConcurrentGC_threads: %d\n", are_ConcurrentGC_threads
+c
+
+# initialize_workers 第二次
+printf "\n========== initialize_workers #2 ==========\n"
+printf "gang name: %s\n", this->_name
+printf "total_workers: %u\n", this->_total_workers
+printf "active_workers: %u\n", this->_active_workers
+printf "created_workers: %u\n", this->_created_workers
+c
+
+# 后续全部放行
+delete breakpoints
+c
+
+quit

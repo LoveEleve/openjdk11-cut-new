@@ -1,0 +1,20 @@
+# JNI Handles 初始化 GDB 验证脚本
+# 用法：gdb -x gdb_jni_handles_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+b JNIHandles::initialize
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+printf "\n========== JNI Global Handles ==========\n"
+printf "_global_handles: %p\n", JNIHandles::_global_handles
+printf "_weak_global_handles: %p\n", JNIHandles::_weak_global_handles
+
+printf "\n========== JNIHandleBlock Stats ==========\n"
+printf "_blocks_allocated: %d\n", JNIHandleBlock::_blocks_allocated
+printf "_block_free_list: %p\n", JNIHandleBlock::_block_free_list
+
+quit

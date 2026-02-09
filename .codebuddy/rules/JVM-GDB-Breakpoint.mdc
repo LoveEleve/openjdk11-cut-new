@@ -1,0 +1,117 @@
+---
+description: GDB 断点调试：在关键函数设断点，观察执行流和参数，验证流程走向。
+alwaysApply: false
+enabled: true
+updatedAt: 2026-02-07T03:32:11.449Z
+provider: 
+---
+
+# JVM-GDB-Breakpoint：断点调试验证
+
+## 适用场景
+- 验证"流程是不是这样走的"
+- 确认某个函数是否被调用、被谁调用、参数是什么
+- 确认条件分支走向
+
+## 标准环境
+```
+JVM：/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+参数：-Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+临时文件：/data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题名>/
+```
+
+## 执行步骤
+
+### Step 1：明确验证目标
+写清楚要验证什么，转化为可观测的断点方案：
+
+```
+验证目标：确认 XXX 流程中是否调用了 YYY 函数
+断点方案：
+  - b YYY 函数入口
+  - 命中后：bt 看调用栈，p 看参数
+  - 预期：调用栈中应该包含 XXX
+```
+
+### Step 2：编写 GDB 命令
+
+**简单验证（手动）：**
+```gdb
+file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+set pagination off
+
+b TargetClass::targetMethod
+commands
+  bt 10
+  p arg1
+  p arg2
+  p this->_key_field
+  continue
+end
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+```
+
+**复杂验证（脚本）：**
+写入 GDB 脚本文件，保存到 `jvm-md/tmp-file/<主题>/gdb_verify.txt`
+
+### Step 3：执行并记录
+- 运行 GDB
+- 完整记录输出
+- 标注关键数据
+
+### Step 4：分析 GDB 输出
+对每个断点命中：
+- **调用栈分析**：确认是从预期路径调用的
+- **参数分析**：参数值是否符合预期
+- **命中次数**：是否符合预期频率
+- **意外发现**：有没有超出预期的情况
+
+### Step 5：输出验证结论
+```
+验证目标：...
+验证方法：在 XXX 设断点
+GDB 原始输出：（贴关键部分）
+结论：✅ 验证通过 / ❌ 与预期不符
+  - 实际行为：...
+  - 预期行为：...
+  - 差异原因：...（如有）
+```
+
+## 常用断点技巧
+
+```gdb
+# 条件断点（只在特定条件命中）
+b file.cpp:100 if variable == value
+
+# 临时断点（只命中一次）
+tb function_name
+
+# 忽略前 N 次命中
+b function_name
+ignore 1 100   # 忽略前100次
+
+# 断点执行命令后继续（不暂停）
+b function_name
+commands
+  silent
+  printf "hit: %d\n", arg
+  continue
+end
+
+# 在所有重载版本设断点
+b ClassName::methodName
+
+# 正则匹配设断点
+rbreak ClassName::.*init.*
+```
+
+## 注意事项
+- slowdebug 版本运行很慢，断点不要设在循环热路径上
+- 如果需要在热路径上断，用条件断点或计数限制
+- GDB 输出文件保存到 `jvm-md/tmp-file/<主题>/` 目录
+- 每次验证前先明确"预期结果"，不要盲目调试
+
+## 源码项目路径
+- HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`
+- GDB 目标：`/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java`

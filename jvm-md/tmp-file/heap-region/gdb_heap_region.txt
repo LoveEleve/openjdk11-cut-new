@@ -1,0 +1,33 @@
+set pagination off
+set print pretty on
+
+# 断点在 interpreter_init，此时 HeapRegion 已初始化完成
+b interpreter_init
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# ============ HeapRegion 静态变量 ============
+printf "\n========== HeapRegion Static Variables ==========\n"
+printf "HeapRegion::GrainBytes = %lu (0x%lx)\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes
+printf "HeapRegion::GrainWords = %lu\n", HeapRegion::GrainWords
+printf "HeapRegion::LogOfHRGrainBytes = %d\n", HeapRegion::LogOfHRGrainBytes
+printf "HeapRegion::LogOfHRGrainWords = %d\n", HeapRegion::LogOfHRGrainWords
+printf "HeapRegion::CardsPerRegion = %lu\n", HeapRegion::CardsPerRegion
+
+# ============ 获取 G1CollectedHeap ============
+printf "\n========== G1CollectedHeap Info ==========\n"
+set $g1h = (G1CollectedHeap*)Universe::_collectedHeap
+printf "G1CollectedHeap address: %p\n", $g1h
+printf "Heap start (bottom): %p\n", $g1h->_hrm._regions._base
+printf "Number of regions: %u\n", $g1h->_hrm._num_committed
+
+# ============ HeapRegionManager ============
+printf "\n========== HeapRegionManager ==========\n"
+set $hrm = &($g1h->_hrm)
+printf "HeapRegionManager address: %p\n", $hrm
+printf "_num_committed: %u\n", $hrm->_num_committed
+printf "_regions._base: %p\n", $hrm->_regions._base
+printf "_regions._length: %lu\n", $hrm->_regions._length
+printf "_regions._bias: %lu\n", $hrm->_regions._bias
+printf "_regions._shift_by: %u\n", $hrm->_regions._shift_by
+
+quit

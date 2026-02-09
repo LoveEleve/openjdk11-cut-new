@@ -1,0 +1,56 @@
+set pagination off
+set print pretty on
+
+# 断点1: initialize_java_lang_classes 入口
+b Threads::initialize_java_lang_classes
+commands
+printf "\n========== Threads::initialize_java_lang_classes 入口 ==========\n"
+printf "main_thread: %p\n", main_thread
+continue
+end
+
+# 断点2: initialize_class 函数 - 跟踪每个类的初始化
+b thread.cpp:1165
+commands
+printf "\n========== initialize_class ==========\n"
+printf "class_name: "
+call class_name->print()
+printf "\n"
+continue
+end
+
+# 断点3: String 类初始化后 - CompactStrings 设置
+b thread.cpp:3822
+commands
+printf "\n========== CompactStrings 设置 ==========\n"
+printf "CompactStrings flag value: %d\n", CompactStrings
+continue
+end
+
+# 断点4: InstanceKlass::initialize_impl 入口
+b instanceKlass.cpp:892
+commands
+printf "\n========== InstanceKlass::initialize_impl ==========\n"
+printf "this->name(): "
+call this->name()->print()
+printf "\n"
+printf "当前初始化状态 (_init_state): %d\n", this->_init_state
+printf "  0=allocated, 1=loaded, 2=linked, 3=being_initialized, 4=fully_initialized\n"
+continue
+end
+
+# 断点5: call_class_initializer - 调用 <clinit>
+b instanceKlass.cpp:1313
+commands
+printf "\n========== call_class_initializer (<clinit>) ==========\n"
+printf "类名: "
+call this->name()->print()
+printf "\n"
+printf "是否有 <clinit> 方法: %s\n", this->class_initializer() != 0 ? "是" : "否"
+continue
+end
+
+# 启动 JVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+quit

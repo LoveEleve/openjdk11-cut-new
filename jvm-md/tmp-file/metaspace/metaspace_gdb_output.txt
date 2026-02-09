@@ -1,0 +1,935 @@
+Warning: 'set logging on', an alias for the command 'set logging enabled', is deprecated.
+Use 'set logging enabled on'.
+
+warning: File "/data/workspace/openjdk-cut-new/.gdbinit" auto-loading has been declined by your `auto-load safe-path' set to "$debugdir:$datadir/auto-load".
+To enable execution of this file add
+	add-auto-load-safe-path /data/workspace/openjdk-cut-new/.gdbinit
+line to your configuration file "/root/.gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/root/.gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+Function "Metaspace::post_initialize" not defined.
+Breakpoint 1 (Metaspace::post_initialize) pending.
+Function "universe_post_init" not defined.
+Breakpoint 2 (universe_post_init) pending.
+Function "SpaceManager::grow_and_allocate" not defined.
+Breakpoint 3 (SpaceManager::grow_and_allocate) pending.
+Function "VirtualSpaceNode::take_from_committed" not defined.
+Breakpoint 4 (VirtualSpaceNode::take_from_committed) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+[New Thread 0x7ffff780b6c0 (LWP 833186)]
+[New Thread 0x7ffff55ff6c0 (LWP 833187)]
+[New Thread 0x7ffff44f26c0 (LWP 833188)]
+[New Thread 0x7ffff43f06c0 (LWP 833189)]
+[New Thread 0x7fffcf4f46c0 (LWP 833195)]
+[New Thread 0x7fffcf3f26c0 (LWP 833196)]
+[Switching to Thread 0x7ffff780b6c0 (LWP 833186)]
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 524288
+  _top = 0x7fffceaf1000
+  _container_count = 0
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 524288
+  _top = 0x7fffceaf1000
+  _container_count = 0
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 49152
+  _top = 0x800000000
+  _container_count = 0
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 49152
+  _top = 0x800000000
+  _container_count = 0
+[New Thread 0x7fffceaf06c0 (LWP 833219)]
+[New Thread 0x7fffce9ee6c0 (LWP 833220)]
+[New Thread 0x7fffce8ee6c0 (LWP 833221)]
+
+===== Metaspace::post_initialize() 入口 =====
+
+--- 全局状态 ---
+_first_chunk_word_size = 524288 (expect 524288 = 4MB/8)
+_first_class_chunk_word_size = 49152 (expect 49152 = 384KB/8)
+_commit_alignment = 4096
+_reserve_alignment = 4096
+
+--- MetaspaceGC HWM (初始化时) ---
+_capacity_until_GC = 18446744073709547520
+
+--- 数据元空间 VirtualSpaceList ---
+_space_list = 0x7ffff0c8b090
+  _reserved_words = 1048576
+  _committed_words = 524288
+  _virtual_space_count = 1
+
+--- 类元空间 VirtualSpaceList ---
+_class_space_list = 0x7ffff0c8ae90
+  _reserved_words = 134217728
+  _committed_words = 49152
+  _virtual_space_count = 1
+
+--- 数据 ChunkManager ---
+_chunk_manager_metadata = 0x7ffff0c8bb10
+  _free_chunks_total words = 0
+  _free_chunks_count = 0
+  Specialized count = 0
+  Small count = 0
+  Medium count = 0
+
+--- 类 ChunkManager ---
+_chunk_manager_class = 0x7ffff002c350
+  _free_chunks_total words = 0
+  _free_chunks_count = 0
+  Specialized count = 0
+  Small count = 0
+  Medium count = 0
+
+--- 压缩类指针 ---
+narrow_klass_base = 0x800000000
+narrow_klass_shift = 0
+CompressedClassSpaceSize = 1073741824
+[New Thread 0x7fffce7966c0 (LWP 833222)]
+[New Thread 0x7fffce3ff6c0 (LWP 833223)]
+[New Thread 0x7fffce2ce6c0 (LWP 833224)]
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef1000
+  _container_count = 1
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef1000
+  _container_count = 1
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800060000
+  _container_count = 1
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800060000
+  _container_count = 1
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef1400
+  _container_count = 2
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800060400
+  _container_count = 2
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef1800
+  _container_count = 3
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800060800
+  _container_count = 3
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef1c00
+  _container_count = 4
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800060c00
+  _container_count = 4
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef2000
+  _container_count = 5
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800061000
+  _container_count = 5
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0e73020, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 120
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef2400
+  _container_count = 6
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef2800
+  _container_count = 7
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800061400
+  _container_count = 6
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef2c00
+  _container_count = 8
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800061800
+  _container_count = 7
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef3000
+  _container_count = 9
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800061c00
+  _container_count = 8
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef3400
+  _container_count = 10
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800062000
+  _container_count = 9
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0e8f8a0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 120
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef3800
+  _container_count = 11
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef3c00
+  _container_count = 12
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800062400
+  _container_count = 10
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef4000
+  _container_count = 13
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800062800
+  _container_count = 11
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0ea0eb0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef4400
+  _container_count = 14
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef4800
+  _container_count = 15
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800062c00
+  _container_count = 12
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef4c00
+  _container_count = 16
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800063000
+  _container_count = 13
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef5000
+  _container_count = 17
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800063400
+  _container_count = 14
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0ea2b00, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 113
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef5400
+  _container_count = 18
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef5800
+  _container_count = 19
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800063800
+  _container_count = 15
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 3
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 524288
+  _used_words = 524280
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 512
+  _top = 0x7fffceef5c00
+  _container_count = 20
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800063c00
+  _container_count = 16
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0ea8720, word_size = 10
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 111
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffceef7000
+  _container_count = 22
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 15
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 524800
+  _used_words = 524770
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 512
+  _top = 0x7fffceef7400
+  _container_count = 23
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 309
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 525312
+  _used_words = 525059
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 512
+  _top = 0x7fffceef9000
+  _container_count = 24
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 60
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 525824
+  _used_words = 525790
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 512
+  _top = 0x7fffceefa000
+  _container_count = 25
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 225
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 526336
+  _used_words = 526094
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffceefb000
+  _container_count = 26
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 66
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 49152
+  _used_words = 49109
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 256
+  _top = 0x800064000
+  _container_count = 17
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 64
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 49408
+  _used_words = 49352
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 256
+  _top = 0x800064800
+  _container_count = 18
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 71
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 49664
+  _used_words = 49587
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 256
+  _top = 0x800065000
+  _container_count = 19
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 65
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 49920
+  _used_words = 49860
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 256
+  _top = 0x800065800
+  _container_count = 20
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 108
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 50176
+  _used_words = 50126
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 4096
+  _top = 0x800066000
+  _container_count = 21
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 14
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 534528
+  _used_words = 534473
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef10000
+  _container_count = 27
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 13
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 542720
+  _used_words = 542652
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef20000
+  _container_count = 28
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 30
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 550912
+  _used_words = 550843
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef30000
+  _container_count = 29
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef30000
+  _container_count = 29
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0ec8370, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 111
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0ec92a0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 14
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 559104
+  _used_words = 559023
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef40000
+  _container_count = 37
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 117
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 54272
+  _used_words = 54111
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 4096
+  _top = 0x800070000
+  _container_count = 27
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 382
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 567296
+  _used_words = 567019
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef50000
+  _container_count = 38
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 613
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 575488
+  _used_words = 575292
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef60000
+  _container_count = 39
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 21
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 583680
+  _used_words = 583574
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef70000
+  _container_count = 40
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef70000
+  _container_count = 40
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800078000
+  _container_count = 31
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 15
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 591872
+  _used_words = 591763
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef80000
+  _container_count = 45
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800078400
+  _container_count = 32
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800078800
+  _container_count = 33
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800078c00
+  _container_count = 34
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800079000
+  _container_count = 35
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0ee1de0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800079400
+  _container_count = 36
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0ee2540, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800079800
+  _container_count = 37
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 255
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 600064
+  _used_words = 599831
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcef90000
+  _container_count = 54
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800079c00
+  _container_count = 38
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x80007a000
+  _container_count = 39
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x80007a400
+  _container_count = 40
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x80007a800
+  _container_count = 41
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffcefa0000
+  _container_count = 59
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x80007ac00
+  _container_count = 42
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0eed360, word_size = 3
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 118
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffcefa0400
+  _container_count = 60
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 128
+  _top = 0x7fffcefa0800
+  _container_count = 61
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x80007b000
+  _container_count = 43
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 65
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 58368
+  _used_words = 58284
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 4096
+  _top = 0x80007b400
+  _container_count = 44
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 4096
+  _top = 0x80007b400
+  _container_count = 44
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 33
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 608256
+  _used_words = 608127
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcefa0c00
+  _container_count = 62
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcefa0c00
+  _container_count = 62
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0e73c00, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 114
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0e7c0d0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 440
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 616448
+  _used_words = 616056
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcefc0000
+  _container_count = 79
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 103
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 624640
+  _used_words = 624453
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcefd0000
+  _container_count = 80
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0f548e0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0f56450, word_size = 10
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 113
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 182
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 632832
+  _used_words = 632611
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffcefe0000
+  _container_count = 88
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf920, word_size = 76
+  _space_type = 1
+  _mdtype = 0
+  _capacity_words = 62464
+  _used_words = 62380
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 4096
+  _top = 0x800088000
+  _container_count = 64
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0caf880, word_size = 13
+  _space_type = 1
+  _mdtype = 1
+  _capacity_words = 641024
+  _used_words = 640858
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffceff0000
+  _container_count = 89
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8b110, chunk_word_size = 8192
+  _top = 0x7fffceff0000
+  _container_count = 89
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800090000
+  _container_count = 65
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800090400
+  _container_count = 66
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800090800
+  _container_count = 67
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0f57fc0, word_size = 11
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 118
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800090c00
+  _container_count = 68
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800091000
+  _container_count = 69
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800091400
+  _container_count = 70
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0f593d0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800091800
+  _container_count = 71
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0f5def0, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 120
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800091c00
+  _container_count = 72
+
+===== SpaceManager::grow_and_allocate =====
+this = 0x7ffff0f5ec00, word_size = 13
+  _space_type = 2
+  _mdtype = 1
+  _capacity_words = 128
+  _used_words = 117
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800092000
+  _container_count = 73
+
+===== VSN::take_from_committed =====
+this = 0x7ffff0c8af10, chunk_word_size = 128
+  _top = 0x800092400
+  _container_count = 74
+[New Thread 0x7fffce1ce6c0 (LWP 833241)]
+openjdk version "11.0.17-internal" 2022-10-18
+OpenJDK Runtime Environment (slowdebug build 11.0.17-internal+0-adhoc.root.openjdk11-core)
+OpenJDK 64-Bit Server VM (slowdebug build 11.0.17-internal+0-adhoc.root.openjdk11-core, interpreted mode)
+[Thread 0x7fffce1ce6c0 (LWP 833241) exited]
+
+Usage:
+  Non-class:  [    5.04 MBThread 0x7fffcf3f26c0 (LWP 833196) capacity,  exited]
+    5.00 MB ([>99%Thread 0x7fffcf4f46c0 (LWP 833195)) exited]
+ used,    30.03 KB[ (Thread 0x7ffff44f26c0 (LWP 833188) <1% exited]
+) free+waste,     6.50 KB ( <1%) overhead. 
+      Class:    586.00 KB[ capacity, Thread 0x7fffce7966c0 (LWP 833222)  538.19 KB exited]
+ ( 92%) used,    43.12 KB (  7%) free+waste,     4.69 KB ( <1%) overhead. 
+       Both:      5.61 MB capacity,     5.53 MB ( 99%) used,    73.16 KB (  1%) free+waste,    11.19 KB ( <1%) overhead. 
+
+Virtual space:
+  Non-class space:        8.00 MB reserved,       5.25 MB ( 66%) committed 
+      Class space:        1.00 GB reserved,     640.00 KB ( <1%) committed 
+             Both:        1.01 GB reserved,       5.88 MB ( <1%) committed 
+
+Chunk freelists:
+   Non-Class:  24.00 KB
+       Class:  0 bytes
+        Both:  24.00 KB
+
+MaxMetaspaceSize: unlimited
+CompressedClassSpaceSize: 1.00 GB
+Initial GC threshold: 20.80 MB
+Current GC threshold: 20.80 MB
+CDS: off
+
+[Thread 0x7fffceaf06c0 (LWP 833219) exited]
+[Thread 0x7ffff780b6c0 (LWP 833186) exited]
+[Thread 0x7fffce2ce6c0 (LWP 833224) exited]
+[Thread 0x7fffce3ff6c0 (LWP 833223) exited]
+[Thread 0x7fffce8ee6c0 (LWP 833221) exited]
+[Thread 0x7fffce9ee6c0 (LWP 833220) exited]
+[Thread 0x7ffff43f06c0 (LWP 833189) exited]
+[Thread 0x7ffff55ff6c0 (LWP 833187) exited]
+[Inferior 1 (process 833180) exited normally]

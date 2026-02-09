@@ -1,0 +1,35 @@
+set pagination off
+set print pretty on
+
+b universe_post_init
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== 实际 Klass 对象验证 ==========\n"
+
+printf "\n--- java.lang.Object Klass ---\n"
+set $obj_klass = Universe::_objectArrayKlassObj
+printf "ObjArrayKlass address: %p\n", $obj_klass
+printf "narrowKlass encode: %u\n", (unsigned int)((uint64_t)((char*)$obj_klass - (char*)Universe::_narrow_klass._base) >> Universe::_narrow_klass._shift)
+
+set $string_klass = SystemDictionary::_well_known_klasses[9]
+printf "\n--- java.lang.String Klass ---\n"
+printf "String Klass address: %p\n", $string_klass
+printf "narrowKlass encode: %u\n", (unsigned int)((uint64_t)((char*)$string_klass - (char*)Universe::_narrow_klass._base) >> Universe::_narrow_klass._shift)
+printf "distance from base: %lu bytes = %lu KB\n", (uint64_t)((char*)$string_klass - (char*)Universe::_narrow_klass._base), (uint64_t)((char*)$string_klass - (char*)Universe::_narrow_klass._base)/1024
+
+set $byte_arr_klass = Universe::_byteArrayKlassObj
+printf "\n--- byte[] Klass ---\n"
+printf "byte[] Klass address: %p\n", $byte_arr_klass
+printf "narrowKlass encode: %u\n", (unsigned int)((uint64_t)((char*)$byte_arr_klass - (char*)Universe::_narrow_klass._base) >> Universe::_narrow_klass._shift)
+printf "distance from base: %lu bytes = %lu KB\n", (uint64_t)((char*)$byte_arr_klass - (char*)Universe::_narrow_klass._base), (uint64_t)((char*)$byte_arr_klass - (char*)Universe::_narrow_klass._base)/1024
+
+printf "\n--- Compressed Class Space 使用情况 ---\n"
+printf "class VirtualSpaceList: %p\n", Metaspace::_class_space_list
+printf "non-class VirtualSpaceList: %p\n", Metaspace::_space_list
+printf "MetaspaceUtils::_used_words[ClassType]: %lu words = %lu KB\n", MetaspaceUtils::_used_words[0], MetaspaceUtils::_used_words[0]*8/1024
+printf "MetaspaceUtils::_used_words[NonClassType]: %lu words = %lu KB\n", MetaspaceUtils::_used_words[1], MetaspaceUtils::_used_words[1]*8/1024
+printf "MetaspaceUtils::_capacity_words[ClassType]: %lu words = %lu KB\n", MetaspaceUtils::_capacity_words[0], MetaspaceUtils::_capacity_words[0]*8/1024
+printf "MetaspaceUtils::_capacity_words[NonClassType]: %lu words = %lu KB\n", MetaspaceUtils::_capacity_words[1], MetaspaceUtils::_capacity_words[1]*8/1024
+
+quit

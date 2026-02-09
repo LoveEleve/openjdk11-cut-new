@@ -1,0 +1,135 @@
+# GDB 验证脚本: stubRoutines_init2()
+# 
+# 使用方法:
+# cd /data/workspace/openjdk-cut-new
+# gdb -x jvm-md/StubRoutines/gdb_stubRoutines_init2.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 在 stubRoutines_init2 完成后断点 (stubRoutines_init2 之后是 MethodHandles::generate_adapters)
+b MethodHandles::generate_adapters
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -version
+
+printf "\n"
+printf "╔═════════════════════════════════════════════════════════════╗\n"
+printf "║     stubRoutines_init2() GDB 验证                          ║\n"
+printf "╚═════════════════════════════════════════════════════════════╝\n"
+
+printf "\n========== 1. 代码缓冲区 (_code1 / _code2) ==========\n"
+printf "_code1 (第一阶段): %p\n", StubRoutines::_code1
+printf "_code2 (第二阶段): %p\n", StubRoutines::_code2
+
+# 查看 BufferBlob 详情
+printf "\n--- StubRoutines (1) BufferBlob ---\n"
+printf "name: %s\n", ((BufferBlob*)StubRoutines::_code1)->name()
+printf "size: %d bytes\n", ((BufferBlob*)StubRoutines::_code1)->size()
+
+printf "\n--- StubRoutines (2) BufferBlob ---\n"
+printf "name: %s\n", ((BufferBlob*)StubRoutines::_code2)->name()
+printf "size: %d bytes\n", ((BufferBlob*)StubRoutines::_code2)->size()
+
+printf "\n========== 2. 第一阶段桩代码地址 ==========\n"
+printf "_call_stub_entry:              %p\n", StubRoutines::_call_stub_entry
+printf "_forward_exception_entry:      %p\n", StubRoutines::_forward_exception_entry
+printf "_catch_exception_entry:        %p\n", StubRoutines::_catch_exception_entry
+printf "_throw_StackOverflowError:     %p\n", StubRoutines::_throw_StackOverflowError_entry
+
+printf "\n--- 原子操作桩 ---\n"
+printf "_atomic_xchg_entry:            %p\n", StubRoutines::_atomic_xchg_entry
+printf "_atomic_cmpxchg_entry:         %p\n", StubRoutines::_atomic_cmpxchg_entry
+printf "_atomic_add_entry:             %p\n", StubRoutines::_atomic_add_entry
+printf "_fence_entry:                  %p\n", StubRoutines::_fence_entry
+
+printf "\n========== 3. 第二阶段桩代码地址 ==========\n"
+printf "\n--- 异常抛出桩 ---\n"
+printf "_throw_AbstractMethodError:    %p\n", StubRoutines::_throw_AbstractMethodError_entry
+printf "_throw_IncompatibleClassChange:%p\n", StubRoutines::_throw_IncompatibleClassChangeError_entry
+printf "_throw_NullPointerException:   %p\n", StubRoutines::_throw_NullPointerException_at_call_entry
+
+printf "\n--- verify_oop 桩 ---\n"
+printf "_verify_oop_subroutine_entry:  %p\n", StubRoutines::_verify_oop_subroutine_entry
+
+printf "\n========== 4. 数组拷贝桩地址 ==========\n"
+printf "\n--- 基本类型 arraycopy ---\n"
+printf "_jbyte_arraycopy:              %p\n", StubRoutines::_jbyte_arraycopy
+printf "_jshort_arraycopy:             %p\n", StubRoutines::_jshort_arraycopy
+printf "_jint_arraycopy:               %p\n", StubRoutines::_jint_arraycopy
+printf "_jlong_arraycopy:              %p\n", StubRoutines::_jlong_arraycopy
+
+printf "\n--- disjoint 版本 ---\n"
+printf "_jbyte_disjoint_arraycopy:     %p\n", StubRoutines::_jbyte_disjoint_arraycopy
+printf "_jshort_disjoint_arraycopy:    %p\n", StubRoutines::_jshort_disjoint_arraycopy
+printf "_jint_disjoint_arraycopy:      %p\n", StubRoutines::_jint_disjoint_arraycopy
+printf "_jlong_disjoint_arraycopy:     %p\n", StubRoutines::_jlong_disjoint_arraycopy
+
+printf "\n--- 对象数组 arraycopy ---\n"
+printf "_oop_arraycopy:                %p\n", StubRoutines::_oop_arraycopy
+printf "_oop_disjoint_arraycopy:       %p\n", StubRoutines::_oop_disjoint_arraycopy
+printf "_oop_arraycopy_uninit:         %p\n", StubRoutines::_oop_arraycopy_uninit
+
+printf "\n--- 特殊 arraycopy ---\n"
+printf "_checkcast_arraycopy:          %p\n", StubRoutines::_checkcast_arraycopy
+printf "_unsafe_arraycopy:             %p\n", StubRoutines::_unsafe_arraycopy
+printf "_generic_arraycopy:            %p\n", StubRoutines::_generic_arraycopy
+
+printf "\n--- 数组填充桩 ---\n"
+printf "_jbyte_fill:                   %p\n", StubRoutines::_jbyte_fill
+printf "_jshort_fill:                  %p\n", StubRoutines::_jshort_fill
+printf "_jint_fill:                    %p\n", StubRoutines::_jint_fill
+
+printf "\n========== 5. AES 加密桩地址 ==========\n"
+printf "_aescrypt_encryptBlock:        %p\n", StubRoutines::_aescrypt_encryptBlock
+printf "_aescrypt_decryptBlock:        %p\n", StubRoutines::_aescrypt_decryptBlock
+printf "_cipherBlockChaining_encrypt:  %p\n", StubRoutines::_cipherBlockChaining_encryptAESCrypt
+printf "_cipherBlockChaining_decrypt:  %p\n", StubRoutines::_cipherBlockChaining_decryptAESCrypt
+printf "_electronicCodeBook_encrypt:   %p\n", StubRoutines::_electronicCodeBook_encryptAESCrypt
+printf "_electronicCodeBook_decrypt:   %p\n", StubRoutines::_electronicCodeBook_decryptAESCrypt
+printf "_counterMode_AESCrypt:         %p\n", StubRoutines::_counterMode_AESCrypt
+
+printf "\n========== 6. SHA 哈希桩地址 ==========\n"
+printf "_sha1_implCompress:            %p\n", StubRoutines::_sha1_implCompress
+printf "_sha1_implCompressMB:          %p\n", StubRoutines::_sha1_implCompressMB
+printf "_sha256_implCompress:          %p\n", StubRoutines::_sha256_implCompress
+printf "_sha256_implCompressMB:        %p\n", StubRoutines::_sha256_implCompressMB
+printf "_sha512_implCompress:          %p\n", StubRoutines::_sha512_implCompress
+printf "_sha512_implCompressMB:        %p\n", StubRoutines::_sha512_implCompressMB
+
+printf "\n========== 7. 其他桩地址 ==========\n"
+printf "_ghash_processBlocks:          %p\n", StubRoutines::_ghash_processBlocks
+printf "_base64_encodeBlock:           %p\n", StubRoutines::_base64_encodeBlock
+printf "_updateBytesCRC32:             %p\n", StubRoutines::_updateBytesCRC32
+printf "_updateBytesCRC32C:            %p\n", StubRoutines::_updateBytesCRC32C
+
+printf "\n--- SafeFetch 桩 ---\n"
+printf "_safefetch32_entry:            %p\n", StubRoutines::_safefetch32_entry
+printf "_safefetchN_entry:             %p\n", StubRoutines::_safefetchN_entry
+
+printf "\n--- BigInteger 桩 ---\n"
+printf "_multiplyToLen:                %p\n", StubRoutines::_multiplyToLen
+printf "_squareToLen:                  %p\n", StubRoutines::_squareToLen
+printf "_mulAdd:                       %p\n", StubRoutines::_mulAdd
+
+printf "\n========== 8. 数学函数桩地址 ==========\n"
+printf "_dexp:                         %p\n", StubRoutines::_dexp
+printf "_dlog:                         %p\n", StubRoutines::_dlog
+printf "_dlog10:                       %p\n", StubRoutines::_dlog10
+printf "_dpow:                         %p\n", StubRoutines::_dpow
+printf "_dsin:                         %p\n", StubRoutines::_dsin
+printf "_dcos:                         %p\n", StubRoutines::_dcos
+printf "_dtan:                         %p\n", StubRoutines::_dtan
+
+printf "\n========== 9. CPU 特性标志（影响桩生成）==========\n"
+printf "UseAESIntrinsics:              %d\n", UseAESIntrinsics
+printf "UseAESCTRIntrinsics:           %d\n", UseAESCTRIntrinsics
+printf "UseSHA1Intrinsics:             %d\n", UseSHA1Intrinsics
+printf "UseSHA256Intrinsics:           %d\n", UseSHA256Intrinsics
+printf "UseSHA512Intrinsics:           %d\n", UseSHA512Intrinsics
+printf "UseGHASHIntrinsics:            %d\n", UseGHASHIntrinsics
+printf "UseBASE64Intrinsics:           %d\n", UseBASE64Intrinsics
+printf "UseCRC32Intrinsics:            %d\n", UseCRC32Intrinsics
+printf "UseCompressedOops:             %d\n", UseCompressedOops
+
+printf "\n========== 验证完成 ==========\n"
+
+quit

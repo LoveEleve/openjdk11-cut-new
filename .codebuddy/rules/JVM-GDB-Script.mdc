@@ -1,0 +1,169 @@
+---
+description: GDB 批量脚本：编写自动化 GDB 脚本批量采集数据。
+alwaysApply: false
+enabled: true
+updatedAt: 2026-02-07T03:32:55.780Z
+provider: 
+---
+
+# JVM-GDB-Script：批量 GDB 脚本
+
+## 适用场景
+- 需要自动化采集大量数据
+- 多个断点的组合验证
+- 需要可重复执行的调试流程
+- 数据采集后统一分析
+
+## 标准环境
+```
+JVM：/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+参数：-Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+脚本目录：/data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题名>/
+输出目录：同上
+```
+
+## 脚本模板
+
+### 模板1：基础采集脚本
+```gdb
+# 文件：gdb_collect.txt
+# 用途：采集 XXX 相关数据
+# 执行：gdb -x gdb_collect.txt
+
+set pagination off
+set print pretty on
+set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题>/gdb_output.txt
+set logging overwrite on
+set logging on
+
+file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+# ========== 断点设置 ==========
+break 文件1.cpp:行号1
+commands 1
+  silent
+  printf "\n========== BP1: 函数名 ==========\n"
+  printf "关键变量1 = "
+  p 变量1
+  printf "关键变量2 = "
+  p 变量2
+  bt 5
+  continue
+end
+
+break 文件2.cpp:行号2
+commands 2
+  silent
+  printf "\n========== BP2: 函数名 ==========\n"
+  p *this
+  continue
+end
+
+# ========== 运行 ==========
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+```
+
+### 模板2：内存快照脚本
+```gdb
+# 在特定时刻 dump 对象内存
+set pagination off
+set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题>/memory_dump.txt
+set logging overwrite on
+set logging on
+
+file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+break 目标函数
+commands
+  silent
+  printf "\n===== Memory Dump =====\n"
+  printf "sizeof = %lu\n", sizeof(TargetClass)
+  
+  # 打印字段偏移
+  printf "offset _field1 = %lu\n", (size_t)&((TargetClass*)0)->_field1
+  printf "offset _field2 = %lu\n", (size_t)&((TargetClass*)0)->_field2
+  
+  # 打印字段值
+  printf "_field1 = "
+  p this->_field1
+  printf "_field2 = "
+  p this->_field2
+  
+  # 原始内存
+  printf "raw memory:\n"
+  x/32gx this
+  
+  continue
+end
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+```
+
+### 模板3：计数统计脚本
+```gdb
+# 统计某个函数被调用的次数和参数分布
+set pagination off
+set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题>/count_output.txt
+set logging overwrite on
+set logging on
+
+file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set $call_count = 0
+
+break 目标函数
+commands
+  silent
+  set $call_count = $call_count + 1
+  printf "call #%d: arg1=%d, arg2=%p\n", $call_count, arg1, arg2
+  # 只记录前 50 次
+  if $call_count >= 50
+    printf "\n=== Reached 50 calls, detaching ===\n"
+    detach
+  end
+  continue
+end
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+```
+
+## 执行步骤
+
+### Step 1：明确采集目标
+- 要采集什么数据
+- 需要在哪些点采集
+- 预计采集多少数据量
+
+### Step 2：编写脚本
+- 从模板开始修改
+- 脚本保存到 `jvm-md/tmp-file/<主题>/gdb_xxx.txt`
+- 输出文件保存到同一目录
+
+### Step 3：执行脚本
+```bash
+cd /data/workspace/openjdk-cut-new
+gdb -x jvm-md/tmp-file/<主题>/gdb_xxx.txt
+```
+
+### Step 4：分析输出
+- 读取输出文件
+- 提取关键数据
+- 整理为结构化格式
+
+### Step 5：输出结论
+1. **采集目标**
+2. **GDB 脚本**（完整脚本内容）
+3. **原始输出**（关键部分）
+4. **数据整理**（表格/列表形式）
+5. **分析结论**
+
+## 注意事项
+- 脚本执行前先手动验证断点能否命中
+- 大量数据采集时用 `set logging` 输出到文件，不要靠终端
+- 设置合理的终止条件（计数上限/detach），避免无限运行
+- slowdebug 版本运行慢，脚本要高效，避免不必要的输出
+
+## 源码项目路径
+- HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`
+- GDB 目标：`/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java`
+- 临时文件：`/data/workspace/openjdk-cut-new/jvm-md/tmp-file/`

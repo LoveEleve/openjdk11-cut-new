@@ -1,0 +1,64 @@
+---
+description: 生成代码布局分析：分析 JVM 生成的机器码/Stub 的内存布局和指令序列。
+alwaysApply: false
+enabled: true
+updatedAt: 2026-02-07T03:30:44.866Z
+provider: 
+---
+
+# JVM-Assembly-Layout：生成代码布局分析
+
+## 适用场景
+- 分析 StubQueue、CodeBlob、InterpreterCodelet 等生成代码的布局
+- 理解 JVM 在运行时生成的机器码的组织方式
+- 分析 StubRoutines 中各种 stub 的位置和作用
+
+## 核心原则
+**JVM 在运行时会生成大量机器码（解释器入口、Stub、JIT 编译结果）。理解这些代码在内存中的布局，才能理解 JVM 的执行引擎。**
+
+## 执行步骤
+
+### Step 1：确定代码容器
+JVM 中的代码容器主要有：
+- **StubQueue**：解释器 codelet 的容器
+- **CodeCache/CodeHeap**：JIT 编译代码 + Runtime Stub 的容器
+- **StubRoutines**：全局共享的底层 stub（memcpy、异常处理等）
+- **VtableStubs**：虚方法分派 stub
+
+### Step 2：分析容器结构
+- 总大小（预分配多大）
+- 代码区域划分（哪段是什么用途）
+- 代码段之间的边界标记
+
+### Step 3：分析单个代码单元
+对每个生成的代码单元（codelet / stub / nmethod）：
+- **头部信息**：OopMap、重定位信息、元数据
+- **代码区域**：实际机器指令
+- **数据区域**：内嵌数据（常量、跳转表）
+- **入口地址**：从哪里开始执行
+
+### Step 4：GDB 反汇编验证
+```gdb
+# 反汇编一段生成代码
+x/20i 入口地址
+
+# 查看 CodeBlob 头部信息
+p ((CodeBlob*)地址)->_name
+p ((CodeBlob*)地址)->_size
+p ((CodeBlob*)地址)->_code_offset
+
+# 查看 StubQueue 中的 codelet
+p ((InterpreterCodelet*)地址)->_description
+p ((InterpreterCodelet*)地址)->_size
+```
+
+### Step 5：输出分析结论
+1. **容器总览**：大小、地址范围、区域划分
+2. **代码单元列表**：每个 stub/codelet 的名称、地址、大小、作用
+3. **关键代码单元的反汇编**：入口处的指令序列 + 注释
+4. **地址映射表**：地址 → 功能的映射
+5. **内存布局图**：代码区域的空间排列
+
+## 源码项目路径
+- HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`
+- 已有分析文档：`/data/workspace/openjdk-cut-new/jvm-md/`

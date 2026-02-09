@@ -1,0 +1,77 @@
+# D.7 辅助数据结构 GDB 验证脚本
+# 验证条件：-Xms8g -Xmx8g，G1 GC
+
+# 设置断点在 G1CollectedHeap 构造函数完成后
+b g1CollectedHeap.cpp:1536
+commands
+  printf "\n=== D.7 辅助数据结构验证（构造函数后）===\n"
+  
+  printf "\n[1] G1BlockOffsetTable:\n"
+  printf "  _bot = %p (应为 NULL)\n", _bot
+  
+  printf "\n[2] G1HotCardCache:\n"
+  printf "  _hot_card_cache = %p (应为 NULL)\n", _hot_card_cache
+  
+  printf "\n[3] G1RemSet:\n"
+  printf "  _g1_rem_set = %p (应为 NULL)\n", _g1_rem_set
+  
+  printf "\n[4] G1ConcurrentRefine:\n"
+  printf "  _cr = %p (应为 NULL)\n", _cr
+  
+  printf "\n[5] G1MonitoringSupport:\n"
+  printf "  _g1mm = %p (应为 NULL)\n", _g1mm
+  
+  continue
+end
+
+# 断点在 initialize() 完成后，验证实际创建的对象
+b g1CollectedHeap.cpp:1800
+commands
+  printf "\n=== D.7 辅助数据结构验证（initialize 后）===\n"
+  
+  printf "\n[1] G1BlockOffsetTable:\n"
+  printf "  _bot = %p\n", _bot
+  if _bot != 0
+    printf "  _reserved.start = %p\n", _bot->_reserved._start
+    printf "  _reserved.end = %p\n", _bot->_reserved._end
+    printf "  _offset_array = %p\n", _bot->_offset_array
+  end
+  
+  printf "\n[2] G1HotCardCache:\n"
+  printf "  _hot_card_cache = %p\n", _hot_card_cache
+  if _hot_card_cache != 0
+    printf "  _use_cache = %d\n", _hot_card_cache->_use_cache
+    printf "  _hot_cache_size = %zu\n", _hot_card_cache->_hot_cache_size
+    printf "  _hot_cache = %p\n", _hot_card_cache->_hot_cache
+  end
+  
+  printf "\n[3] G1RemSet:\n"
+  printf "  _g1_rem_set = %p\n", _g1_rem_set
+  
+  printf "\n[4] G1ConcurrentRefine:\n"
+  printf "  _cr = %p\n", _cr
+  if _cr != 0
+    printf "  _green_zone = %zu\n", _cr->_green_zone
+    printf "  _yellow_zone = %zu\n", _cr->_yellow_zone
+    printf "  _red_zone = %zu\n", _cr->_red_zone
+  end
+  
+  printf "\n[5] G1MonitoringSupport:\n"
+  printf "  _g1mm = %p\n", _g1mm
+  
+  continue
+end
+
+# 验证相关参数
+b G1Arguments::initialize
+commands
+  printf "\n=== 相关参数值 ===\n"
+  printf "G1ConcRSLogCacheSize = %d (热卡缓存 = %d 条目)\n", G1ConcRSLogCacheSize, (1 << G1ConcRSLogCacheSize)
+  printf "G1ConcRefinementThreads = %d\n", G1ConcRefinementThreads
+  printf "G1ConcRefinementGreenZone = %zu\n", G1ConcRefinementGreenZone
+  printf "G1ConcRefinementYellowZone = %zu\n", G1ConcRefinementYellowZone
+  printf "G1ConcRefinementRedZone = %zu\n", G1ConcRefinementRedZone
+  continue
+end
+
+run

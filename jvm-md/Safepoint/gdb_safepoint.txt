@@ -1,0 +1,110 @@
+# Safepoint GDB 验证脚本
+# 文件位置: jvm-md/Safepoint/gdb_safepoint.txt
+# 执行方式: cd /data/workspace/openjdk-cut-new && gdb -x jvm-md/Safepoint/gdb_safepoint.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# ============================================
+# 断点1: SafepointMechanism 初始化
+# ============================================
+b SafepointMechanism::initialize
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  SafepointMechanism::initialize() - 安全点机制初始化                  ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  开始创建 Polling Page...                                            ║\n"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点2: default_initialize - Polling Page 创建
+# ============================================
+b SafepointMechanism::default_initialize
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  SafepointMechanism::default_initialize() - 创建 Polling Page        ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  ThreadLocalHandshakes: %d\n", ThreadLocalHandshakes
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点3: 设置 polling page 地址
+# ============================================
+b os.cpp:os::set_polling_page
+commands
+  silent
+  printf "【Polling Page】设置地址: %p\n", page
+  continue
+end
+
+# ============================================
+# 断点4: SafepointSynchronize::begin - 进入安全点
+# ============================================
+b SafepointSynchronize::begin
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  SafepointSynchronize::begin() - 进入安全点                           ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  当前线程: %p\n", Thread::current()
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  bt 5
+  continue
+end
+
+# ============================================
+# 断点5: SafepointSynchronize::end - 退出安全点
+# ============================================
+b SafepointSynchronize::end
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  SafepointSynchronize::end() - 退出安全点                             ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  _safepoint_counter: %d\n", SafepointSynchronize::_safepoint_counter
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点6: arm_local_poll - 设置线程 polling page 为 armed
+# ============================================
+b SafepointMechanism::arm_local_poll
+commands
+  silent
+  printf "【arm_local_poll】线程 %p: 设置为 armed\n", thread
+  continue
+end
+
+# ============================================
+# 断点7: make_polling_page_unreadable - 全局页变不可读
+# ============================================
+b os::make_polling_page_unreadable
+commands
+  silent
+  printf "【Polling Page】设置为不可读 (PROT_NONE)\n"
+  continue
+end
+
+# ============================================
+# 断点8: make_polling_page_readable - 全局页恢复可读
+# ============================================
+b os::make_polling_page_readable
+commands
+  silent
+  printf "【Polling Page】恢复为可读 (PROT_READ)\n"
+  continue
+end
+
+# ============================================
+# 运行程序
+# ============================================
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+quit

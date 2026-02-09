@@ -1,0 +1,55 @@
+set pagination off
+set print pretty on
+
+# 在 G1Analytics 构造函数完成后断点
+b g1Analytics.cpp:116
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== G1Analytics 构造函数完成后 ==========\n"
+printf "this = %p\n", this
+printf "_predictor = %p\n", _predictor
+
+printf "\n========== 默认值索引计算 ==========\n"
+printf "ParallelGCThreads = %u\n", ParallelGCThreads
+printf "index = MIN2(ParallelGCThreads - 1, 7) = MIN2(%u, 7) = ", ParallelGCThreads - 1
+# 13 - 1 = 12, MIN2(12, 7) = 7
+printf "7\n"
+
+printf "\n========== 默认值表（索引=7，对应 ParallelGCThreads > 8）==========\n"
+printf "cost_per_card_ms_defaults[7]     = 0.0015 ms\n"
+printf "cost_per_entry_ms_defaults[7]    = 0.005 ms\n"
+printf "cost_per_byte_ms_defaults[7]     = 0.000009 ms\n"
+printf "constant_other_time_ms_defaults[7] = 5.0 ms\n"
+printf "young_other_cost_per_region_ms_defaults[7] = 0.1 ms\n"
+printf "non_young_other_cost_per_region_ms_defaults[7] = 0.3 ms\n"
+
+printf "\n========== TruncatedSeq 验证 ==========\n"
+printf "TruncatedSeqLength = 10 (滑动窗口大小)\n"
+printf "NumPrevPausesForHeuristics = 10\n"
+
+printf "\n========== 序列初始值验证 ==========\n"
+# 验证 _cost_per_card_ms_seq 的初始值
+printf "_cost_per_card_ms_seq->num() = %d\n", _cost_per_card_ms_seq->_length
+printf "_cost_per_card_ms_seq 第一个值（通过 davg）:\n"
+p _cost_per_card_ms_seq->_davg
+
+printf "\n_cost_per_entry_ms_seq:\n"
+p _cost_per_entry_ms_seq->_davg
+
+printf "\n_cost_per_byte_ms_seq:\n"
+p _cost_per_byte_ms_seq->_davg
+
+printf "\n_constant_other_time_ms_seq:\n"
+p _constant_other_time_ms_seq->_davg
+
+printf "\n========== GC 时间序列 ==========\n"
+printf "_recent_gc_times_ms = %p (空)\n", _recent_gc_times_ms
+printf "_concurrent_mark_remark_times_ms 初始 = 0.05 (50ms)\n"
+printf "_concurrent_mark_cleanup_times_ms 初始 = 0.20 (200ms)\n"
+
+printf "\n========== 分配速率序列 ==========\n"
+printf "_alloc_rate_ms_seq = %p (空)\n", _alloc_rate_ms_seq
+printf "_prev_collection_pause_end_ms = %f\n", _prev_collection_pause_end_ms
+
+printf "\n========== 验证完成 ==========\n"
+quit

@@ -1,0 +1,23 @@
+# GDB 验证脚本：SurvRateGroup 存活率统计
+# 断点：g1Policy.cpp:62（SurvRateGroup 创建完成后）
+
+b g1Policy.cpp:62
+commands
+  silent
+  printf "\n========== SurvRateGroup Creation ==========\n"
+  
+  # 检查 Short-lived SurvRateGroup (Eden)
+  printf "----- Short-lived SurvRateGroup (Eden) -----\n"
+  printf "_stats_arrays_length: %lu\n", this->_short_lived_surv_rate_group->_stats_arrays_length
+  printf "_region_num: %lu\n", this->_short_lived_surv_rate_group->_region_num
+  printf "_last_pred: %f\n", this->_short_lived_surv_rate_group->_last_pred
+  
+  # 检查 Survivor SurvRateGroup
+  printf "\n----- Survivor SurvRateGroup -----\n"
+  printf "_stats_arrays_length: %lu\n", this->_survivor_surv_rate_group->_stats_arrays_length
+  printf "_region_num: %lu\n", this->_survivor_surv_rate_group->_region_num
+  printf "_last_pred: %f\n", this->_survivor_surv_rate_group->_last_pred
+  
+  continue
+end
+run

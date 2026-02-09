@@ -1,0 +1,67 @@
+# GDB 脚本：验证 HeapRegionRemSet 内存布局
+# 使用方法：
+#   gdb -x jvm-md/G1-GC/6_RememberedSet/gdb_rset.txt \
+#       ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java \
+#       -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set pagination off
+set print pretty on
+
+# 断点1：main 函数入口 - 验证 sizeof
+break main
+commands
+  silent
+  printf "\n========== sizeof 验证 ==========\n"
+  printf "sizeof(HeapRegionRemSet) = %zu\n", sizeof(HeapRegionRemSet)
+  printf "sizeof(OtherRegionsTable) = %zu\n", sizeof(OtherRegionsTable)
+  printf "sizeof(PerRegionTable) = %zu\n", sizeof(PerRegionTable)
+  printf "sizeof(SparsePRTEntry) = %zu\n", sizeof(SparsePRTEntry)
+  printf "\n========== 常量验证 ==========\n"
+  printf "HeapRegion::GrainBytes = %u\n", HeapRegion::GrainBytes
+  printf "HeapRegion::CardsPerRegion = %u\n", HeapRegion::CardsPerRegion
+  printf "G1CardTable::card_size = %zu\n", G1CardTable::card_size
+  continue
+end
+
+# 断点2：验证 RSet 状态转换
+break HeapRegionRemSet::set_state_updating
+commands
+  silent
+  printf "\n========== RSet set_state_updating ==========\n"
+  printf "this = %p\n", this
+  printf "_state = %d (%s)\n", _state, HeapRegionRemSet::_state_strings[_state]
+  continue
+end
+
+# 断点3：验证 OtherRegionsTable 添加引用
+break OtherRegionsTable::add_reference
+commands
+  silent
+  printf "\n========== OtherRegionsTable::add_reference ==========\n"
+  printf "this = %p\n", this
+  printf "_hr->hrm_index() = %u\n", _hr->hrm_index()
+  printf "_n_fine_entries = %zu\n", _n_fine_entries
+  printf "_n_coarse_entries = %zu\n", _n_coarse_entries
+  printf "_sparse_table.occupied() = %zu\n", _sparse_table.occupied()
+  
+  # 打印内存布局验证
+  printf "\n--- OtherRegionsTable 内存布局 ---\n"
+  printf "&_g1h = %p, value = %p\n", &_g1h, _g1h
+  printf "&_hr = %p, value = %p\n", &_hr, _hr
+  printf "&_n_fine_entries = %p, value = %zu\n", &_n_fine_entries, _n_fine_entries
+  printf "&_sparse_table = %p\n", &_sparse_table
+  continue
+end
+
+# 断点4：验证 PerRegionTable 创建
+break PerRegionTable::alloc
+commands
+  silent
+  printf "\n========== PerRegionTable::alloc ==========\n"
+  printf "allocated PRT = %p\n", $rax
+  printf "sizeof(PerRegionTable) = %zu\n", sizeof(PerRegionTable)
+  continue
+end
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main

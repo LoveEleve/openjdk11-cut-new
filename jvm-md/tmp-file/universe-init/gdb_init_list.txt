@@ -1,0 +1,37 @@
+# D.8/D.9/D.10 初始化列表字段 GDB 验证脚本
+# 验证条件：-Xms8g -Xmx8g，G1 GC
+
+b g1CollectedHeap.cpp:1497
+commands
+  printf "\n=== D.8/D.9/D.10 初始化列表字段验证 ===\n"
+  
+  printf "\n[D.8] Region 集合:\n"
+  printf "  _old_set._length = %u\n", _old_set._length
+  printf "  _old_set._name = %s\n", _old_set._name
+  printf "  _humongous_set._length = %u\n", _humongous_set._length
+  printf "  _humongous_set._name = %s\n", _humongous_set._name
+  
+  printf "\n[D.9] PLAB 统计:\n"
+  printf "  _summary_bytes_used = %zu\n", _summary_bytes_used
+  printf "  _survivor_evac_stats._description = %s\n", _survivor_evac_stats._description
+  printf "  _old_evac_stats._description = %s\n", _old_evac_stats._description
+  
+  printf "\n[D.10] 其他标志:\n"
+  printf "  _expand_heap_after_alloc_failure = %d\n", _expand_heap_after_alloc_failure
+  printf "  _old_marking_cycles_started = %u\n", _old_marking_cycles_started
+  printf "  _old_marking_cycles_completed = %u\n", _old_marking_cycles_completed
+  
+  continue
+end
+
+# 验证 PLAB 参数
+b G1Arguments::initialize
+commands
+  printf "\n=== PLAB 参数 ===\n"
+  printf "  YoungPLABSize = %zu words (%zu KB)\n", YoungPLABSize, YoungPLABSize*8/1024
+  printf "  OldPLABSize = %zu words (%zu KB)\n", OldPLABSize, OldPLABSize*8/1024
+  printf "  PLABWeight = %zu\n", PLABWeight
+  continue
+end
+
+run

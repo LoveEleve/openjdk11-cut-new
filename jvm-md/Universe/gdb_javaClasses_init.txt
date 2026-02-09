@@ -1,0 +1,72 @@
+# javaClasses_init() GDB 验证脚本
+# 文件：jvm-md/Universe/gdb_javaClasses_init.txt
+# 用法：gdb -x jvm-md/Universe/gdb_javaClasses_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在 javaClasses_init 之后
+b init.cpp:149
+run -Xms512m -Xmx512m -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# === java_lang_Thread 字段偏移量 ===
+printf "\n========== java_lang_Thread offsets ==========\n"
+printf "_eetop_offset:         %d\n", java_lang_Thread::_eetop_offset
+printf "_name_offset:          %d\n", java_lang_Thread::_name_offset
+printf "_group_offset:         %d\n", java_lang_Thread::_group_offset
+printf "_priority_offset:      %d\n", java_lang_Thread::_priority_offset
+printf "_tid_offset:           %d\n", java_lang_Thread::_tid_offset
+printf "_thread_status_offset: %d\n", java_lang_Thread::_thread_status_offset
+printf "_park_blocker_offset:  %d\n", java_lang_Thread::_park_blocker_offset
+
+# === java_lang_String 字段偏移量 ===
+printf "\n========== java_lang_String offsets ==========\n"
+printf "value_offset:  %d\n", java_lang_String::value_offset
+printf "hash_offset:   %d\n", java_lang_String::hash_offset
+printf "coder_offset:  %d\n", java_lang_String::coder_offset
+
+# === java_lang_invoke_MethodHandle 字段偏移量 ===
+printf "\n========== java_lang_invoke_MethodHandle offsets ==========\n"
+printf "_type_offset:  %d\n", java_lang_invoke_MethodHandle::_type_offset
+printf "_form_offset:  %d\n", java_lang_invoke_MethodHandle::_form_offset
+
+# === java_lang_invoke_MemberName 字段偏移量 ===
+printf "\n========== java_lang_invoke_MemberName offsets ==========\n"
+printf "_clazz_offset:  %d\n", java_lang_invoke_MemberName::_clazz_offset
+printf "_name_offset:   %d\n", java_lang_invoke_MemberName::_name_offset
+printf "_type_offset:   %d\n", java_lang_invoke_MemberName::_type_offset
+printf "_flags_offset:  %d\n", java_lang_invoke_MemberName::_flags_offset
+printf "_method_offset: %d\n", java_lang_invoke_MemberName::_method_offset
+
+# === java_lang_Throwable 字段偏移量 ===
+printf "\n========== java_lang_Throwable offsets ==========\n"
+printf "backtrace_offset:      %d\n", java_lang_Throwable::backtrace_offset
+printf "detailMessage_offset:  %d\n", java_lang_Throwable::detailMessage_offset
+printf "stackTrace_offset:     %d\n", java_lang_Throwable::stackTrace_offset
+printf "depth_offset:          %d\n", java_lang_Throwable::depth_offset
+
+# === java_lang_ClassLoader 字段偏移量 ===
+printf "\n========== java_lang_ClassLoader offsets ==========\n"
+printf "_loader_data_offset:    %d\n", java_lang_ClassLoader::_loader_data_offset
+printf "_parent_offset:         %d\n", java_lang_ClassLoader::_parent_offset
+printf "_parallelCapable_offset: %d\n", java_lang_ClassLoader::parallelCapable_offset
+
+# === java_nio_Buffer 字段偏移量 ===
+printf "\n========== java_nio_Buffer offsets ==========\n"
+printf "_limit_offset:    %d\n", java_nio_Buffer::_limit_offset
+
+# === 装箱类型硬编码偏移量 ===
+printf "\n========== Boxing object offsets (hardcoded) ==========\n"
+printf "value_offset:      %d\n", java_lang_boxing_object::value_offset
+printf "long_value_offset: %d\n", java_lang_boxing_object::long_value_offset
+
+# === FilteredFieldsMap ===
+printf "\n========== FilteredFieldsMap ==========\n"
+printf "filtered_fields count: %d\n", FilteredFieldsMap::_filtered_fields->_len
+
+# === 汇总信息 ===
+printf "\n========== Summary ==========\n"
+printf "javaClasses_init() completed successfully\n"
+printf "All field offsets have been computed for well-known Java classes\n"
+
+quit

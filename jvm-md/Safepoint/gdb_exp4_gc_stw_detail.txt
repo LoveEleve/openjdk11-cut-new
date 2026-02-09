@@ -1,0 +1,78 @@
+set pagination off
+set print pretty on
+set confirm off
+
+# ========== 实验4: 在 G1 GC Safepoint 中观察 block() 和线程状态 ==========
+# 策略: 跳过前 1 次 safepoint (EnableBiasedLocking)，在第 2 次 (第一次 GC) 停下观察
+
+set $sp_count = 0
+
+# 断点: begin()
+b SafepointSynchronize::begin
+commands
+  silent
+  set $sp_count = $sp_count + 1
+  if $sp_count == 2
+    printf "\n╔══════════════════════════════════════════════════════════════════╗\n"
+    printf "║ 实验4: 在第一次 GC Safepoint 停下来观察!                        ║\n"
+    printf "╚══════════════════════════════════════════════════════════════════╝\n"
+    printf "\nVM_Operation: %s\n", VMThread::_cur_vm_operation ? VMThread::_cur_vm_operation->_names[VMThread::_cur_vm_operation->type()] : "NULL"
+    printf "\n--- 1. Safepoint 初始状态 ---\n"
+    printf "_state: %d (0=_not_synchronized)\n", SafepointSynchronize::_state
+    printf "_safepoint_counter: %lu\n", SafepointSynchronize::_safepoint_counter
+    printf "nof_threads: %d\n", Threads::_number_of_threads
+    printf "\n--- 2. SafepointMechanism 配置 ---\n"
+    printf "_poll_armed_value:    %p\n", SafepointMechanism::_poll_armed_value
+    printf "_poll_disarmed_value: %p\n", SafepointMechanism::_poll_disarmed_value
+    printf "_poll_bit:            %lu\n", SafepointMechanism::_poll_bit
+    printf "armed & poll_bit:     %lu (应为非0)\n", (unsigned long)SafepointMechanism::_poll_armed_value & SafepointMechanism::_poll_bit
+    printf "disarmed & poll_bit:  %lu (应为0)\n", (unsigned long)SafepointMechanism::_poll_disarmed_value & SafepointMechanism::_poll_bit
+  end
+  continue
+end
+
+# 断点: Entering safepoint region — 所有线程已停
+b safepoint.cpp:471
+commands
+  silent
+  if $sp_count == 2
+    printf "\n--- 3. 所有线程已停 (Entering safepoint region) ---\n"
+    printf "VM_Operation: %s\n", VMThread::vm_safepoint_description()
+    printf "_state: %d (2=_synchronized)\n", SafepointSynchronize::_state
+    printf "_safepoint_counter: %lu (奇数=%lu)\n", SafepointSynchronize::_safepoint_counter, SafepointSynchronize::_safepoint_counter & 1
+    printf "_waiting_to_block: %d\n", SafepointSynchronize::_waiting_to_block
+    printf "_current_jni_active_count: %d\n", SafepointSynchronize::_current_jni_active_count
+    printf "GCLocker::_jni_lock_count: %d\n", GCLocker::_jni_lock_count
+  end
+  continue
+end
+
+# 断点: end()
+b SafepointSynchronize::end
+commands
+  silent
+  if $sp_count == 2
+    printf "\n--- 4. Safepoint End ---\n"
+    printf "_state: %d\n", SafepointSynchronize::_state
+    printf "_safepoint_counter: %lu (奇数=%lu，即将+1变偶数)\n", SafepointSynchronize::_safepoint_counter, SafepointSynchronize::_safepoint_counter & 1
+  end
+  continue
+end
+
+# 断点: Threads_lock unlock — 完整结束
+b safepoint.cpp:587
+commands
+  silent
+  if $sp_count == 2
+    printf "\n--- 5. Threads_lock 释放，所有线程恢复 ---\n"
+    printf "_state: %d (0=_not_synchronized)\n", SafepointSynchronize::_state
+    printf "_safepoint_counter: %lu (偶数=%lu)\n", SafepointSynchronize::_safepoint_counter, 1 - (SafepointSynchronize::_safepoint_counter & 1)
+    printf "\n╔══════════════════════════════════════════════════════════════════╗\n"
+    printf "║ 实验4 完成! 一次 GC STW 的完整生命周期已观察                     ║\n"
+    printf "╚══════════════════════════════════════════════════════════════════╝\n"
+    quit
+  end
+  continue
+end
+
+run -XX:+UseG1GC -Xms256m -Xmx256m -Xint -cp /data/workspace/demo/src com.wjcoder.SafepointTest

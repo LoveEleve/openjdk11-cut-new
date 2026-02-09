@@ -1,0 +1,80 @@
+# GDB 验证脚本: codeCache_init()
+# 
+# 使用方法:
+# cd /data/workspace/openjdk-cut-new
+# gdb -x jvm-md/CodeCache/gdb_codeCache_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 在 codeCache_init 完成后断点
+b stubRoutines_init1
+run -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+printf "\n"
+printf "╔═════════════════════════════════════════════════════════════╗\n"
+printf "║     codeCache_init() GDB 验证                              ║\n"
+printf "╚═════════════════════════════════════════════════════════════╝\n"
+
+printf "\n========== 1. CodeCache 边界 ==========\n"
+printf "_low_bound:  %p\n", CodeCache::_low_bound
+printf "_high_bound: %p\n", CodeCache::_high_bound
+printf "总大小: %lu bytes (%lu MB)\n", (size_t)(CodeCache::_high_bound - CodeCache::_low_bound), (size_t)(CodeCache::_high_bound - CodeCache::_low_bound) / 1024 / 1024
+
+printf "\n========== 2. CodeHeap 列表 ==========\n"
+printf "_heaps->length(): %d\n", CodeCache::_heaps->_len
+
+set $i = 0
+while $i < CodeCache::_heaps->_len
+    set $heap = (CodeHeap*)(CodeCache::_heaps->_data[$i])
+    printf "\n--- CodeHeap %d: %s ---\n", $i, $heap->_name
+    printf "name: %s\n", $heap->_name
+    printf "code_blob_type: %d\n", $heap->_code_blob_type
+    printf "low: %p\n", $heap->_memory._low
+    printf "high: %p\n", $heap->_memory._high
+    printf "low_boundary: %p\n", $heap->_memory._low_boundary
+    printf "high_boundary: %p\n", $heap->_memory._high_boundary
+    printf "committed: %lu bytes\n", (size_t)($heap->_memory._high - $heap->_memory._low)
+    printf "reserved: %lu bytes\n", (size_t)($heap->_memory._high_boundary - $heap->_memory._low_boundary)
+    printf "segment_size: %lu\n", $heap->_segment_size
+    printf "blob_count: %d\n", $heap->_blob_count
+    printf "nmethod_count: %d\n", $heap->_nmethod_count
+    printf "adapter_count: %d\n", $heap->_adapter_count
+    printf "full_count: %d\n", $heap->_full_count
+    printf "freelist_segments: %lu\n", $heap->_freelist_segments
+    printf "freelist_length: %d\n", $heap->_freelist_length
+    set $i = $i + 1
+end
+
+printf "\n========== 3. SegmentedCodeCache ==========\n"
+printf "SegmentedCodeCache: %d\n", SegmentedCodeCache
+
+printf "\n========== 4. JVM 参数 ==========\n"
+printf "ReservedCodeCacheSize: %lu (%lu MB)\n", (size_t)ReservedCodeCacheSize, (size_t)ReservedCodeCacheSize / 1024 / 1024
+printf "InitialCodeCacheSize: %lu (%lu KB)\n", (size_t)InitialCodeCacheSize, (size_t)InitialCodeCacheSize / 1024
+printf "CodeCacheExpansionSize: %lu (%lu KB)\n", (size_t)CodeCacheExpansionSize, (size_t)CodeCacheExpansionSize / 1024
+printf "NonNMethodCodeHeapSize: %lu\n", (size_t)NonNMethodCodeHeapSize
+printf "ProfiledCodeHeapSize: %lu\n", (size_t)ProfiledCodeHeapSize
+printf "NonProfiledCodeHeapSize: %lu\n", (size_t)NonProfiledCodeHeapSize
+printf "CodeCacheSegmentSize: %lu\n", (size_t)CodeCacheSegmentSize
+
+printf "\n========== 5. CodeHeap 数组统计 ==========\n"
+printf "_heaps->length(): %d\n", CodeCache::_heaps->_len
+printf "_compiled_heaps->length(): %d\n", CodeCache::_compiled_heaps->_len
+printf "_nmethod_heaps->length(): %d\n", CodeCache::_nmethod_heaps->_len
+printf "_allocable_heaps->length(): %d\n", CodeCache::_allocable_heaps->_len
+
+printf "\n========== 6. 其他状态 ==========\n"
+printf "_number_of_nmethods_with_dependencies: %d\n", CodeCache::_number_of_nmethods_with_dependencies
+printf "_needs_cache_clean: %d\n", CodeCache::_needs_cache_clean
+printf "_scavenge_root_nmethods: %p\n", CodeCache::_scavenge_root_nmethods
+
+printf "\n========== 7. 数据结构大小 ==========\n"
+printf "sizeof(CodeHeap): %lu\n", sizeof(CodeHeap)
+printf "sizeof(CodeBlob): %lu\n", sizeof(CodeBlob)
+printf "sizeof(HeapBlock): %lu\n", sizeof(HeapBlock)
+printf "sizeof(FreeBlock): %lu\n", sizeof(FreeBlock)
+
+printf "\n========== 验证完成 ==========\n"
+
+quit

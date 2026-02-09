@@ -1,0 +1,34 @@
+# GDB 验证脚本：Region 大小计算
+# 断点：heapRegion.cpp:109（Region 大小计算完成后）
+
+b heapRegion.cpp:109
+commands
+  silent
+  printf "\n========== Region Size Calculation ==========\n"
+  
+  # 输入参数
+  printf "InitialHeapSize: %lu bytes (%.2f GB)\n", InitialHeapSize, InitialHeapSize/1073741824.0
+  printf "MaxHeapSize: %lu bytes (%.2f GB)\n", MaxHeapSize, MaxHeapSize/1073741824.0
+  
+  # G1HeapRegionSize Flag
+  printf "\n----- G1HeapRegionSize Flag -----\n"
+  printf "G1HeapRegionSize: %lu\n", G1HeapRegionSize
+  
+  # 计算结果
+  printf "\n----- Calculated Results -----\n"
+  printf "LogOfHRGrainBytes: %d\n", HeapRegion::LogOfHRGrainBytes
+  printf "LogOfHRGrainWords: %d\n", HeapRegion::LogOfHRGrainWords
+  printf "GrainBytes: %lu (%lu MB)\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes/1048576
+  printf "GrainWords: %lu\n", HeapRegion::GrainWords
+  printf "CardsPerRegion: %lu\n", HeapRegion::CardsPerRegion
+  
+  # 验证
+  printf "\n----- Verification -----\n"
+  printf "Expected Region count: %lu\n", MaxHeapSize / HeapRegion::GrainBytes
+  printf "2^LogOfHRGrainBytes = %lu\n", (1UL << HeapRegion::LogOfHRGrainBytes)
+  printf "2^LogOfHRGrainWords = %lu\n", (1UL << HeapRegion::LogOfHRGrainWords)
+  printf "Humongous threshold: %lu words = %lu bytes\n", HeapRegion::GrainWords/2, HeapRegion::GrainBytes/2
+  
+  continue
+end
+run

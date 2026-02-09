@@ -1,0 +1,78 @@
+set pagination off
+set print pretty on
+
+b universe2_init
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set $g1h = (G1CollectedHeap*)Universe::_collectedHeap
+set $hrm = &($g1h->_hrm)
+set $base = (HeapRegion**)$hrm->_regions._base
+set $r0 = $base[0]
+
+# ============ HeapRegionRemSet 详细信息 ============
+printf "\n========== HeapRegionRemSet Details ==========\n"
+set $rs = $r0->_rem_set
+printf "HeapRegionRemSet: %p\n", $rs
+printf "sizeof(HeapRegionRemSet): %lu bytes\n", sizeof(HeapRegionRemSet)
+printf "_bot: %p\n", $rs->_bot
+printf "_state: %d (0=Untracked, 1=Updating, 2=Complete)\n", $rs->_state
+
+# _code_roots (G1CodeRootSet)
+printf "\n--- G1CodeRootSet ---\n"
+printf "_code_roots._table: %p\n", $rs->_code_roots._table
+printf "_code_roots._length: %lu\n", $rs->_code_roots._length
+
+# _m (Mutex)
+printf "\n--- Mutex ---\n"
+printf "_m._name: %s\n", $rs->_m._name
+
+# _other_regions (OtherRegionsTable)
+printf "\n--- OtherRegionsTable ---\n"
+set $ort = &($rs->_other_regions)
+printf "_hr: %p\n", $ort->_hr
+printf "_n_coarse_entries: %lu\n", $ort->_n_coarse_entries
+printf "_n_fine_entries: %lu\n", $ort->_n_fine_entries
+printf "_first_all_fine_prts: %p\n", $ort->_first_all_fine_prts
+printf "_last_all_fine_prts: %p\n", $ort->_last_all_fine_prts
+
+# ============ HeapRegionType 详解 ============
+printf "\n========== HeapRegionType Tags ==========\n"
+printf "FreeTag = 0\n"
+printf "EdenTag = 2\n"
+printf "SurvTag = 3\n"
+printf "StartsHumongousTag = 12\n"
+printf "ContinuesHumongousTag = 13\n"
+printf "OldTag = 16\n"
+
+# ============ sizeof 各个结构体 ============
+printf "\n========== Structure Sizes ==========\n"
+printf "sizeof(HeapRegion): %lu bytes\n", sizeof(HeapRegion)
+printf "sizeof(HeapRegionRemSet): %lu bytes\n", sizeof(HeapRegionRemSet)
+printf "sizeof(OtherRegionsTable): %lu bytes\n", sizeof(OtherRegionsTable)
+printf "sizeof(G1BlockOffsetTablePart): %lu bytes\n", sizeof(G1BlockOffsetTablePart)
+printf "sizeof(HeapRegionType): %lu bytes\n", sizeof(HeapRegionType)
+printf "sizeof(Mutex): %lu bytes\n", sizeof(Mutex)
+
+# ============ 字段偏移量验证 ============
+printf "\n========== Field Offsets in HeapRegion ==========\n"
+printf "&_bottom - base: %lu\n", (size_t)&$r0->_bottom - (size_t)$r0
+printf "&_end - base: %lu\n", (size_t)&$r0->_end - (size_t)$r0
+printf "&_top - base: %lu\n", (size_t)&$r0->_top - (size_t)$r0
+printf "&_bot_part - base: %lu\n", (size_t)&$r0->_bot_part - (size_t)$r0
+printf "&_rem_set - base: %lu\n", (size_t)&$r0->_rem_set - (size_t)$r0
+printf "&_hrm_index - base: %lu\n", (size_t)&$r0->_hrm_index - (size_t)$r0
+printf "&_type - base: %lu\n", (size_t)&$r0->_type - (size_t)$r0
+printf "&_prev_marked_bytes - base: %lu\n", (size_t)&$r0->_prev_marked_bytes - (size_t)$r0
+printf "&_next_marked_bytes - base: %lu\n", (size_t)&$r0->_next_marked_bytes - (size_t)$r0
+printf "&_gc_efficiency - base: %lu\n", (size_t)&$r0->_gc_efficiency - (size_t)$r0
+printf "&_next - base: %lu\n", (size_t)&$r0->_next - (size_t)$r0
+printf "&_prev - base: %lu\n", (size_t)&$r0->_prev - (size_t)$r0
+printf "&_prev_top_at_mark_start - base: %lu\n", (size_t)&$r0->_prev_top_at_mark_start - (size_t)$r0
+printf "&_next_top_at_mark_start - base: %lu\n", (size_t)&$r0->_next_top_at_mark_start - (size_t)$r0
+
+# ============ 验证 Region 大小计算 ============
+printf "\n========== Region Size Verification ==========\n"
+printf "Region[0] size: %lu bytes = %lu MB\n", (size_t)$r0->_end - (size_t)$r0->_bottom, ((size_t)$r0->_end - (size_t)$r0->_bottom)/1024/1024
+printf "Total heap: %u regions * 4MB = %u MB\n", $hrm->_num_committed, $hrm->_num_committed * 4
+
+quit

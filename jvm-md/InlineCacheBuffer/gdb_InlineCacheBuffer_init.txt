@@ -1,0 +1,30 @@
+# InlineCacheBuffer_init() GDB 验证脚本
+# 文件：jvm-md/InlineCacheBuffer/gdb_InlineCacheBuffer_init.txt
+# 用法：gdb -x jvm-md/InlineCacheBuffer/gdb_InlineCacheBuffer_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在初始化完成后
+b InlineCacheBuffer::initialize
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+printf "\n========== InlineCacheBuffer Basic Info ==========\n"
+printf "_buffer: %p\n", InlineCacheBuffer::_buffer
+printf "_next_stub: %p\n", InlineCacheBuffer::_next_stub
+
+printf "\n========== StubQueue Info ==========\n"
+printf "_buffer->_buffer_limit: %d (bytes)\n", InlineCacheBuffer::_buffer->_buffer_limit
+printf "_buffer->_number_of_stubs: %d\n", InlineCacheBuffer::_buffer->_number_of_stubs
+
+printf "\n========== ICStub Info ==========\n"
+printf "_next_stub->_size: %d (bytes)\n", InlineCacheBuffer::_next_stub->_size
+printf "_next_stub->_ic_site: %p (should be NULL for sentinel)\n", InlineCacheBuffer::_next_stub->_ic_site
+
+printf "\n========== Pending Release ==========\n"
+printf "_pending_released: %p\n", InlineCacheBuffer::_pending_released
+printf "_pending_count: %d\n", InlineCacheBuffer::_pending_count
+
+quit

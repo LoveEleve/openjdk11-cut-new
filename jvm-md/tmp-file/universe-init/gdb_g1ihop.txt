@@ -1,0 +1,39 @@
+set pagination off
+set print pretty on
+
+# 在 G1Policy 构造后断点
+b g1Policy.cpp:71
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== G1IHOPControl 验证 ==========\n"
+printf "_ihop_control = %p\n", _ihop_control
+
+printf "\n========== JVM 参数 ==========\n"
+printf "G1UseAdaptiveIHOP = %d (默认启用自适应)\n", G1UseAdaptiveIHOP
+printf "InitiatingHeapOccupancyPercent = %u (初始 IHOP 阈值)\n", InitiatingHeapOccupancyPercent
+printf "G1ReservePercent = %u (预留百分比)\n", G1ReservePercent
+printf "G1HeapWastePercent = %u (浪费百分比)\n", G1HeapWastePercent
+printf "G1AdaptiveIHOPNumInitialSamples = %u (自适应所需样本数)\n", G1AdaptiveIHOPNumInitialSamples
+
+printf "\n========== IHOP 基类字段 ==========\n"
+printf "_ihop_control->_initial_ihop_percent = %f\n", _ihop_control->_initial_ihop_percent
+printf "_ihop_control->_target_occupancy = %lu (初始为0，后续更新)\n", _ihop_control->_target_occupancy
+
+printf "\n========== 自适应 IHOP 特有字段 ==========\n"
+# 转换为 G1AdaptiveIHOPControl 类型
+set $adaptive = (G1AdaptiveIHOPControl*)_ihop_control
+printf "_heap_reserve_percent = %lu\n", $adaptive->_heap_reserve_percent
+printf "_heap_waste_percent = %lu\n", $adaptive->_heap_waste_percent
+printf "_marking_times_s.num() = %d (标记时间样本数)\n", $adaptive->_marking_times_s._length
+printf "_allocation_rate_s.num() = %d (分配速率样本数)\n", $adaptive->_allocation_rate_s._length
+
+printf "\n========== 阈值计算公式 ==========\n"
+printf "静态模式: threshold = ihop_percent × target_occupancy / 100\n"
+printf "         = 45 × 8GB / 100 = 3.6GB\n"
+printf "\n"
+printf "自适应模式: threshold = actual_target - predicted_needed\n"
+printf "  actual_target = min(heap×(100-reserve-waste)/100, target×(100-waste)/100)\n"
+printf "  predicted_needed = pred_marking_time × pred_alloc_rate + young_size\n"
+
+printf "\n========== 验证完成 ==========\n"
+quit

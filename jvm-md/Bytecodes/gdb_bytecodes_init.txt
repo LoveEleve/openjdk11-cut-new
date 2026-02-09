@@ -1,0 +1,22 @@
+# bytecodes_init() GDB 验证脚本
+# 用法：gdb -x gdb_bytecodes_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+b bytecodes_init
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+printf "\n========== Bytecodes Info ==========\n"
+printf "_is_initialized: %d\n", Bytecodes::_is_initialized
+printf "number_of_codes: %d\n", Bytecodes::number_of_codes
+printf "number_of_java_codes: %d\n", Bytecodes::number_of_java_codes
+
+printf "\n========== Sample Bytecodes ==========\n"
+printf "iconst_0 (0x03): name=%s, depth=%d\n", Bytecodes::_name[3], Bytecodes::_depth[3]
+printf "iadd (0x60): name=%s, depth=%d\n", Bytecodes::_name[96], Bytecodes::_depth[96]
+printf "invokevirtual (0xb6): name=%s, depth=%d\n", Bytecodes::_name[182], Bytecodes::_depth[182]
+
+quit

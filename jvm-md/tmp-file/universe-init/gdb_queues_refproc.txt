@@ -1,0 +1,37 @@
+# D.5/D.6 脏卡队列与引用处理器 GDB 验证脚本
+# 验证条件：-Xms8g -Xmx8g，G1 GC
+
+# 验证 G1BarrierSet 中的队列
+b G1BarrierSet::G1BarrierSet
+commands
+  printf "\n=== D.5 队列验证 ===\n"
+  printf "  G1BarrierSet::_dirty_card_queue_set 地址: %p\n", &G1BarrierSet::_dirty_card_queue_set
+  printf "  G1BarrierSet::_satb_mark_queue_set 地址: %p\n", &G1BarrierSet::_satb_mark_queue_set
+  continue
+end
+
+# 验证引用处理器创建
+b g1CollectedHeap.cpp:2540
+commands
+  printf "\n=== D.6 引用处理器验证（CM 已创建，STW 即将创建）===\n"
+  printf "  _ref_processor_cm = %p\n", _ref_processor_cm
+  printf "  _ref_processor_stw = %p (即将创建)\n", _ref_processor_stw
+  printf "  ParallelGCThreads = %d\n", ParallelGCThreads
+  printf "  ParallelRefProcEnabled = %d\n", ParallelRefProcEnabled
+  continue
+end
+
+# 验证创建完成后
+b g1CollectedHeap.cpp:2550
+commands
+  printf "\n=== 引用处理器创建完成 ===\n"
+  printf "  _ref_processor_stw = %p\n", _ref_processor_stw
+  if _ref_processor_stw != 0
+    printf "  _ref_processor_stw->_num_q = %d\n", _ref_processor_stw->_num_q
+    printf "  _ref_processor_stw->_mt_processing = %d\n", _ref_processor_stw->_mt_processing
+    printf "  _ref_processor_stw->_discovering_refs = %d\n", _ref_processor_stw->_discovering_refs
+  end
+  continue
+end
+
+run

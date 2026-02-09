@@ -1,0 +1,150 @@
+---
+description: 运行时优先法：先不读代码，直接GDB看实际运行数据，建立真实认知后再回去读源码。适合"静态看代码看不懂走哪个分支"
+alwaysApply: false
+enabled: true
+updatedAt: 2026-02-07T03:28:58.352Z
+provider: 
+---
+
+# Read-Runtime-First：运行时优先法
+
+## 适用场景
+- 静态看代码看不懂走哪个分支
+- 不确定某个值在运行时到底是多少
+- 想确认某个函数在实际运行中是否真的被调用了
+- 理论分析和直觉不一致，需要"眼见为实"
+
+## 核心原则
+**不要猜，去看。先让代码跑起来，用 GDB 看到真实数据，再回去理解源码。实际运行数据是最好的老师。**
+
+## 标准运行环境
+```
+JVM 路径：/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+GDB 调试目标：上述 java 可执行文件
+标准参数：
+  -Xms8g -Xmx8g -XX:+UseG1GC -Xint
+  -cp /data/workspace/demo/src com.wjcoder.Main
+```
+
+## 执行步骤
+
+### Step 1：明确要验证的问题
+把要验证的问题转化为可观测的形式：
+- "走哪个分支" → 在分支处设断点，看命中哪个
+- "这个值是多少" → 在赋值后设断点，打印值
+- "这个函数被调用几次" → 设断点并计数
+- "调用栈是什么" → 设断点后 bt
+
+### Step 2：设计 GDB 操作计划
+在开始调试前，先写好操作计划：
+```
+目标：验证 XXX
+1. 在 文件:行号 设断点
+2. 运行程序
+3. 命中断点后执行：
+   - p 变量名（打印值）
+   - bt（调用栈）
+   - p sizeof(类型)（大小）
+   - x/Nx 地址（内存内容）
+4. continue / next / step
+5. 预期结果 vs 实际结果
+```
+
+### Step 3：编写 GDB 脚本（如果操作多）
+对于需要多步操作的场景，写 GDB 脚本避免手动操作出错：
+
+```gdb
+# 脚本模板
+set pagination off
+set logging on
+set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/xxx/gdb_output.txt
+
+file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+# 设置断点
+break 文件名.cpp:行号
+commands
+  silent
+  printf "=== 断点命中 ===\n"
+  p 变量1
+  p 变量2
+  bt 5
+  continue
+end
+
+# 运行
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+```
+
+### Step 4：执行调试
+- 运行 GDB 脚本或手动调试
+- 记录所有输出数据
+- 特别注意和预期不同的地方
+
+### Step 5：用运行时数据反哺源码理解
+拿着 GDB 收集到的数据回去看源码：
+- 确认分支走向
+- 确认变量值
+- 确认调用顺序
+- 如果实际行为和代码理解不一致 → 说明代码理解有误，重新阅读
+
+### Step 6：输出分析结论
+1. **验证问题**：要验证什么
+2. **GDB 操作记录**：设了什么断点、执行了什么命令
+3. **原始数据**：GDB 输出（关键部分）
+4. **数据解读**：每个数据意味着什么
+5. **结论**：基于数据得出的结论
+6. **源码映证**：回到源码，确认数据和代码逻辑一致
+
+## GDB 常用命令速查
+
+```gdb
+# 基础
+b 文件:行号              # 设断点
+b 函数名                 # 函数入口断点
+r 参数...               # 运行
+c                       # 继续
+n                       # 下一行（不进入函数）
+s                       # 下一行（进入函数）
+bt                      # 调用栈
+bt 10                   # 调用栈前10帧
+up / down               # 切换栈帧
+
+# 打印
+p 变量                  # 打印变量值
+p/x 变量               # 十六进制打印
+p sizeof(类型)          # 类型大小
+p &变量                 # 地址
+p ((类型*)地址)->字段    # 通过地址访问字段
+
+# 内存
+x/10gx 地址             # 打印10个8字节（十六进制）
+x/20wx 地址             # 打印20个4字节
+x/s 地址                # 打印字符串
+
+# 条件断点
+b 文件:行号 if 条件      # 条件断点
+
+# 观察点
+watch 变量              # 变量被修改时中断
+rwatch 变量             # 变量被读取时中断
+
+# 便利
+info locals             # 当前帧所有局部变量
+info args               # 当前函数参数
+ptype 类型              # 类型定义
+set print pretty on     # 美化打印
+```
+
+## 注意事项
+- **先写计划再动手**，不要漫无目的地调试
+- GDB 脚本文件和输出文件统一放在 `jvm-md/tmp-file/` 下对应子目录
+- 如果断点命中次数太多（>100），用条件断点过滤
+- slowdebug 版本运行很慢，断点不要设在热路径上（除非用条件断点）
+- 记录 GDB 的原始输出，这是最有价值的一手数据
+
+## 源码项目路径
+- HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`
+- GDB 调试目标：`/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java`
+- 临时文件目录：`/data/workspace/openjdk-cut-new/jvm-md/tmp-file/`
+- 已有分析文档：`/data/workspace/openjdk-cut-new/jvm-md/`

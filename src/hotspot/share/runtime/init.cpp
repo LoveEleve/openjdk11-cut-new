@@ -121,8 +121,8 @@ jint init_globals() {
   if (status != JNI_OK)
     return status;
 
-  gc_barrier_stubs_init();   // depends on universe_init, must be before interpreter_init
-  interpreter_init();        // before any methods loaded
+  gc_barrier_stubs_init();   // depends on universe_init, must be before interpreter_init forcus g1实现为null
+  interpreter_init();        // before any methods loaded forcus 解释器初始化
   invocationCounter_init();  // before any methods loaded
   accessFlags_init();
   templateTable_init();

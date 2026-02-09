@@ -1,0 +1,100 @@
+---
+description: C++ 对象内存布局分析：分析 JVM 中 C++ 对象的字段偏移、对齐、继承层次、sizeof。
+alwaysApply: false
+enabled: true
+updatedAt: 2026-02-07T03:30:15.962Z
+provider: 
+---
+
+# JVM-Object-Layout：C++ 对象内存布局分析
+
+## 适用场景
+- 分析 JVM 核心对象的内存布局（如 oop、Klass、Thread、HeapRegion）
+- 需要知道对象占多少字节、每个字段在什么偏移
+- 理解继承层次中字段的排列
+
+## 核心原则
+**JVM 中的对象不只是逻辑概念，它们是真实的内存块。搞清楚每个字节的含义，才算真正理解。**
+
+## 执行步骤
+
+### Step 1：确定继承链
+- 从目标类开始，追踪完整继承链到基类
+- 例如：`G1CollectedHeap → CollectedHeap → CHeapObj<mtInternal>`
+- 每一层的字段都会影响最终布局
+
+### Step 2：逐层采集字段
+从基类开始，逐层向下记录每个类新增的字段：
+```
+基类 A：
+  - _field1 : Type1   (sizeof = ?)
+  - _field2 : Type2   (sizeof = ?)
+
+子类 B : A：
+  - _field3 : Type3   (sizeof = ?)
+  - _field4 : Type4   (sizeof = ?)
+```
+
+对每个字段记录：
+- 类型和大小
+- 含义（一句话）
+- 是否有 padding（对齐填充）
+
+### Step 3：计算布局
+考虑 x86-64 Linux 下的对齐规则：
+- 指针：8 字节对齐
+- int/uint32_t：4 字节对齐
+- bool/char：1 字节对齐
+- 虚函数表指针（vtable ptr）：对象起始 8 字节
+- 编译器可能在字段间插入 padding
+
+### Step 4：GDB 验证
+```gdb
+# 打印对象大小
+p sizeof(ClassName)
+
+# 打印字段偏移
+p (size_t)&((ClassName*)0)->_fieldName
+
+# 打印实际对象的内存内容
+x/Ngx 对象地址    # N = sizeof / 8
+
+# 验证每个字段的值
+p ((ClassName*)地址)->_fieldName
+```
+
+### Step 5：绘制内存布局图
+```
+ClassName 对象布局 (共 XXX 字节)
+┌─────────────────────────────────────────┐ 偏移 0
+│ [vtable pointer]        (8 bytes)       │  ← 虚函数表指针
+├─────────────────────────────────────────┤ 偏移 8
+│ _field1 : Type1         (N bytes)       │  ← 含义
+├─────────────────────────────────────────┤ 偏移 8+N
+│ _field2 : Type2         (M bytes)       │  ← 含义
+├─────────────────────────────────────────┤ 偏移 ...
+│ [padding]               (K bytes)       │  ← 对齐填充
+├─────────────────────────────────────────┤
+│ ...                                     │
+└─────────────────────────────────────────┘ 偏移 = sizeof
+```
+
+### Step 6：输出分析结论
+1. **一句话描述**：这个对象是什么
+2. **继承链**：完整继承层次
+3. **总大小**：sizeof（GDB 验证值）
+4. **字段列表**：每个字段的偏移、大小、类型、含义
+5. **内存布局图**：如 Step 5
+6. **关键字段深入**：重要字段的详细分析（可能需要递归分析子结构）
+7. **GDB 验证数据**：原始 GDB 输出
+
+## 注意事项
+- 必须用 GDB 验证 sizeof 和字段偏移，不要手算
+- 注意虚继承和多重继承会改变布局
+- JVM 中很多类使用 `CHeapObj`（malloc 分配）或 `StackObj`（栈分配），注意分配方式
+- 如果字段是指针，要说明它指向哪里（堆？方法区？代码缓存？）
+- 遵循 memory 中的要求：必须完整分析所有涉及的子结构
+
+## 源码项目路径
+- HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`
+- 已有分析文档：`/data/workspace/openjdk-cut-new/jvm-md/`

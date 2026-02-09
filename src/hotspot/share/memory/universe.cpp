@@ -861,7 +861,13 @@ jint universe_init() {
   if (strlen(VerifySubSet) > 0) {
     Universe::initialize_verify_flags();
   }
-
+  // forcus ResolvedMethodTable 用于记录 MethodHandle/反射 机制中已解析的方法引用
+  /*
+        为什么需要这个表？
+            类重定义支持 (JVMTI RedefineClasses)：当热替换类时，需要更新所有指向旧 Method* 的引用
+            弱引用管理：ResolvedMethodName 对象可以被 GC 回收，表中用弱引用跟踪它们
+            去重：同一个 Method* 只需要一个 ResolvedMethodName 对象
+   */
   ResolvedMethodTable::create_table();
 
   return JNI_OK;

@@ -1,0 +1,58 @@
+set pagination off
+set print pretty on
+
+# 在 G1Policy 构造函数完成后断点
+b g1Policy.cpp:71
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== G1Policy 构造函数完成后 ==========\n"
+printf "this = %p\n", this
+
+printf "\n========== 1. G1Predictions 预测器 ==========\n"
+printf "_predictor._sigma = %f\n", _predictor._sigma
+
+printf "\n========== 2. G1Analytics 分析器 ==========\n"
+printf "_analytics = %p\n", _analytics
+printf "_analytics->_predictor = %p\n", _analytics->_predictor
+printf "TruncatedSeqLength = 10 (滑动窗口大小)\n"
+
+printf "\n========== 3. G1MMUTracker ==========\n"
+printf "_mmu_tracker = %p\n", _mmu_tracker
+printf "_mmu_tracker->_time_slice = %f sec\n", _mmu_tracker->_time_slice
+printf "_mmu_tracker->_max_gc_time = %f sec\n", _mmu_tracker->_max_gc_time
+
+printf "\n========== 4. G1IHOPControl ==========\n"
+printf "_ihop_control = %p\n", _ihop_control
+
+printf "\n========== 5. GCPolicyCounters ==========\n"
+printf "_policy_counters = %p\n", _policy_counters
+
+printf "\n========== 6. 年轻代长度控制 ==========\n"
+printf "_young_list_fixed_length = %u\n", _young_list_fixed_length
+printf "_young_list_target_length = (未初始化，在 init() 中设置)\n"
+printf "_young_list_max_length = (未初始化，在 init() 中设置)\n"
+
+printf "\n========== 7. 存活率组 ==========\n"
+printf "_short_lived_surv_rate_group = %p\n", _short_lived_surv_rate_group
+printf "_survivor_surv_rate_group = %p\n", _survivor_surv_rate_group
+
+printf "\n========== 8. 预留因子 ==========\n"
+printf "_reserve_factor = %f (G1ReservePercent / 100)\n", _reserve_factor
+printf "_reserve_regions = %u\n", _reserve_regions
+
+printf "\n========== 9. GC 阶段计时器 ==========\n"
+printf "_phase_times = %p\n", _phase_times
+
+printf "\n========== 10. Survivor 策略 ==========\n"
+printf "_tenuring_threshold = %u (MaxTenuringThreshold)\n", _tenuring_threshold
+printf "_max_survivor_regions = %u\n", _max_survivor_regions
+
+printf "\n========== 关键参数验证 ==========\n"
+printf "G1ConfidencePercent = %u\n", G1ConfidencePercent
+printf "GCPauseIntervalMillis = %lu ms\n", GCPauseIntervalMillis
+printf "MaxGCPauseMillis = %lu ms\n", MaxGCPauseMillis
+printf "G1ReservePercent = %u\n", G1ReservePercent
+printf "MaxTenuringThreshold = %u\n", MaxTenuringThreshold
+
+printf "\n========== 验证完成 ==========\n"
+quit

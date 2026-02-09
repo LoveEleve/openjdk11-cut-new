@@ -1,0 +1,36 @@
+set pagination off
+set print pretty on
+
+# 在 G1Arguments::initialize() 设置 ParallelGCThreads 之后断点
+b g1Arguments.cpp:99
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 查看 ParallelGCThreads
+printf "\n========== ParallelGCThreads 计算结果 ==========\n"
+printf "ParallelGCThreads = %u\n", ParallelGCThreads
+
+# 查看 CPU 数
+printf "\n========== CPU 信息 ==========\n"
+printf "os::_initial_active_processor_count = %d\n", os::_initial_active_processor_count
+
+# 手动计算验证
+set $ncpus = os::_initial_active_processor_count
+set $switch_pt = 8
+set $num = 5
+set $den = 8
+printf "\n========== 计算过程验证 ==========\n"
+printf "ncpus = %u\n", $ncpus
+printf "switch_pt = %u\n", $switch_pt
+printf "num = %u, den = %u\n", $num, $den
+
+# 计算预期值
+set $expected = ($ncpus <= $switch_pt) ? $ncpus : ($switch_pt + (($ncpus - $switch_pt) * $num) / $den)
+printf "预期值 = %u\n", $expected
+
+# 查看相关参数
+printf "\n========== 相关 GC 参数 ==========\n"
+printf "G1ConcRefinementThreads = %u\n", G1ConcRefinementThreads
+printf "ConcGCThreads = %u\n", ConcGCThreads
+printf "UseDynamicNumberOfGCThreads = %d\n", UseDynamicNumberOfGCThreads
+
+quit

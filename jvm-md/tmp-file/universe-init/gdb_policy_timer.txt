@@ -1,0 +1,33 @@
+# D.1/D.2/D.3 策略监控追踪 GDB 验证脚本
+# 验证条件：-Xms8g -Xmx8g，G1 GC
+
+b g1CollectedHeap.cpp:1463
+commands
+  printf "\n=== D.1/D.2/D.3 策略监控追踪验证 ===\n"
+  
+  printf "\n[D.1] 策略与线程:\n"
+  printf "  _young_gen_sampling_thread = %p (构造函数中为 NULL)\n", _young_gen_sampling_thread
+  printf "  _collector_policy = %p\n", _collector_policy
+  
+  printf "\n[D.2] JMX 监控:\n"
+  printf "  _memory_manager._name = %s\n", _memory_manager._name
+  printf "  _full_gc_memory_manager._name = %s\n", _full_gc_memory_manager._name
+  printf "  _eden_pool = %p (构造函数中为 NULL)\n", _eden_pool
+  
+  printf "\n[D.3] 计时与追踪:\n"
+  printf "  _gc_timer_stw = %p\n", _gc_timer_stw
+  printf "  _gc_tracer_stw = %p\n", _gc_tracer_stw
+  
+  continue
+end
+
+# 验证相关参数
+b G1Arguments::initialize
+commands
+  printf "\n=== 相关参数 ===\n"
+  printf "  SoftRefLRUPolicyMSPerMB = %d\n", SoftRefLRUPolicyMSPerMB
+  printf "  G1ConcRefinementServiceIntervalMillis = %d\n", G1ConcRefinementServiceIntervalMillis
+  continue
+end
+
+run

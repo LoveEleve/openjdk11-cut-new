@@ -1,0 +1,26 @@
+# GDB 验证脚本：对齐参数初始化
+# 断点：g1CollectorPolicy.cpp:57（initialize_alignments 完成后）
+
+b g1CollectorPolicy.cpp:57
+commands
+  silent
+  printf "\n========== Alignment Initialization ==========\n"
+  
+  # 输入参数
+  printf "----- Input Parameters -----\n"
+  printf "HeapRegion::GrainBytes: %lu (%lu MB)\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes/1048576
+  printf "CardTable::card_size: 512 bytes\n"
+  printf "UseLargePages: %d\n", UseLargePages
+  
+  # 中间计算
+  printf "\n----- Intermediate Values -----\n"
+  printf "card_table_alignment = 512 * 4096 = 2097152 (2 MB)\n"
+  
+  # 结果
+  printf "\n----- Results -----\n"
+  printf "_space_alignment: %lu bytes (%lu MB)\n", this->_space_alignment, this->_space_alignment/1048576
+  printf "_heap_alignment: %lu bytes (%lu MB)\n", this->_heap_alignment, this->_heap_alignment/1048576
+  
+  continue
+end
+run

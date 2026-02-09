@@ -1,0 +1,35 @@
+set pagination off
+set print pretty on
+
+# 在 G1Policy 构造后断点（此时 MMUTracker 已完成构造）
+b g1Policy.cpp:71
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== G1MMUTrackerQueue 验证 ==========\n"
+printf "_mmu_tracker = %p\n", _mmu_tracker
+
+printf "\n========== 核心参数 ==========\n"
+printf "_mmu_tracker->_time_slice = %f sec (时间窗口)\n", _mmu_tracker->_time_slice
+printf "_mmu_tracker->_max_gc_time = %f sec (最大GC时间)\n", _mmu_tracker->_max_gc_time
+
+printf "\n========== 计算 MMU ==========\n"
+printf "MMU = 1 - (_max_gc_time / _time_slice)\n"
+printf "    = 1 - (0.200 / 0.201)\n"
+printf "    = 1 - 0.995\n"
+printf "    ≈ 0.005 (0.5%%)\n"
+printf "含义：在任意 201ms 窗口内，应用至少能运行 0.5%% 的时间\n"
+
+printf "\n========== 队列状态 ==========\n"
+# 需要转换为具体类型
+set $q = (G1MMUTrackerQueue*)_mmu_tracker
+printf "_head_index = %d\n", $q->_head_index
+printf "_tail_index = %d\n", $q->_tail_index
+printf "_no_entries = %d (当前记录的暂停数)\n", $q->_no_entries
+printf "QueueLength = 64 (最大容量)\n"
+
+printf "\n========== JVM 参数验证 ==========\n"
+printf "GCPauseIntervalMillis = %lu ms\n", GCPauseIntervalMillis
+printf "MaxGCPauseMillis = %lu ms\n", MaxGCPauseMillis
+
+printf "\n========== 验证完成 ==========\n"
+quit

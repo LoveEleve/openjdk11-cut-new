@@ -1,0 +1,25 @@
+# GDB 验证脚本：巨型对象阈值
+# 断点：g1CollectedHeap.cpp:1516（阈值设置完成后）
+
+b g1CollectedHeap.cpp:1516
+commands
+  silent
+  printf "\n========== Humongous Threshold ==========\n"
+  
+  # Region 大小
+  printf "----- Region Size -----\n"
+  printf "HeapRegion::GrainBytes: %lu (%lu MB)\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes/1048576
+  printf "HeapRegion::GrainWords: %lu\n", HeapRegion::GrainWords
+  
+  # 阈值
+  printf "\n----- Humongous Threshold -----\n"
+  printf "_humongous_object_threshold_in_words: %lu\n", G1CollectedHeap::_humongous_object_threshold_in_words
+  printf "Threshold in bytes: %lu MB\n", G1CollectedHeap::_humongous_object_threshold_in_words * 8 / 1048576
+  
+  # 填充数组上限
+  printf "\n----- Filler Array Max Size -----\n"
+  printf "_filler_array_max_size: %lu\n", this->_filler_array_max_size
+  
+  continue
+end
+run

@@ -1,0 +1,44 @@
+set pagination off
+set print pretty on
+
+b G1CollectedHeap::humongous_obj_allocate(size_t)
+b G1CollectedHeap::humongous_obj_allocate_initialize_regions(unsigned int, unsigned int, size_t)
+b G1CollectedHeap::eagerly_reclaim_humongous_regions()
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -Xlog:gc+humongous=debug -cp /data/workspace/demo/src com.wjcoder.HumongousTest
+
+printf "\n========== humongous_obj_allocate #1 ==========\n"
+printf "word_size: %lu words = %lu bytes = %lu KB\n", word_size, word_size*8, word_size*8/1024
+printf "_humongous_threshold: %lu words = %lu bytes\n", G1CollectedHeap::_humongous_object_threshold_in_words, G1CollectedHeap::_humongous_object_threshold_in_words*8
+printf "GrainWords: %lu\n", HeapRegion::GrainWords
+printf "GrainBytes: %lu\n", HeapRegion::GrainBytes
+c
+
+printf "\n========== initialize_regions #1 ==========\n"
+printf "first_region_index: %u\n", first
+printf "num_regions: %u\n", num_regions
+printf "word_size: %lu words = %lu bytes\n", word_size, word_size*8
+printf "word_size_sum: %lu words = %lu bytes\n", (size_t)num_regions * HeapRegion::GrainWords, (size_t)num_regions * HeapRegion::GrainWords * 8
+c
+
+printf "\n========== humongous_obj_allocate #2 ==========\n"
+printf "word_size: %lu words = %lu bytes = %lu KB\n", word_size, word_size*8, word_size*8/1024
+c
+
+printf "\n========== initialize_regions #2 ==========\n"
+printf "first_region_index: %u\n", first
+printf "num_regions: %u\n", num_regions
+printf "word_size: %lu words = %lu bytes\n", word_size, word_size*8
+c
+
+printf "\n========== eagerly_reclaim #1 ==========\n"
+printf "_has_humongous_reclaim_candidates: %d\n", this->_has_humongous_reclaim_candidates
+c
+
+printf "\n========== eagerly_reclaim #2 (System.gc triggered) ==========\n"
+printf "_has_humongous_reclaim_candidates: %d\n", this->_has_humongous_reclaim_candidates
+c
+
+delete breakpoints
+c
+quit

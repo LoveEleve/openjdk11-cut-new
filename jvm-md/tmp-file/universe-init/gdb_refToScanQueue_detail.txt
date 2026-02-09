@@ -1,0 +1,51 @@
+set pagination off
+set print pretty on
+
+# 在所有队列创建完成后断点
+b g1CollectedHeap.cpp:1535
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== RefToScanQueue 完整结构分析 ==========\n"
+
+# 查看队列[0]完整结构
+set $q0 = (RefToScanQueue*)_task_queues->_queues[0]
+printf "\n=== 队列[0] 完整结构 ===\n"
+p *$q0
+
+# 计算队列对象的大小
+printf "\n=== 内存地址分布 ===\n"
+set $q0 = (RefToScanQueue*)_task_queues->_queues[0]
+set $q1 = (RefToScanQueue*)_task_queues->_queues[1]
+set $q2 = (RefToScanQueue*)_task_queues->_queues[2]
+
+printf "队列[0] 地址: %p\n", $q0
+printf "队列[1] 地址: %p\n", $q1
+printf "队列[2] 地址: %p\n", $q2
+printf "队列对象间隔: %lu bytes\n", ((unsigned long)$q1 - (unsigned long)$q0)
+
+# 验证 _elems 数组地址
+printf "\n=== _elems 数组地址 ===\n"
+printf "队列[0] _elems: %p\n", $q0->_elems
+printf "队列[1] _elems: %p\n", $q1->_elems
+printf "队列[2] _elems: %p\n", $q2->_elems
+printf "_elems 数组间隔: %lu bytes (应该约为 1MB = 1048576)\n", ((unsigned long)$q1->_elems - (unsigned long)$q0->_elems)
+
+# 验证缓存行填充
+printf "\n=== 缓存行填充验证 ===\n"
+printf "_bottom 偏移量（从对象起始）: %lu\n", ((unsigned long)&$q0->_bottom - (unsigned long)$q0)
+printf "_age 偏移量（从对象起始）: %lu\n", ((unsigned long)&$q0->_age - (unsigned long)$q0)
+printf "预期差值 >= 64 (避免 false sharing)\n"
+
+# 查看队列集合的 steal 相关字段
+printf "\n=== 队列集合信息 ===\n"
+printf "_n (队列总数): %u\n", _task_queues->_n
+printf "_queues 数组内容 (13个队列指针):\n"
+
+set $i = 0
+while $i < 13
+  printf "  _queues[%u] = %p\n", $i, _task_queues->_queues[$i]
+  set $i = $i + 1
+end
+
+printf "\n========== 验证完成 ==========\n"
+quit

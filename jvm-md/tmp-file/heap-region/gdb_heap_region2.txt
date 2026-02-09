@@ -1,0 +1,98 @@
+set pagination off
+set print pretty on
+
+# 断点在 JNI_CreateJavaVM 后面
+b Threads::create_vm
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 继续到初始化完成
+finish
+
+# ============ HeapRegion 静态变量 ============
+printf "\n========== HeapRegion Static Variables ==========\n"
+printf "HeapRegion::GrainBytes = %lu (0x%lx) = %lu MB\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes, HeapRegion::GrainBytes/1024/1024
+printf "HeapRegion::GrainWords = %lu\n", HeapRegion::GrainWords
+printf "HeapRegion::LogOfHRGrainBytes = %d\n", HeapRegion::LogOfHRGrainBytes
+printf "HeapRegion::LogOfHRGrainWords = %d\n", HeapRegion::LogOfHRGrainWords
+printf "HeapRegion::CardsPerRegion = %lu\n", HeapRegion::CardsPerRegion
+
+# ============ 获取 G1CollectedHeap ============
+printf "\n========== G1CollectedHeap Info ==========\n"
+set $g1h = (G1CollectedHeap*)Universe::_collectedHeap
+printf "G1CollectedHeap address: %p\n", $g1h
+
+# ============ HeapRegionManager ============
+printf "\n========== HeapRegionManager ==========\n"
+set $hrm = &($g1h->_hrm)
+printf "HeapRegionManager address: %p\n", $hrm
+printf "_num_committed: %u\n", $hrm->_num_committed
+printf "_regions._base: %p\n", $hrm->_regions._base
+printf "_regions._length: %lu\n", $hrm->_regions._length
+
+# ============ 获取第一个 HeapRegion ============
+printf "\n========== HeapRegion[0] Detail ==========\n"
+set $region0 = $hrm->_regions._base[0]
+printf "HeapRegion[0] address: %p\n", $region0
+printf "sizeof(HeapRegion): %lu bytes\n", sizeof(HeapRegion)
+
+# 父类 Space 字段
+printf "\n--- Space fields (inherited) ---\n"
+printf "_bottom: %p\n", $region0->_bottom
+printf "_end: %p\n", $region0->_end
+printf "Region size: %lu bytes = %lu MB\n", (size_t)$region0->_end - (size_t)$region0->_bottom, ((size_t)$region0->_end - (size_t)$region0->_bottom)/1024/1024
+
+# G1ContiguousSpace 字段  
+printf "\n--- G1ContiguousSpace fields ---\n"
+printf "_top: %p\n", $region0->_top
+printf "_pre_dummy_top: %p\n", $region0->_pre_dummy_top
+
+# HeapRegion 字段
+printf "\n--- HeapRegion fields ---\n"
+printf "_hrm_index: %u\n", $region0->_hrm_index
+printf "_type._tag: %d\n", $region0->_type._tag
+printf "_humongous_start_region: %p\n", $region0->_humongous_start_region
+printf "_evacuation_failed: %d\n", $region0->_evacuation_failed
+printf "_prev_marked_bytes: %lu\n", $region0->_prev_marked_bytes
+printf "_next_marked_bytes: %lu\n", $region0->_next_marked_bytes
+printf "_gc_efficiency: %f\n", $region0->_gc_efficiency
+printf "_next: %p\n", $region0->_next
+printf "_prev: %p\n", $region0->_prev
+printf "_young_index_in_cset: %d\n", $region0->_young_index_in_cset
+printf "_surv_rate_group: %p\n", $region0->_surv_rate_group
+printf "_age_index: %d\n", $region0->_age_index
+printf "_prev_top_at_mark_start: %p\n", $region0->_prev_top_at_mark_start
+printf "_next_top_at_mark_start: %p\n", $region0->_next_top_at_mark_start
+printf "_recorded_rs_length: %lu\n", $region0->_recorded_rs_length
+printf "_predicted_elapsed_time_ms: %f\n", $region0->_predicted_elapsed_time_ms
+
+# HeapRegionRemSet
+printf "\n--- HeapRegionRemSet ---\n"
+printf "_rem_set: %p\n", $region0->_rem_set
+printf "_rem_set->_state: %d\n", $region0->_rem_set->_state
+printf "_rem_set->_bot: %p\n", $region0->_rem_set->_bot
+
+# BOT Part
+printf "\n--- G1BlockOffsetTablePart ---\n"
+printf "_bot_part._bot: %p\n", $region0->_bot_part._bot
+printf "_bot_part._space: %p\n", $region0->_bot_part._space
+printf "_bot_part._next_offset_threshold: %p\n", $region0->_bot_part._next_offset_threshold
+printf "_bot_part._next_offset_index: %lu\n", $region0->_bot_part._next_offset_index
+
+# ============ 查看几个不同类型的 Region ============
+printf "\n========== Multiple Regions Comparison ==========\n"
+set $i = 0
+while $i < 5
+  set $r = $hrm->_regions._base[$i]
+  printf "Region[%d]: addr=%p, bottom=%p, top=%p, type=%d\n", $i, $r, $r->_bottom, $r->_top, $r->_type._tag
+  set $i = $i + 1
+end
+
+# ============ G1BlockOffsetTable 全局信息 ============
+printf "\n========== G1BlockOffsetTable ==========\n"
+set $bot = $g1h->_bot
+printf "G1BlockOffsetTable address: %p\n", $bot
+printf "_reserved.start: %p\n", $bot->_reserved._start
+printf "_reserved.end: %p\n", $bot->_reserved._word_size
+printf "_offset_array: %p\n", $bot->_offset_array
+
+quit

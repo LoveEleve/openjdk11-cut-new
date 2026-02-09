@@ -1,0 +1,24 @@
+# GDB 验证脚本：WorkGang 创建
+# 断点：g1CollectedHeap.cpp:1504（initialize_workers 完成后）
+
+b g1CollectedHeap.cpp:1504
+commands
+  silent
+  printf "\n========== WorkGang Creation ==========\n"
+  
+  # 参数
+  printf "----- Parameters -----\n"
+  printf "ParallelGCThreads: %u\n", ParallelGCThreads
+  printf "UseDynamicNumberOfGCThreads: %d\n", UseDynamicNumberOfGCThreads
+  
+  # WorkGang 字段
+  printf "\n----- WorkGang Fields -----\n"
+  printf "_total_workers: %u\n", this->_workers->_total_workers
+  printf "_active_workers: %u\n", this->_workers->_active_workers
+  printf "_created_workers: %u\n", this->_workers->_created_workers
+  printf "_are_GC_task_threads: %d\n", this->_workers->_are_GC_task_threads
+  printf "_are_ConcurrentGC_threads: %d\n", this->_workers->_are_ConcurrentGC_threads
+  
+  continue
+end
+run

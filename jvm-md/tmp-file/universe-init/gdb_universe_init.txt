@@ -1,0 +1,102 @@
+set pagination off
+set print pretty on
+
+# 使用 universe2_init 作为断点（在 universe_init 之后立即调用）
+b universe2_init
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n"
+printf "============================================================\n"
+printf "           universe_init() GDB 验证数据                      \n"
+printf "============================================================\n"
+
+# ========== 1. CollectedHeap (G1CollectedHeap) ==========
+printf "\n========== 1. CollectedHeap ==========\n"
+set $heap = Universe::_collectedHeap
+printf "Universe::_collectedHeap 地址: %p\n", $heap
+printf "堆 reserved_region:\n"
+printf "  _start: %p\n", $heap->_reserved._start
+printf "  _word_size: %lu words = %lu bytes = %lu MB\n", \
+    $heap->_reserved._word_size, \
+    $heap->_reserved._word_size * 8, \
+    $heap->_reserved._word_size * 8 / 1024 / 1024
+
+# G1 特有信息
+set $g1 = (G1CollectedHeap*)$heap
+printf "\nG1CollectedHeap:\n"
+printf "  _hrm (HeapRegionManager) 地址: %p\n", &$g1->_hrm
+printf "  _num_committed regions: %u\n", $g1->_hrm._num_committed
+
+# ========== 2. 压缩指针配置 ==========
+printf "\n========== 2. 压缩指针 (NarrowOop) ==========\n"
+printf "Universe::_narrow_oop:\n"
+printf "  _base: %p\n", Universe::_narrow_oop._base
+printf "  _shift: %d\n", Universe::_narrow_oop._shift
+printf "  _use_implicit_null_checks: %d\n", Universe::_narrow_oop._use_implicit_null_checks
+
+printf "\nUniverse::_narrow_klass:\n"
+printf "  _base: %p\n", Universe::_narrow_klass._base
+printf "  _shift: %d\n", Universe::_narrow_klass._shift
+
+printf "\nUniverse::_narrow_ptrs_base: %p\n", Universe::_narrow_ptrs_base
+
+# ========== 3. LatestMethodCache ==========
+printf "\n========== 3. LatestMethodCache ==========\n"
+printf "_finalizer_register_cache: %p\n", Universe::_finalizer_register_cache
+printf "  _klass: %p, _method_idnum: %d\n", \
+    Universe::_finalizer_register_cache->_klass, \
+    Universe::_finalizer_register_cache->_method_idnum
+
+printf "_loader_addClass_cache: %p\n", Universe::_loader_addClass_cache
+printf "_pd_implies_cache: %p\n", Universe::_pd_implies_cache
+printf "_throw_illegal_access_error_cache: %p\n", Universe::_throw_illegal_access_error_cache
+printf "_do_stack_walk_cache: %p\n", Universe::_do_stack_walk_cache
+
+# ========== 4. SymbolTable ==========
+printf "\n========== 4. SymbolTable ==========\n"
+printf "SymbolTable::_the_table 地址: %p\n", SymbolTable::_the_table
+printf "  _table_size (bucket 数): %d\n", SymbolTable::_the_table->_table_size
+printf "  _number_of_entries: %d\n", SymbolTable::_the_table->_number_of_entries
+
+# ========== 5. StringTable (特殊处理) ==========
+printf "\n========== 5. StringTable ==========\n"
+printf "StringTable::_the_table 地址: %p\n", StringTable::_the_table
+
+# ========== 6. 状态标志 ==========
+printf "\n========== 6. Universe 状态标志 ==========\n"
+printf "Universe::_bootstrapping: %d\n", Universe::_bootstrapping
+printf "Universe::_module_initialized: %d\n", Universe::_module_initialized
+printf "Universe::_fully_initialized: %d\n", Universe::_fully_initialized
+
+# ========== 7. TLAB 配置 ==========
+printf "\n========== 7. TLAB 配置 ==========\n"
+printf "ThreadLocalAllocBuffer::_max_size: %lu words = %lu KB\n", \
+    ThreadLocalAllocBuffer::_max_size, ThreadLocalAllocBuffer::_max_size * 8 / 1024
+
+# ========== 8. sizeof 验证 ==========
+printf "\n========== 8. sizeof 验证 ==========\n"
+printf "sizeof(NarrowPtrStruct): %lu\n", sizeof(NarrowPtrStruct)
+printf "sizeof(LatestMethodCache): %lu\n", sizeof(LatestMethodCache)
+
+# ========== 9. HeapRegion 静态变量 ==========
+printf "\n========== 9. HeapRegion 配置 ==========\n"
+printf "HeapRegion::GrainBytes: %lu = %lu MB\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes / 1024 / 1024
+printf "HeapRegion::GrainWords: %lu\n", HeapRegion::GrainWords
+printf "HeapRegion::CardsPerRegion: %lu\n", HeapRegion::CardsPerRegion
+printf "HeapRegion::LogOfHRGrainBytes: %d\n", HeapRegion::LogOfHRGrainBytes
+
+# ========== 10. 验证第一个 HeapRegion ==========
+printf "\n========== 10. 验证第一个 HeapRegion ==========\n"
+set $hrm = &$g1->_hrm
+set $base = (HeapRegion**)$hrm->_regions._base
+set $region0 = $base[0]
+printf "Region[0] 地址: %p\n", $region0
+printf "  bottom: %p\n", $region0->_bottom
+printf "  end: %p\n", $region0->_end
+printf "  type: %d\n", $region0->_type._tag
+
+printf "\n============================================================\n"
+printf "                     验证完成                                \n"
+printf "============================================================\n"
+
+quit

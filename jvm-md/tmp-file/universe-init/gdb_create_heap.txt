@@ -1,0 +1,53 @@
+set pagination off
+set print pretty on
+
+# 在 universe_init 中创建堆之后断点
+b universe.cpp:928
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -version
+
+printf "\n"
+printf "============================================================\n"
+printf "           G1CollectedHeap 构造完成 GDB 验证                 \n"
+printf "============================================================\n"
+
+printf "\n========== 1. GC 选择结果 ==========\n"
+printf "UseG1GC: %d\n", UseG1GC
+printf "UseSerialGC: %d\n", UseSerialGC
+printf "UseParallelGC: %d\n", UseParallelGC
+
+printf "\n========== 2. HeapRegion 静态变量 ==========\n"
+printf "HeapRegion::GrainBytes: %lu = %lu MB\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes/1024/1024
+printf "HeapRegion::GrainWords: %lu\n", HeapRegion::GrainWords
+printf "HeapRegion::LogOfHRGrainBytes: %d\n", HeapRegion::LogOfHRGrainBytes
+printf "HeapRegion::CardsPerRegion: %lu\n", HeapRegion::CardsPerRegion
+
+printf "\n========== 3. G1 参数 ==========\n"
+printf "ParallelGCThreads: %u\n", ParallelGCThreads
+printf "G1ConcRefinementThreads: %u\n", G1ConcRefinementThreads
+printf "MaxGCPauseMillis: %lu ms\n", MaxGCPauseMillis
+printf "GCTimeRatio: %u\n", GCTimeRatio
+
+printf "\n========== 4. G1CollectedHeap 对象 ==========\n"
+set $g1 = (G1CollectedHeap*)Universe::_collectedHeap
+printf "_collectedHeap 地址: %p\n", $g1
+printf "_collector_policy 地址: %p\n", $g1->_collector_policy
+printf "_g1_policy 地址: %p\n", $g1->_g1_policy
+printf "_workers 地址: %p\n", $g1->_workers
+printf "_task_queues 地址: %p\n", $g1->_task_queues
+printf "_allocator 地址: %p\n", $g1->_allocator
+
+printf "\n========== 5. 巨型对象阈值 ==========\n"
+printf "_humongous_object_threshold_in_words: %lu words\n", $g1->_humongous_object_threshold_in_words
+printf "  = %lu bytes = %lu MB\n", $g1->_humongous_object_threshold_in_words * 8, $g1->_humongous_object_threshold_in_words * 8 / 1024 / 1024
+
+printf "\n========== 6. 尚未初始化的字段（等待 initialize()）==========\n"
+printf "_card_table: %p\n", $g1->_card_table
+printf "_bot: %p\n", $g1->_bot
+printf "_g1_rem_set: %p\n", $g1->_g1_rem_set
+printf "_cr: %p\n", $g1->_cr
+
+printf "\n============================================================\n"
+printf "                     验证完成                                \n"
+printf "============================================================\n"
+
+quit

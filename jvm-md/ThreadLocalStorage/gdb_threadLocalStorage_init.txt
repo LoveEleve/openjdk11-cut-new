@@ -1,0 +1,96 @@
+# ThreadLocalStorage::init() GDB 验证脚本
+# 
+# 使用方法:
+#   cd /data/workspace/openjdk-cut-new
+#   gdb -x jvm-md/ThreadLocalStorage/gdb_threadLocalStorage_init.txt \
+#       ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+#
+# JVM 参数:
+#   -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set pagination off
+set print pretty on
+
+# 在 ThreadLocalStorage::init() 设置断点
+break ThreadLocalStorage::init
+
+# 在 initialize_thread_current() 设置断点（看 TLS 如何被使用）
+break Thread::initialize_thread_current
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========================================\n"
+printf "   ThreadLocalStorage::init() 断点命中   \n"
+printf "========================================\n\n"
+
+# 打印 init() 时的状态
+printf "========== ThreadLocalStorage 初始化前状态 ==========\n"
+print _initialized
+print _thread_key
+
+# 继续执行，等待 init 完成
+continue
+
+printf "\n========== ThreadLocalStorage 初始化后状态 ==========\n"
+print _initialized
+print _thread_key
+
+# 等待 initialize_thread_current 断点
+printf "\n========================================\n"
+printf "  Thread::initialize_thread_current() 断点命中  \n"
+printf "========================================\n\n"
+
+# 打印 this 指针（当前正在绑定的 Thread）
+printf "正在绑定的 Thread 对象:\n"
+print this
+
+# 打印线程类型
+printf "\n线程类型检查:\n"
+print this->is_Java_thread()
+
+# 如果是 JavaThread，打印更多信息
+if this->is_Java_thread()
+    printf "\nJavaThread 特有信息:\n"
+    print ((JavaThread*)this)->thread_state()
+end
+
+# 继续，让 set_thread 执行
+continue
+
+# 在 set_thread 后验证
+printf "\n========================================\n"
+printf "       验证 TLS 绑定结果        \n"
+printf "========================================\n\n"
+
+# 调用 Thread::current_or_null() 验证
+set $current = Thread::current_or_null()
+printf "Thread::current_or_null() 返回值: %p\n", $current
+
+# 验证 pthread_getspecific
+set $tls_value = pthread_getspecific(_thread_key)
+printf "pthread_getspecific(_thread_key): %p\n", $tls_value
+
+# 比较两者是否一致
+if $current == $tls_value
+    printf "\n✓ 验证通过: Thread::current() == pthread_getspecific()\n"
+else
+    printf "\n✗ 验证失败: 两者不一致!\n"
+end
+
+# 打印当前线程详细信息
+printf "\n========== 当前线程详细信息 ==========\n"
+print *$current
+
+# 验证 Thread::current() 内联函数
+printf "\n========== Thread::current() 验证 ==========\n"
+set $thr = Thread::current()
+printf "Thread::current() 返回值: %p\n", $thr
+printf "与 current_or_null() 一致: %s\n", ($thr == $current) ? "是" : "否"
+
+printf "\n========================================\n"
+printf "         GDB 验证完成          \n"
+printf "========================================\n"
+
+# 继续运行，让程序正常退出（或进入等待）
+continue

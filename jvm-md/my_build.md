@@ -3,7 +3,7 @@
 ## 编译 HotSpot（JVM 核心）
 ```bash
 cd /data/workspace/openjdk-cut-new
-make -f make/Main.gmk SPEC=/data/workspace/openjdk-cut-new/build-config/spec.gmk split-hotspot
+make -f make/Main.gmk SPEC=/data/workspace/openjdk-cut-new/build-config/spec.gmk split-hotspot-lib
 ```
 
 ## 编译 java.base（包含 java.c 启动器）

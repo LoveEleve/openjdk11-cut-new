@@ -1,0 +1,157 @@
+# =====================================================
+# GDB 调试脚本: universe_post_init() 验证
+# 目标: 验证预分配异常对象、LatestMethodCache、堆后初始化
+# =====================================================
+
+set pagination off
+set print pretty on
+
+# =====================================================
+# 断点设置 - 在 universe_post_init 完成后
+# =====================================================
+b universe_post_init
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 等待执行到断点后，继续执行到函数返回
+finish
+
+printf "\n"
+printf "╔═════════════════════════════════════════════════════════════╗\n"
+printf "║     universe_post_init() GDB 验证                          ║\n"
+printf "╚═════════════════════════════════════════════════════════════╝\n"
+
+# =====================================================
+# 1. 验证初始化标志
+# =====================================================
+printf "\n========== 1. 初始化标志 ==========\n"
+printf "Universe::_fully_initialized = %d\n", Universe::_fully_initialized
+
+# =====================================================
+# 2. 验证预分配的 OutOfMemoryError 对象
+# =====================================================
+printf "\n========== 2. 预分配的 OutOfMemoryError 对象 ==========\n"
+printf "_out_of_memory_error_java_heap:        %p\n", Universe::_out_of_memory_error_java_heap
+printf "_out_of_memory_error_metaspace:        %p\n", Universe::_out_of_memory_error_metaspace
+printf "_out_of_memory_error_class_metaspace:  %p\n", Universe::_out_of_memory_error_class_metaspace
+printf "_out_of_memory_error_array_size:       %p\n", Universe::_out_of_memory_error_array_size
+printf "_out_of_memory_error_gc_overhead_limit:%p\n", Universe::_out_of_memory_error_gc_overhead_limit
+printf "_out_of_memory_error_realloc_objects:  %p\n", Universe::_out_of_memory_error_realloc_objects
+
+# =====================================================
+# 3. 验证预分配的其他异常对象
+# =====================================================
+printf "\n========== 3. 预分配的其他异常对象 ==========\n"
+printf "_null_ptr_exception_instance:          %p\n", Universe::_null_ptr_exception_instance
+printf "_arithmetic_exception_instance:        %p\n", Universe::_arithmetic_exception_instance
+printf "_virtual_machine_error_instance:       %p\n", Universe::_virtual_machine_error_instance
+printf "_vm_exception:                         %p\n", Universe::_vm_exception
+
+# =====================================================
+# 4. 验证带 backtrace 的 OOM 数组
+# =====================================================
+printf "\n========== 4. 带 backtrace 的 OOM 数组 ==========\n"
+printf "_preallocated_out_of_memory_error_array: %p\n", Universe::_preallocated_out_of_memory_error_array
+printf "_preallocated_out_of_memory_error_avail_count: %d\n", Universe::_preallocated_out_of_memory_error_avail_count
+
+# 打印数组长度
+set $oom_array = Universe::_preallocated_out_of_memory_error_array
+if $oom_array != 0
+  printf "OOM 数组长度: %d\n", ((objArrayOop)$oom_array)->length()
+end
+
+# =====================================================
+# 5. 验证 LatestMethodCache (6个关键方法缓存)
+# =====================================================
+printf "\n========== 5. LatestMethodCache ==========\n"
+
+# Finalizer.register
+printf "\n--- _finalizer_register_cache ---\n"
+set $cache = Universe::_finalizer_register_cache
+if $cache != 0
+  printf "地址: %p\n", $cache
+  printf "_klass: %p\n", $cache->_klass
+  printf "_method_idnum: %d\n", $cache->_method_idnum
+end
+
+# ClassLoader.addClass
+printf "\n--- _loader_addClass_cache ---\n"
+set $cache = Universe::_loader_addClass_cache
+if $cache != 0
+  printf "地址: %p\n", $cache
+  printf "_klass: %p\n", $cache->_klass
+  printf "_method_idnum: %d\n", $cache->_method_idnum
+end
+
+# Unsafe.throwIllegalAccessError
+printf "\n--- _throw_illegal_access_error_cache ---\n"
+set $cache = Universe::_throw_illegal_access_error_cache
+if $cache != 0
+  printf "地址: %p\n", $cache
+  printf "_klass: %p\n", $cache->_klass
+  printf "_method_idnum: %d\n", $cache->_method_idnum
+end
+
+# Unsafe.throwNoSuchMethodError
+printf "\n--- _throw_no_such_method_error_cache ---\n"
+set $cache = Universe::_throw_no_such_method_error_cache
+if $cache != 0
+  printf "地址: %p\n", $cache
+  printf "_klass: %p\n", $cache->_klass
+  printf "_method_idnum: %d\n", $cache->_method_idnum
+end
+
+# ProtectionDomain.implies
+printf "\n--- _pd_implies_cache ---\n"
+set $cache = Universe::_pd_implies_cache
+if $cache != 0
+  printf "地址: %p\n", $cache
+  printf "_klass: %p\n", $cache->_klass
+  printf "_method_idnum: %d\n", $cache->_method_idnum
+end
+
+# AbstractStackWalker.doStackWalk
+printf "\n--- _do_stack_walk_cache ---\n"
+set $cache = Universe::_do_stack_walk_cache
+if $cache != 0
+  printf "地址: %p\n", $cache
+  printf "_klass: %p\n", $cache->_klass
+  printf "_method_idnum: %d\n", $cache->_method_idnum
+end
+
+# =====================================================
+# 6. 验证 LatestMethodCache 的 sizeof
+# =====================================================
+printf "\n========== 6. 数据结构大小 ==========\n"
+printf "sizeof(LatestMethodCache): %lu bytes\n", sizeof(LatestMethodCache)
+
+# =====================================================
+# 7. 验证空 Class 数组
+# =====================================================
+printf "\n========== 7. 空 Class 数组 ==========\n"
+printf "_the_empty_class_klass_array: %p\n", Universe::_the_empty_class_klass_array
+
+# =====================================================
+# 8. 验证堆信息
+# =====================================================
+printf "\n========== 8. 堆信息 ==========\n"
+printf "heap address: %p\n", Universe::heap()
+
+# 获取 G1CollectedHeap
+set $g1h = (G1CollectedHeap*)Universe::heap()
+if $g1h != 0
+  printf "G1CollectedHeap address: %p\n", $g1h
+  printf "num_regions(): %u\n", $g1h->num_regions()
+end
+
+# =====================================================
+# 9. 验证引用处理器
+# =====================================================
+printf "\n========== 9. G1 引用处理器 ==========\n"
+if $g1h != 0
+  printf "_ref_processor_cm:  %p\n", $g1h->_ref_processor_cm
+  printf "_ref_processor_stw: %p\n", $g1h->_ref_processor_stw
+end
+
+printf "\n========== GDB 验证完成 ==========\n"
+
+quit

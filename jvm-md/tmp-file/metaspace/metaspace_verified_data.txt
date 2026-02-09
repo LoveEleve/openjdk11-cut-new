@@ -1,0 +1,100 @@
+# Metaspace GDB 验证结果
+# 环境: -Xms8g -Xmx8g -XX:+UseG1GC -Xint -version
+# 日期: 2026-02-07
+
+=========================================================
+= 1. 初始化时刻 (post_initialize 入口)
+=========================================================
+
+--- 全局静态字段 ---
+_first_chunk_word_size       = 524288    (= 4MB/8 = 4194304/8) ✅
+_first_class_chunk_word_size = 49152     (= 384KB/8 = 393216/8) ✅
+_commit_alignment            = 4096      (= 4KB page) ✅
+_reserve_alignment           = 4096      ✅
+
+--- MetaspaceGC HWM ---
+_capacity_until_GC = 18446744073709547520  (≈ MaxMetaspaceSize = ~UINT64_MAX, 启动期不触发GC) ✅
+
+--- 数据元空间 VirtualSpaceList ---
+_space_list          = 0x7ffff0c8b090
+  _reserved_words    = 1048576     (= 8MB/8 = 1048576 words) ✅ VIRTUALSPACEMULTIPLIER=2 × 4MB
+  _committed_words   = 524288      (= 4MB/8, Boot 首个 data chunk) ✅
+  _virtual_space_count = 1         ✅
+
+--- 类元空间 VirtualSpaceList ---
+_class_space_list    = 0x7ffff0c8ae90
+  _reserved_words    = 134217728   (= 1GB/8 = 134217728 words) ✅ CompressedClassSpaceSize
+  _committed_words   = 49152       (= 384KB/8, Boot 首个 class chunk) ✅
+  _virtual_space_count = 1         ✅
+
+--- 数据 ChunkManager (空闲池) ---
+_chunk_manager_metadata = 0x7ffff0c8bb10
+  _free_chunks_total = 0           (初始化时无空闲chunk) ✅
+  _free_chunks_count = 0           ✅
+  Specialized[0]     = 0           ✅
+  Small[1]           = 0           ✅
+  Medium[2]          = 0           ✅
+
+--- 类 ChunkManager (空闲池) ---
+_chunk_manager_class = 0x7ffff002c350
+  _free_chunks_total = 0           ✅
+  _free_chunks_count = 0           ✅
+  Specialized[0]     = 0           ✅
+  Small[1]           = 0           ✅
+  Medium[2]          = 0           ✅
+
+--- 压缩类指针 ---
+narrow_klass_base    = 0x800000000  (紧邻 8GB 堆末尾) ✅
+narrow_klass_shift   = 0           (1GB < 4GB，不需移位) ✅
+CompressedClassSpaceSize = 1073741824  (= 1GB) ✅
+
+=========================================================
+= 2. Boot ClassLoader 首个 Chunk 创建
+=========================================================
+
+首次 VSN::take_from_committed 调用:
+  数据 VSN (0x7ffff0c8b110): chunk_word_size = 524288 (= 4MB) ✅
+    _top = 0x7fffceaf1000 (初始 _top)
+    _container_count = 0 → 1
+
+  类 VSN (0x7ffff0c8af10): chunk_word_size = 49152 (= 384KB) ✅
+    _top = 0x800000000 (类空间起始)
+    _container_count = 0 → 1
+
+=========================================================
+= 3. 启动完成后 (PrintMetaspaceStatisticsAtExit)
+=========================================================
+
+Usage:
+  Non-class:  5.04 MB capacity, ~99% used
+  Class:      586.00 KB capacity, 538.19 KB (92%) used
+  Both:       5.61 MB capacity, 5.53 MB (99%) used, 73.16 KB (1%) waste, 11.19 KB (<1%) overhead
+
+Virtual space:
+  Non-class space: 8.00 MB reserved, 5.25 MB (66%) committed
+  Class space:     1.00 GB reserved, 640.00 KB (<1%) committed
+  Both:            1.01 GB reserved, 5.88 MB (<1%) committed
+
+Chunk freelists:
+  Both: 24.00 KB (少量空闲chunk)
+
+MaxMetaspaceSize: unlimited
+CompressedClassSpaceSize: 1.00 GB
+Initial GC threshold: 20.80 MB  ✅ (≈ MetaspaceSize 默认值)
+Current GC threshold: 20.80 MB  ✅ (未触发GC，阈值未变)
+CDS: off
+
+=========================================================
+= 4. 关键验证结论
+=========================================================
+
+1. Boot ClassLoader 首个数据 Chunk = 4MB (Humongous级别) ✅
+2. Boot ClassLoader 首个类 Chunk = 384KB (Humongous级别) ✅
+3. 数据 VSL 预留 8MB = 2×4MB (VIRTUALSPACEMULTIPLIER=2) ✅
+4. 类 VSL 预留 1GB = CompressedClassSpaceSize ✅
+5. 压缩类指针: base=0x800000000, shift=0 ✅
+6. ChunkManager 初始为空 (所有chunk都在SpaceManager中使用) ✅
+7. MetaspaceGC 阈值: 初始化时=MAX_SIZE, post_init后=20.80MB ✅
+8. java -version 启动只用了约 5.61MB 元空间 (5.04MB数据 + 586KB类)
+9. Anonymous/Reflection ClassLoader 使用 Specialized chunk (128 words = 1KB) ✅
+   (post_initialize后的 take_from_committed 显示大量 chunk_word_size=128 的分配)

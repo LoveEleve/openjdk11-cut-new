@@ -1,0 +1,26 @@
+set pagination off
+set print pretty on
+set confirm off
+
+# ========== 验证双亲委派 loadClass 完整链路 ==========
+# 源码目录
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/classfile
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/prims
+
+# 断点 1: SystemDictionary::resolve_or_null — 观察所有类加载请求
+b systemDictionary.cpp:246
+commands
+  silent
+  printf "resolve_or_null: %s\n", class_name->_body
+  continue
+end
+
+# 断点 2: JVM_DefineClassWithSource — 观察 defineClass 调用
+b jvm.cpp:931
+commands
+  silent
+  printf "JVM_DefineClassWithSource: %s source=%s\n", name, source
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -cp /data/workspace/demo/src com.wjcoder.Main

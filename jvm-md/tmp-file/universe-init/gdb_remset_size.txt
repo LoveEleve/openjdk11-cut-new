@@ -1,0 +1,28 @@
+# GDB 验证脚本：RemSet 大小计算
+# 断点：heapRegionRemSet.cpp:641（setup_remset_size 完成后）
+
+b heapRegionRemSet.cpp:641
+commands
+  silent
+  printf "\n========== RemSet Size Calculation ==========\n"
+  
+  # 输入：Region 大小
+  printf "HeapRegion::LogOfHRGrainBytes: %d\n", HeapRegion::LogOfHRGrainBytes
+  printf "HeapRegion::GrainBytes: %lu (%lu MB)\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes/1048576
+  
+  # 计算中间值
+  printf "\nregion_size_log_mb: %d (= LogOfHRGrainBytes - 20)\n", HeapRegion::LogOfHRGrainBytes - 20
+  
+  # Base 值
+  printf "\n----- Base Values -----\n"
+  printf "G1RSetSparseRegionEntriesBase: %ld\n", G1RSetSparseRegionEntriesBase
+  printf "G1RSetRegionEntriesBase: %ld\n", G1RSetRegionEntriesBase
+  
+  # 计算结果
+  printf "\n----- Calculated Results -----\n"
+  printf "G1RSetSparseRegionEntries: %ld\n", G1RSetSparseRegionEntries
+  printf "G1RSetRegionEntries: %ld\n", G1RSetRegionEntries
+  
+  continue
+end
+run

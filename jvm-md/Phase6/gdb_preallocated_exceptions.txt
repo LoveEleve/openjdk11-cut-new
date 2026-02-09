@@ -1,0 +1,29 @@
+set pagination off
+set print pretty on
+
+# 断点：在 universe2_init 函数开始处
+b universe.cpp:1303
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 验证预分配异常对象
+printf "\n========== 预分配异常对象 (Universe) ==========\n"
+
+printf "\n--- 6 种 OutOfMemoryError 实例 ---\n"
+printf "java_heap: %p\n", Universe::_out_of_memory_error_java_heap
+printf "metaspace: %p\n", Universe::_out_of_memory_error_metaspace
+printf "class_metaspace: %p\n", Universe::_out_of_memory_error_class_metaspace
+printf "array_size: %p\n", Universe::_out_of_memory_error_array_size
+printf "gc_overhead_limit: %p\n", Universe::_out_of_memory_error_gc_overhead_limit
+printf "realloc_objects: %p\n", Universe::_out_of_memory_error_realloc_objects
+
+printf "\n--- 其他预分配异常 ---\n"
+printf "null_ptr_exception: %p\n", Universe::_null_ptr_exception_instance
+printf "arithmetic_exception: %p\n", Universe::_arithmetic_exception_instance
+printf "vm_error: %p\n", Universe::_virtual_machine_error_instance
+
+printf "\n--- 预分配数组 ---\n"
+printf "preallocated_array: %p\n", Universe::_preallocated_out_of_memory_error_array
+printf "avail_count: %d\n", Universe::_preallocated_out_of_memory_error_avail_count
+
+quit

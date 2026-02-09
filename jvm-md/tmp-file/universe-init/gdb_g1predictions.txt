@@ -1,0 +1,67 @@
+set pagination off
+set print pretty on
+
+# 在 G1Policy 构造函数后断点
+b g1Policy.cpp:71
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 查看 G1Predictions 核心参数
+printf "\n========== G1Predictions 核心参数 ==========\n"
+printf "G1ConfidencePercent = %u\n", G1ConfidencePercent
+printf "sigma = G1ConfidencePercent / 100.0 = %f\n", G1ConfidencePercent / 100.0
+printf "this->_predictor._sigma = %f\n", this->_predictor._sigma
+
+# 查看 ParallelGCThreads 用于选择默认值
+printf "\n========== 默认值索引 ==========\n"
+printf "ParallelGCThreads = %u\n", ParallelGCThreads
+set $idx = ParallelGCThreads - 1
+if $idx > 7
+    set $idx = 7
+end
+printf "默认值索引 = min(ParallelGCThreads-1, 7) = %u\n", $idx
+
+# 打印 G1Analytics 静态默认值数组（这些是 g1Analytics.cpp 中的静态数组）
+printf "\n========== 成本默认值数组 ==========\n"
+printf "cost_per_card_ms_defaults[] = {0.01, 0.005, 0.005, 0.003, 0.003, 0.002, 0.002, 0.0015}\n"
+printf "cost_per_entry_ms_defaults[] = {0.015, 0.01, 0.01, 0.008, 0.008, 0.0055, 0.0055, 0.005}\n"
+printf "cost_per_byte_ms_defaults[] = {0.00006, 0.00003, 0.00003, 0.000015, 0.000015, 0.00001, 0.00001, 0.000009}\n"
+printf "constant_other_time_ms_defaults[] = {5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0}\n"
+
+# 根据索引打印使用的值
+printf "\n========== 当前使用的默认值 (index=%u) ==========\n", $idx
+
+# 手动打印对应索引的值
+if $idx == 0
+    printf "cost_per_card_ms = 0.01 ms\n"
+    printf "cost_per_entry_ms = 0.015 ms\n"
+    printf "cost_per_byte_ms = 0.00006 ms\n"
+end
+if $idx >= 1 && $idx <= 2
+    printf "cost_per_card_ms = 0.005 ms\n"
+    printf "cost_per_entry_ms = 0.01 ms\n"
+    printf "cost_per_byte_ms = 0.00003 ms\n"
+end
+if $idx >= 3 && $idx <= 4
+    printf "cost_per_card_ms = 0.003 ms\n"
+    printf "cost_per_entry_ms = 0.008 ms\n"
+    printf "cost_per_byte_ms = 0.000015 ms\n"
+end
+if $idx >= 5 && $idx <= 6
+    printf "cost_per_card_ms = 0.002 ms\n"
+    printf "cost_per_entry_ms = 0.0055 ms\n"
+    printf "cost_per_byte_ms = 0.00001 ms\n"
+end
+if $idx >= 7
+    printf "cost_per_card_ms = 0.0015 ms\n"
+    printf "cost_per_entry_ms = 0.005 ms\n"
+    printf "cost_per_byte_ms = 0.000009 ms\n"
+end
+printf "constant_other_time_ms = 5.0 ms (所有索引相同)\n"
+
+# 衰减平均 alpha 值
+printf "\n========== 衰减平均参数 ==========\n"
+printf "DEFAULT_ALPHA_VALUE = 0.7 (定义在 numberSeq.hpp:43)\n"
+printf "TruncatedSeqLength = 10 (定义在 g1Analytics.hpp:35)\n"
+printf "NumPrevPausesForHeuristics = 10 (定义在 g1Analytics.hpp:36)\n"
+
+quit

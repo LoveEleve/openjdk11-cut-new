@@ -1,0 +1,65 @@
+set pagination off
+set print pretty on
+
+# 在所有队列创建完成后断点
+b g1CollectedHeap.cpp:1535
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== RefToScanQueue 配置 ==========\n"
+printf "ParallelGCThreads = %u\n", ParallelGCThreads
+printf "队列数量 n_queues = %u\n", n_queues
+
+printf "\n========== TASKQUEUE_SIZE 常量 ==========\n"
+printf "TASKQUEUE_SIZE (64位) = 131072 (2^17)\n"
+printf "max_elems = TASKQUEUE_SIZE - 2 = 131070\n"
+printf "每个队列可存储 13 万个对象引用\n"
+
+printf "\n========== 队列集合 _task_queues ==========\n"
+printf "_task_queues 地址 = %p\n", _task_queues
+printf "_n (队列数量) = %u\n", _task_queues->_n
+printf "_queues 数组地址 = %p\n", _task_queues->_queues
+
+# 查看前 3 个队列的结构
+printf "\n========== 队列结构详情 ==========\n"
+
+set $q0 = (RefToScanQueue*)_task_queues->_queues[0]
+printf "\n--- 队列[0] ---\n"
+printf "地址: %p\n", $q0
+printf "_bottom = %u\n", $q0->_bottom
+printf "_age._data = %lu\n", $q0->_age._data
+printf "_elems 数组地址 = %p\n", $q0->_elems
+
+set $q1 = (RefToScanQueue*)_task_queues->_queues[1]
+printf "\n--- 队列[1] ---\n"
+printf "地址: %p\n", $q1
+printf "_bottom = %u\n", $q1->_bottom
+printf "_age._data = %lu\n", $q1->_age._data
+
+set $q12 = (RefToScanQueue*)_task_queues->_queues[12]
+printf "\n--- 队列[12] (最后一个) ---\n"
+printf "地址: %p\n", $q12
+printf "_bottom = %u\n", $q12->_bottom
+printf "_age._data = %lu\n", $q12->_age._data
+
+# 查看 Age 结构的分解
+printf "\n========== Age 结构分解 ==========\n"
+printf "Age._data 是 64 位整数，包含两部分:\n"
+printf "- 低 17 位: top 索引 (最大 131072)\n"
+printf "- 高 47 位: tag (防止 ABA 问题)\n"
+printf "初始状态 _age._data = 0 表示 top=0, tag=0\n"
+
+# 验证 overflow stack
+printf "\n========== Overflow Stack ==========\n"
+printf "队列[0] overflow stack 空? = %d\n", $q0->_overflow_stack.is_empty()
+
+# 查看溢出栈相关字段
+p $q0->_overflow_stack
+
+printf "\n========== 内存占用计算 ==========\n"
+printf "sizeof(StarTask) = sizeof(oop*) = 8 bytes\n"
+printf "每个队列 _elems 数组 = 131072 * 8 = 1MB\n"
+printf "13 个队列元素数组总共 = 13MB\n"
+printf "加上队列对象本身开销，总计约 13-14MB\n"
+
+printf "\n========== 验证完成 ==========\n"
+quit

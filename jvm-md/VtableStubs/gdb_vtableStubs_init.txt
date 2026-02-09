@@ -1,0 +1,32 @@
+# vtableStubs_init() GDB 验证脚本
+# 文件：jvm-md/VtableStubs/gdb_vtableStubs_init.txt
+# 用法：gdb -x jvm-md/VtableStubs/gdb_vtableStubs_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在初始化完成后
+b VtableStubs::initialize
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+printf "\n========== VtableStubs Basic Info ==========\n"
+printf "_number_of_vtable_stubs: %d (should be 0 at init)\n", VtableStubs::_number_of_vtable_stubs
+printf "_vtab_stub_size: %d\n", VtableStubs::_vtab_stub_size
+printf "_itab_stub_size: %d\n", VtableStubs::_itab_stub_size
+
+printf "\n========== Receiver Location ==========\n"
+printf "_receiver_location: %p\n", VtableStub::_receiver_location
+
+printf "\n========== Hash Table Sample (all NULL at init) ==========\n"
+printf "_table[0]: %p\n", VtableStubs::_table[0]
+printf "_table[1]: %p\n", VtableStubs::_table[1]
+printf "_table[127]: %p\n", VtableStubs::_table[127]
+printf "_table[255]: %p\n", VtableStubs::_table[255]
+
+printf "\n========== VtableStub Static Data ==========\n"
+printf "_chunk: %p\n", VtableStub::_chunk
+printf "_chunk_end: %p\n", VtableStub::_chunk_end
+
+quit

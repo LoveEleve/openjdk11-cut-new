@@ -1,0 +1,73 @@
+set pagination off
+set print pretty on
+
+# 在 universe_post_init 后断点
+b universe2_init
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# ============ HeapRegion 静态变量 ============
+printf "\n========== HeapRegion Static Variables ==========\n"
+printf "GrainBytes = %lu (0x%lx) = %lu MB\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes, HeapRegion::GrainBytes/1024/1024
+printf "GrainWords = %lu\n", HeapRegion::GrainWords
+printf "LogOfHRGrainBytes = %d\n", HeapRegion::LogOfHRGrainBytes
+printf "LogOfHRGrainWords = %d\n", HeapRegion::LogOfHRGrainWords
+printf "CardsPerRegion = %lu\n", HeapRegion::CardsPerRegion
+
+# ============ 获取 G1CollectedHeap ============
+printf "\n========== G1CollectedHeap ==========\n"
+set $g1h = (G1CollectedHeap*)Universe::_collectedHeap
+printf "G1CollectedHeap: %p\n", $g1h
+
+# ============ HeapRegionManager ============
+printf "\n========== HeapRegionManager ==========\n"
+set $hrm = &($g1h->_hrm)
+printf "address: %p\n", $hrm
+printf "_num_committed: %u\n", $hrm->_num_committed
+printf "_regions._base: %p\n", $hrm->_regions._base
+
+# ============ 第一个 HeapRegion ============
+printf "\n========== HeapRegion[0] ==========\n"
+set $r0 = $hrm->_regions._base[0]
+printf "address: %p\n", $r0
+printf "sizeof(HeapRegion): %lu\n", sizeof(HeapRegion)
+
+printf "_bottom: %p\n", $r0->_bottom
+printf "_end: %p\n", $r0->_end
+printf "_top: %p\n", $r0->_top
+printf "_hrm_index: %u\n", $r0->_hrm_index
+printf "_type._tag: %d (0=Free)\n", $r0->_type._tag
+printf "_rem_set: %p\n", $r0->_rem_set
+printf "_prev_marked_bytes: %lu\n", $r0->_prev_marked_bytes
+printf "_next_marked_bytes: %lu\n", $r0->_next_marked_bytes
+
+# ============ HeapRegionRemSet ============
+printf "\n========== HeapRegionRemSet ==========\n"
+set $rs = $r0->_rem_set
+printf "address: %p\n", $rs
+printf "sizeof(HeapRegionRemSet): %lu\n", sizeof(HeapRegionRemSet)
+printf "_bot: %p\n", $rs->_bot
+printf "_state: %d (0=Untracked)\n", $rs->_state
+
+# ============ G1BlockOffsetTablePart ============
+printf "\n========== G1BlockOffsetTablePart ==========\n"
+printf "_bot_part._bot: %p\n", $r0->_bot_part._bot
+printf "_bot_part._space: %p\n", $r0->_bot_part._space
+printf "_next_offset_threshold: %p\n", $r0->_bot_part._next_offset_threshold
+printf "_next_offset_index: %lu\n", $r0->_bot_part._next_offset_index
+
+# ============ G1BlockOffsetTable 全局 ============
+printf "\n========== G1BlockOffsetTable ==========\n"
+set $bot = $g1h->_bot
+printf "address: %p\n", $bot
+printf "_offset_array: %p\n", $bot->_offset_array
+
+# ============ 多个Region对比 ============
+printf "\n========== Regions[0-4] ==========\n"
+set $i = 0
+while $i < 5
+  set $r = $hrm->_regions._base[$i]
+  printf "[%d] %p: bottom=%p top=%p end=%p type=%d\n", $i, $r, $r->_bottom, $r->_top, $r->_end, $r->_type._tag
+  set $i = $i + 1
+end
+
+quit

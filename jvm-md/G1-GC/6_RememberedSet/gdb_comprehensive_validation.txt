@@ -1,0 +1,234 @@
+# 综合 GDB 验证脚本：Remembered Set 全链路验证
+# 验证内容：
+# 1. RSet 内存布局
+# 2. 三种存储模式
+# 3. 写屏障
+# 4. 脏卡队列
+# 5. Refine 线程
+# 6. GC 扫描
+
+set pagination off
+set print pretty on
+
+# 禁用确认提示
+set confirm off
+
+# 设置日志输出
+set logging file /tmp/gdb_rset_validation.log
+set logging enabled on
+
+# 设置一个标志变量，控制只打印关键信息
+set $verbose = 0
+
+# ============================================
+# 断点1：main - 基础大小验证
+# ============================================
+break main
+commands
+  silent
+  printf "\n"
+  printf "╔════════════════════════════════════════════════════════════════╗\n"
+  printf "║        Remembered Set GDB 综合验证开始                        ║\n"
+  printf "╚════════════════════════════════════════════════════════════════╝\n"
+  printf "\n【基础大小验证】\n"
+  printf "sizeof(HeapRegionRemSet) = %zu bytes\n", sizeof(HeapRegionRemSet)
+  printf "sizeof(OtherRegionsTable) = %zu bytes\n", sizeof(OtherRegionsTable)
+  printf "sizeof(PerRegionTable) = %zu bytes\n", sizeof(PerRegionTable)
+  printf "sizeof(SparsePRTEntry) = %zu bytes\n", sizeof(SparsePRTEntry)
+  printf "sizeof(PtrQueue) = %zu bytes\n", sizeof(PtrQueue)
+  printf "sizeof(DirtyCardQueue) = %zu bytes\n", sizeof(DirtyCardQueue)
+  printf "sizeof(G1CardTable) = %zu bytes\n", sizeof(G1CardTable)
+  printf "\n【关键常量】\n"
+  printf "HeapRegion::GrainBytes = %u (4MB)\n", HeapRegion::GrainBytes
+  printf "HeapRegion::CardsPerRegion = %u\n", HeapRegion::CardsPerRegion
+  printf "CardTable::card_size = %d (512 bytes)\n", CardTable::card_size
+  continue
+end
+
+# ============================================
+# 断点2：RSet 构造 - 验证创建过程
+# ============================================
+break HeapRegionRemSet::HeapRegionRemSet
+commands
+  silent
+  if $verbose
+    printf "\n【RSet 创建】Region %u RSet @ %p\n", $hr->hrm_index(), this
+  end
+  continue
+end
+
+# ============================================
+# 断点3：SparsePRT 添加 Card
+# ============================================
+break SparsePRT::add_card
+commands
+  silent
+  set $sparse_count++
+  if $sparse_count <= 5
+    printf "\n【SparsePRT】添加 Card，当前容量=%zu\n", _next->capacity()
+  end
+  continue
+end
+set $sparse_count = 0
+
+# ============================================
+# 断点4：SparsePRT 扩容
+# ============================================
+break SparsePRT::expand
+commands
+  silent
+  printf "\n【SparsePRT 扩容】%zu -> %zu\n", _next->capacity(), _next->capacity() * 2
+  continue
+end
+
+# ============================================
+# 断点5：PerRegionTable 分配
+# ============================================
+break PerRegionTable::alloc
+commands
+  silent
+  set $prt_count++
+  if $prt_count <= 3
+    printf "\n【PerRegionTable】分配 PRT #%d，大小=%zu bytes\n", $prt_count, sizeof(PerRegionTable)
+  end
+  continue
+end
+set $prt_count = 0
+
+# ============================================
+# 断点6：写屏障 - Pre (SATB)
+# ============================================
+break G1BarrierSet::write_ref_field_pre
+commands
+  silent
+  set $pre_barrier_count++
+  if $pre_barrier_count <= 10
+    printf "\n【写前屏障 SATB】#%d\n", $pre_barrier_count
+  end
+  continue
+end
+set $pre_barrier_count = 0
+
+# ============================================
+# 断点7：写屏障 - Post (Dirty Card)
+# ============================================
+break G1BarrierSet::write_ref_field_post
+commands
+  silent
+  set $post_barrier_count++
+  if $post_barrier_count <= 10
+    printf "\n【写后屏障 DirtyCard】#%d\n", $post_barrier_count
+  end
+  continue
+end
+set $post_barrier_count = 0
+
+# ============================================
+# 断点8：PtrQueue 入队
+# ============================================
+break PtrQueue::enqueue_known_active
+commands
+  silent
+  set $enqueue_count++
+  if $enqueue_count <= 20
+    printf "\n【DC Queue 入队】#%d，_index=%zu\n", $enqueue_count, _index
+  end
+  continue
+end
+set $enqueue_count = 0
+
+# ============================================
+# 断点9：缓冲区满提交
+# ============================================
+break PtrQueue::handle_zero_index
+commands
+  silent
+  printf "\n【缓冲区满】提交到全局队列，已完成缓冲区数=%zu\n", _qset->_n_completed_buffers
+  continue
+end
+
+# ============================================
+# 断点10：Refine 线程处理 Card
+# ============================================
+break G1RefineCardConcurrentlyClosure::do_card_ptr
+commands
+  silent
+  set $refine_count++
+  if $refine_count <= 10
+    printf "\n【Refine 线程】处理 Card #%d @ %p，worker=%u\n", $refine_count, $card_ptr, $worker_i
+  end
+  continue
+end
+set $refine_count = 0
+
+# ============================================
+# 断点11：GC 开始 - RSet 准备
+# ============================================
+break G1RemSet::prepare_for_oops_into_collection_set_do
+commands
+  silent
+  printf "\n"
+  printf "╔════════════════════════════════════════════════════════════════╗\n"
+  printf "║                 GC 开始 - RSet 准备阶段                        ║\n"
+  printf "╚════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点12：GC 扫描 RSet
+# ============================================
+break G1ScanRSForRegionClosure::do_heap_region
+commands
+  silent
+  set $scan_count++
+  if $scan_count <= 5
+    printf "\n【GC RSet 扫描】Region %u，RSet 占用=%zu\n", $r->hrm_index(), $r->rem_set()->occupied()
+  end
+  continue
+end
+set $scan_count = 0
+
+# ============================================
+# 断点13：RSet 迭代器遍历
+# ============================================
+break HeapRegionRemSetIterator::has_next
+commands
+  silent
+  set $iter_count++
+  if $iter_count <= 20
+    printf "\n【RSet 迭代器】模式=%d (0=Sparse,1=Fine,2=Coarse)\n", $_is
+  end
+  continue
+end
+set $iter_count = 0
+
+# ============================================
+# 断点14：GC 结束 - RSet 清理
+# ============================================
+break G1RemSet::cleanup_after_oops_into_collection_set_do
+commands
+  silent
+  printf "\n"
+  printf "╔════════════════════════════════════════════════════════════════╗\n"
+  printf "║                 GC 结束 - RSet 清理完成                        ║\n"
+  printf "╚════════════════════════════════════════════════════════════════╝\n"
+  printf "\n【统计】\n"
+  printf "写前屏障触发: %d 次\n", $pre_barrier_count
+  printf "写后屏障触发: %d 次\n", $post_barrier_count
+  printf "DC Queue 入队: %d 次\n", $enqueue_count
+  printf "Refine 处理: %d 次\n", $refine_count
+  printf "GC RSet 扫描: %d 个 Region\n", $scan_count
+  printf "\n✅ GDB 验证完成！详细日志: /tmp/gdb_rset_validation.log\n"
+  continue
+end
+
+# ============================================
+# 运行程序
+# ============================================
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 程序退出后打印总结
+printf "\n"
+printf "╔════════════════════════════════════════════════════════════════╗\n"
+printf "║              GDB 验证脚本执行完毕                              ║\n"
+printf "╚════════════════════════════════════════════════════════════════╝\n"

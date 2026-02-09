@@ -1,0 +1,96 @@
+set pagination off
+set print pretty on
+
+b universe2_init
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# ============ HeapRegion 静态变量 ============
+printf "\n========== HeapRegion Static Variables ==========\n"
+printf "GrainBytes = %lu (0x%lx) = %lu MB\n", HeapRegion::GrainBytes, HeapRegion::GrainBytes, HeapRegion::GrainBytes/1024/1024
+printf "GrainWords = %lu\n", HeapRegion::GrainWords
+printf "LogOfHRGrainBytes = %d\n", HeapRegion::LogOfHRGrainBytes
+printf "LogOfHRGrainWords = %d\n", HeapRegion::LogOfHRGrainWords
+printf "CardsPerRegion = %lu\n", HeapRegion::CardsPerRegion
+
+# ============ G1CollectedHeap ============
+printf "\n========== G1CollectedHeap ==========\n"
+set $g1h = (G1CollectedHeap*)Universe::_collectedHeap
+printf "G1CollectedHeap: %p\n", $g1h
+
+# ============ HeapRegionManager._regions (G1BiasedMappedArray) ============
+printf "\n========== G1HeapRegionTable ==========\n"
+set $hrm = &($g1h->_hrm)
+printf "_num_committed: %u\n", $hrm->_num_committed
+printf "_regions._base: %p\n", $hrm->_regions._base
+printf "_regions._length: %lu\n", $hrm->_regions._length
+printf "_regions._biased_base: %p\n", $hrm->_regions._biased_base
+printf "_regions._bias: %lu\n", $hrm->_regions._bias
+printf "_regions._shift_by: %u\n", $hrm->_regions._shift_by
+
+# ============ 访问 HeapRegion ============
+# G1HeapRegionTable 是 G1BiasedMappedArray<HeapRegion*>，_base 是 HeapRegion** 
+printf "\n========== HeapRegion[0] ==========\n"
+set $base = (HeapRegion**)$hrm->_regions._base
+set $r0 = $base[0]
+printf "HeapRegion[0]: %p\n", $r0
+printf "sizeof(HeapRegion): %lu bytes\n", sizeof(HeapRegion)
+
+# 父类 Space 字段
+printf "\n--- Space (inherited from CompactibleSpace) ---\n"
+printf "_bottom: %p\n", $r0->_bottom
+printf "_end: %p\n", $r0->_end
+printf "_saved_mark_word: %p\n", $r0->_saved_mark_word
+
+# G1ContiguousSpace 字段  
+printf "\n--- G1ContiguousSpace ---\n"
+printf "_top: %p\n", $r0->_top
+printf "_pre_dummy_top: %p\n", $r0->_pre_dummy_top
+
+# HeapRegion 字段
+printf "\n--- HeapRegion fields ---\n"
+printf "_hrm_index: %u\n", $r0->_hrm_index
+printf "_type._tag: %d\n", $r0->_type._tag
+printf "_humongous_start_region: %p\n", $r0->_humongous_start_region
+printf "_evacuation_failed: %d\n", $r0->_evacuation_failed
+printf "_prev_marked_bytes: %lu\n", $r0->_prev_marked_bytes
+printf "_next_marked_bytes: %lu\n", $r0->_next_marked_bytes
+printf "_gc_efficiency: %f\n", $r0->_gc_efficiency
+printf "_next: %p\n", $r0->_next
+printf "_prev: %p\n", $r0->_prev
+printf "_young_index_in_cset: %d\n", $r0->_young_index_in_cset
+printf "_surv_rate_group: %p\n", $r0->_surv_rate_group
+printf "_age_index: %d\n", $r0->_age_index
+printf "_prev_top_at_mark_start: %p\n", $r0->_prev_top_at_mark_start
+printf "_next_top_at_mark_start: %p\n", $r0->_next_top_at_mark_start
+printf "_recorded_rs_length: %lu\n", $r0->_recorded_rs_length
+printf "_predicted_elapsed_time_ms: %f\n", $r0->_predicted_elapsed_time_ms
+
+# RemSet
+printf "\n--- HeapRegionRemSet ---\n"
+printf "_rem_set: %p\n", $r0->_rem_set
+printf "_rem_set->_state: %d\n", $r0->_rem_set->_state
+
+# BOT Part
+printf "\n--- G1BlockOffsetTablePart ---\n"
+printf "_bot_part._bot: %p\n", $r0->_bot_part._bot
+printf "_bot_part._space: %p\n", $r0->_bot_part._space
+printf "_next_offset_threshold: %p\n", $r0->_bot_part._next_offset_threshold
+printf "_next_offset_index: %lu\n", $r0->_bot_part._next_offset_index
+
+# ============ 多个Region对比 ============
+printf "\n========== Regions[0-9] ==========\n"
+set $i = 0
+while $i < 10
+  set $r = $base[$i]
+  printf "[%d] %p: bottom=%p end=%p type=%d\n", $i, $r, $r->_bottom, $r->_end, $r->_type._tag
+  set $i = $i + 1
+end
+
+# ============ G1BlockOffsetTable ============
+printf "\n========== G1BlockOffsetTable ==========\n"
+set $bot = $g1h->_bot
+printf "address: %p\n", $bot
+printf "_reserved._start: %p\n", $bot->_reserved._start
+printf "_offset_array: %p\n", $bot->_offset_array
+
+quit

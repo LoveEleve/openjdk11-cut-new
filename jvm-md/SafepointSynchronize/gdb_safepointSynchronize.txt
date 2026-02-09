@@ -1,0 +1,47 @@
+# SafepointSynchronize GDB 验证脚本
+#
+# 使用方法:
+#   cd /data/workspace/openjdk-cut-new
+#   gdb -x jvm-md/SafepointSynchronize/gdb_safepointSynchronize.txt \
+#       ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+#
+# JVM 参数:
+#   -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set pagination off
+set print pretty on
+
+# 在 SafepointSynchronize::begin() 设置断点
+break SafepointSynchronize::begin
+
+# 在 SafepointSynchronize::end() 设置断点
+break SafepointSynchronize::end
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========================================\n"
+printf "   SafepointSynchronize::begin() 断点命中   \n"
+printf "========================================\n\n"
+
+# 打印状态
+printf "========== 安全点状态 ==========\n"
+print SafepointSynchronize::_state
+print SafepointSynchronize::_waiting_to_block
+
+# 继续执行
+continue
+
+printf "\n========================================\n"
+printf "   SafepointSynchronize::end() 断点命中   \n"
+printf "========================================\n\n"
+
+printf "========== 安全点状态 ==========\n"
+print SafepointSynchronize::_state
+
+printf "\n========================================\n"
+printf "         GDB 验证完成          \n"
+printf "========================================\n"
+
+# 继续运行
+continue
