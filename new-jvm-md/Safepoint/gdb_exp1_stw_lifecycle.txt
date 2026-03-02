@@ -1,0 +1,80 @@
+set pagination off
+set print pretty on
+set confirm off
+
+# ========== 实验1: 观察完整 STW 生命周期 ==========
+# 目标: 在一次 Young GC 触发的 Safepoint 中，观察 begin→synchronized→end 全过程
+
+# 断点1: begin() 入口 — STW 发起
+b SafepointSynchronize::begin
+commands
+  silent
+  printf "\n====================================================================\n"
+  printf "【实验1】SafepointSynchronize::begin() — STW 开始!\n"
+  printf "====================================================================\n"
+  printf "VMThread 发起 Safepoint\n"
+  printf "当前 VM_Operation: %s\n", VMThread::_cur_vm_operation ? VMThread::_cur_vm_operation->_names[VMThread::_cur_vm_operation->type()] : "NULL"
+  printf "_state (应为 0=_not_synchronized): %d\n", SafepointSynchronize::_state
+  printf "_safepoint_counter (应为偶数): %lu\n", SafepointSynchronize::_safepoint_counter
+  printf "\n--- SafepointMechanism 配置 ---\n"
+  printf "_poll_armed_value:    %p\n", SafepointMechanism::_poll_armed_value
+  printf "_poll_disarmed_value: %p\n", SafepointMechanism::_poll_disarmed_value
+  printf "_poll_bit:            %lu\n", SafepointMechanism::_poll_bit
+  continue
+end
+
+# 断点2: _state 变为 _synchronized — 所有线程已停
+b safepoint.cpp:465
+commands
+  silent
+  printf "\n====================================================================\n"
+  printf "【实验1】_state = _synchronized — 所有线程已停!\n"
+  printf "====================================================================\n"
+  printf "_state: %d (应为 2=_synchronized)\n", SafepointSynchronize::_state
+  printf "_safepoint_counter: %lu (应为奇数)\n", SafepointSynchronize::_safepoint_counter
+  printf "_waiting_to_block: %d (应为 0)\n", SafepointSynchronize::_waiting_to_block
+  printf "_current_jni_active_count: %d\n", SafepointSynchronize::_current_jni_active_count
+  printf "\n"
+  continue
+end
+
+# 断点3: do_cleanup_tasks — Cleanup 阶段
+b SafepointSynchronize::do_cleanup_tasks
+commands
+  silent
+  printf "\n====================================================================\n"
+  printf "【实验1】do_cleanup_tasks() — 开始 Cleanup\n"
+  printf "====================================================================\n"
+  printf "即将执行 7 项搭便车任务...\n"
+  continue
+end
+
+# 断点4: end() — STW 结束
+b SafepointSynchronize::end
+commands
+  silent
+  printf "\n====================================================================\n"
+  printf "【实验1】SafepointSynchronize::end() — STW 结束!\n"
+  printf "====================================================================\n"
+  printf "_state: %d (应为 2=_synchronized)\n", SafepointSynchronize::_state
+  printf "_safepoint_counter: %lu (应为奇数)\n", SafepointSynchronize::_safepoint_counter
+  printf "即将 disarm 所有线程并释放 Threads_lock\n"
+  printf "\n"
+  continue
+end
+
+# 断点5: Threads_lock->unlock() — 线程唤醒点
+b safepoint.cpp:587
+commands
+  silent
+  printf "\n====================================================================\n"
+  printf "【实验1】Threads_lock->unlock() — 所有线程被唤醒!\n"
+  printf "====================================================================\n"
+  printf "_state: %d (应为 0=_not_synchronized)\n", SafepointSynchronize::_state
+  printf "_safepoint_counter: %lu (应为偶数)\n", SafepointSynchronize::_safepoint_counter
+  printf "\n========== STW 生命周期完成 ==========\n\n"
+  # 第一次 Young GC 后退出
+  quit
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -cp /data/workspace/demo/src com.wjcoder.Main

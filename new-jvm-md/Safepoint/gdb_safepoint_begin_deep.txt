@@ -1,0 +1,49 @@
+set pagination off
+set print pretty on
+
+# ========== 断点: SafepointSynchronize::begin ==========
+b SafepointSynchronize::begin
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# ========== 1. SafepointSynchronize 静态变量 ==========
+printf "\n========== SafepointSynchronize 静态变量 ==========\n"
+printf "_state 地址: %p\n", &SafepointSynchronize::_state
+printf "_state 值: %d (0=_not_synchronized, 1=_synchronizing, 2=_synchronized)\n", SafepointSynchronize::_state
+printf "_waiting_to_block: %d\n", SafepointSynchronize::_waiting_to_block
+printf "_safepoint_counter: %d\n", SafepointSynchronize::_safepoint_counter
+printf "_current_jni_active_count: %d\n", SafepointSynchronize::_current_jni_active_count
+printf "_end_of_last_safepoint: %ld\n", SafepointSynchronize::_end_of_last_safepoint
+printf "_defer_thr_suspend_loop_count: %d\n", SafepointSynchronize::_defer_thr_suspend_loop_count
+
+# ========== 2. 常量值 ==========
+printf "\n========== Safepoint 常量 ==========\n"
+printf "safepoint_spin_before_yield: 2000 (硬编码)\n"
+printf "_defer_thr_suspend_loop_count: %d\n", SafepointSynchronize::_defer_thr_suspend_loop_count
+printf "SafepointTimeoutDelay: %ld\n", SafepointTimeoutDelay
+
+# ========== 3. Polling 机制 ==========
+printf "\n========== SafepointMechanism ==========\n"
+printf "_polling_type: %d (0=_global_page_poll, 1=_thread_local_poll)\n", SafepointMechanism::_polling_type
+printf "_poll_armed_value: %p\n", SafepointMechanism::_poll_armed_value
+printf "_poll_disarmed_value: %p\n", SafepointMechanism::_poll_disarmed_value
+printf "_poll_bit: %ld\n", SafepointMechanism::_poll_bit
+
+# ========== 4. sizeof ==========
+printf "\n========== sizeof ==========\n"
+printf "sizeof(ThreadSafepointState): %lu\n", sizeof(ThreadSafepointState)
+printf "sizeof(SafepointSynchronize::SafepointStats): %lu\n", sizeof(SafepointSynchronize::SafepointStats)
+
+# ========== 5. 继续执行到 _state = _synchronizing ==========
+printf "\n========== 进入 begin() 执行 ==========\n"
+# 单步到 _state = _synchronizing
+b safepoint.cpp:242
+c
+printf "_state 变为: %d (应为1=_synchronizing)\n", SafepointSynchronize::_state
+printf "nof_threads: %d\n", nof_threads
+printf "_waiting_to_block: %d\n", SafepointSynchronize::_waiting_to_block
+
+# ========== 6. 观察 arm ==========
+printf "\n========== Polling 模式确认 ==========\n"
+printf "uses_thread_local_poll: %d\n", SafepointMechanism::_polling_type
+
+quit

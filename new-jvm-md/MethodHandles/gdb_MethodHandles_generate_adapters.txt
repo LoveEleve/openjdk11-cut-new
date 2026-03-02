@@ -1,0 +1,19 @@
+# MethodHandles::generate_adapters() GDB 验证脚本
+# 用法：gdb -x gdb_MethodHandles_generate_adapters.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+b MethodHandles::generate_adapters
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+printf "\n========== MethodHandles Adapter Info ==========\n"
+printf "_adapter_code: %p\n", MethodHandles::_adapter_code
+printf "_enabled: %d\n", MethodHandles::_enabled
+
+printf "\n========== Adapter Code Size ==========\n"
+printf "adapter_code_size (expected): 32000 bytes (x86_64 release)\n"
+
+quit

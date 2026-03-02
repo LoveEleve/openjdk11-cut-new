@@ -1,0 +1,41 @@
+# universe2_init() GDB 验证脚本
+# 文件：jvm-md/Universe/gdb_universe2_init.txt
+# 用法：gdb -x jvm-md/Universe/gdb_universe2_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在 universe2_init 之后
+b init.cpp:134
+run -Xms256m -Xmx256m -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# === TypeArrayKlass (8个) ===
+printf "\n========== TypeArrayKlass (8个) ==========\n"
+printf "_boolArrayKlassObj:   %p\n", Universe::_boolArrayKlassObj
+printf "_charArrayKlassObj:   %p\n", Universe::_charArrayKlassObj
+printf "_byteArrayKlassObj:   %p\n", Universe::_byteArrayKlassObj
+printf "_shortArrayKlassObj:  %p\n", Universe::_shortArrayKlassObj
+printf "_intArrayKlassObj:    %p\n", Universe::_intArrayKlassObj
+printf "_longArrayKlassObj:   %p\n", Universe::_longArrayKlassObj
+printf "_singleArrayKlassObj: %p\n", Universe::_singleArrayKlassObj
+printf "_doubleArrayKlassObj: %p\n", Universe::_doubleArrayKlassObj
+
+# === objectArrayKlass ===
+printf "\n========== objectArrayKlass ==========\n"
+printf "_objectArrayKlassObj: %p\n", Universe::_objectArrayKlassObj
+
+# === 特殊字符串 ===
+printf "\n========== Special Strings ==========\n"
+printf "_the_null_string:     %p\n", Universe::_the_null_string
+printf "_the_min_jint_string: %p\n", Universe::_the_min_jint_string
+printf "_the_null_sentinel:   %p\n", Universe::_the_null_sentinel
+
+# === 数组接口 ===
+printf "\n========== Array Interfaces ==========\n"
+printf "_the_array_interfaces_array: %p\n", Universe::_the_array_interfaces_array
+
+# === _bootstrapping 状态 ===
+printf "\n========== Bootstrap Status ==========\n"
+printf "Universe::_bootstrapping: %d (should be 0 after genesis)\n", Universe::_bootstrapping
+
+quit

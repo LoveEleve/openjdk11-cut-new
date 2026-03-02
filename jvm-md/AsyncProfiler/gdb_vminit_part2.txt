@@ -1,0 +1,67 @@
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# ========== initThreadBridge 结果 ==========
+b vmStructs.cpp:646
+commands
+  printf "\n===== initThreadBridge 结果 =====\n"
+  printf "vm_thread = %p\n", vm_thread
+  printf "_eetop    = %p (jfieldID)\n", VMStructs::_eetop
+  printf "_tid      = %p (jfieldID)\n", VMStructs::_tid
+  printf "_tls_index = %d\n", VMStructs::_tls_index
+  printf "_env_offset = %ld\n", VMStructs::_env_offset
+  printf "_has_native_thread_id = %d\n", VMStructs::_has_native_thread_id
+  continue
+end
+
+# ========== loadAllMethodIDs 类数量 ==========
+b vmEntry.cpp:394
+commands
+  printf "\n===== loadAllMethodIDs: class_count = %d =====\n", class_count
+  continue
+end
+
+# ========== Profiler::run 参数 ==========
+b Profiler::run
+commands
+  printf "\n===== Profiler::run =====\n"
+  printf "args._action = %d\n", args._action
+  printf "args._event  = '%s'\n", args._event ? args._event : "(null)"
+  printf "args._file   = '%s'\n", args._file ? args._file : "(null)"
+  continue
+end
+
+# ========== selectEngine ==========
+b Profiler::selectEngine
+commands
+  printf "\n===== selectEngine('%s') =====\n", event_name
+  continue
+end
+
+# ========== PerfEvents::start ==========
+b PerfEvents::start
+commands
+  printf "\n===== PerfEvents::start =====\n"
+  printf "args._interval = %ld\n", args._interval
+  continue
+end
+
+# ========== switchThreadEvents ==========
+b Profiler::switchThreadEvents
+commands
+  printf "\n===== switchThreadEvents(mode=%d) =====\n", mode
+  printf "说明: mode=1 即 JVMTI_ENABLE\n"
+  continue
+end
+
+# ========== _state = RUNNING ==========
+b profiler.cpp:1319
+commands
+  printf "\n===== Profiling 正式开始! =====\n"
+  printf "_state = RUNNING\n"
+  printf "_epoch = %d\n", _epoch
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -agentpath:/data/workspace/async-profiler/build/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/profile.jfr -cp /data/workspace/demo/src com.wjcoder.Main

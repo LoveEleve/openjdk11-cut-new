@@ -1,0 +1,104 @@
+# GDB 验证脚本: compileBroker_init()
+# 
+# 使用方法:
+# cd /data/workspace/openjdk-cut-new
+# gdb -x jvm-md/CompileBroker/gdb_compileBroker_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 在 compilation_init_phase2 后断点（此时编译系统已完全初始化）
+b CompileBroker::compilation_init_phase2
+run -Xms8g -Xmx8g -XX:+UseG1GC -XX:+PrintCompilation -version
+
+# 继续执行直到 compilation_init_phase2 返回
+finish
+
+printf "\n"
+printf "╔═════════════════════════════════════════════════════════════╗\n"
+printf "║     compileBroker_init() GDB 验证                          ║\n"
+printf "╚═════════════════════════════════════════════════════════════╝\n"
+
+printf "\n========== 1. 初始化状态 ==========\n"
+printf "CompileBroker::_initialized: %d\n", CompileBroker::_initialized
+printf "CompileBroker::_should_block: %d\n", CompileBroker::_should_block
+printf "CompileBroker::_should_compile_new_jobs: %d\n", CompileBroker::_should_compile_new_jobs
+
+printf "\n========== 2. 编译器实例 ==========\n"
+printf "_compilers[0] (C1):  %p\n", CompileBroker::_compilers[0]
+printf "_compilers[1] (C2):  %p\n", CompileBroker::_compilers[1]
+
+if CompileBroker::_compilers[0] != 0
+    printf "\n--- C1 Compiler ---\n"
+    printf "name: %s\n", ((AbstractCompiler*)CompileBroker::_compilers[0])->name()
+    printf "num_compiler_threads: %d\n", ((AbstractCompiler*)CompileBroker::_compilers[0])->num_compiler_threads()
+end
+
+if CompileBroker::_compilers[1] != 0
+    printf "\n--- C2 Compiler ---\n"
+    printf "name: %s\n", ((AbstractCompiler*)CompileBroker::_compilers[1])->name()
+    printf "num_compiler_threads: %d\n", ((AbstractCompiler*)CompileBroker::_compilers[1])->num_compiler_threads()
+end
+
+printf "\n========== 3. 编译器线程计数 ==========\n"
+printf "_c1_count: %d\n", CompileBroker::_c1_count
+printf "_c2_count: %d\n", CompileBroker::_c2_count
+
+printf "\n========== 4. 编译队列 ==========\n"
+printf "_c1_compile_queue: %p\n", CompileBroker::_c1_compile_queue
+printf "_c2_compile_queue: %p\n", CompileBroker::_c2_compile_queue
+
+if CompileBroker::_c1_compile_queue != 0
+    printf "\n--- C1 Compile Queue ---\n"
+    printf "name: %s\n", ((CompileQueue*)CompileBroker::_c1_compile_queue)->_name
+    printf "size: %d\n", ((CompileQueue*)CompileBroker::_c1_compile_queue)->_size
+    printf "first: %p\n", ((CompileQueue*)CompileBroker::_c1_compile_queue)->_first
+end
+
+if CompileBroker::_c2_compile_queue != 0
+    printf "\n--- C2 Compile Queue ---\n"
+    printf "name: %s\n", ((CompileQueue*)CompileBroker::_c2_compile_queue)->_name
+    printf "size: %d\n", ((CompileQueue*)CompileBroker::_c2_compile_queue)->_size
+    printf "first: %p\n", ((CompileQueue*)CompileBroker::_c2_compile_queue)->_first
+end
+
+printf "\n========== 5. 编译器线程对象数组 ==========\n"
+printf "_compiler1_objects: %p\n", CompileBroker::_compiler1_objects
+printf "_compiler2_objects: %p\n", CompileBroker::_compiler2_objects
+
+printf "\n========== 6. 编译 ID 计数器 ==========\n"
+printf "_compilation_id: %d\n", CompileBroker::_compilation_id
+printf "_osr_compilation_id: %d\n", CompileBroker::_osr_compilation_id
+
+printf "\n========== 7. 编译器指令栈 ==========\n"
+printf "DirectivesStack::_depth: %d\n", DirectivesStack::_depth
+printf "DirectivesStack::_top: %p\n", DirectivesStack::_top
+printf "DirectivesStack::_bottom: %p\n", DirectivesStack::_bottom
+
+printf "\n========== 8. 性能计数器 ==========\n"
+printf "_perf_total_compilation: %p\n", CompileBroker::_perf_total_compilation
+printf "_perf_total_compile_count: %p\n", CompileBroker::_perf_total_compile_count
+printf "_perf_total_bailout_count: %p\n", CompileBroker::_perf_total_bailout_count
+
+printf "\n========== 9. 统计计数器 ==========\n"
+printf "_total_compile_count: %d\n", CompileBroker::_total_compile_count
+printf "_total_bailout_count: %d\n", CompileBroker::_total_bailout_count
+printf "_total_invalidated_count: %d\n", CompileBroker::_total_invalidated_count
+printf "_total_osr_compile_count: %d\n", CompileBroker::_total_osr_compile_count
+printf "_total_standard_compile_count: %d\n", CompileBroker::_total_standard_compile_count
+
+printf "\n========== 10. 相关 JVM 参数 ==========\n"
+printf "UseCompiler: %d\n", UseCompiler
+printf "TieredCompilation: %d\n", TieredCompilation
+printf "TieredStopAtLevel: %d\n", TieredStopAtLevel
+printf "CICompilerCount: %d\n", CICompilerCount
+printf "UseDynamicNumberOfCompilerThreads: %d\n", UseDynamicNumberOfCompilerThreads
+printf "BackgroundCompilation: %d\n", BackgroundCompilation
+printf "LogCompilation: %d\n", LogCompilation
+
+printf "\n========== 11. 列出编译器线程 ==========\n"
+info threads
+
+printf "\n========== 验证完成 ==========\n"
+
+quit

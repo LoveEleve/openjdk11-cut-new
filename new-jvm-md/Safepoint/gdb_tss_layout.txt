@@ -1,0 +1,46 @@
+set pagination off
+set print pretty on
+
+b SafepointSynchronize::begin
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# ========== ThreadSafepointState 字段偏移 ==========
+printf "\n========== ThreadSafepointState 内存布局 ==========\n"
+
+# 获取第一个 JavaThread
+set $jt = Threads::_thread_list
+printf "JavaThread addr: %p\n", $jt
+set $tss = $jt->_safepoint_state
+printf "ThreadSafepointState addr: %p\n", $tss
+printf "sizeof(ThreadSafepointState): %lu\n", sizeof(ThreadSafepointState)
+
+printf "\n--- 字段偏移 ---\n"
+printf "&_at_poll_safepoint - base: %lu\n", (size_t)&$tss->_at_poll_safepoint - (size_t)$tss
+printf "&_has_called_back - base: %lu\n", (size_t)&$tss->_has_called_back - (size_t)$tss
+printf "&_thread - base: %lu\n", (size_t)&$tss->_thread - (size_t)$tss
+printf "&_type - base: %lu\n", (size_t)&$tss->_type - (size_t)$tss
+printf "&_orig_thread_state - base: %lu\n", (size_t)&$tss->_orig_thread_state - (size_t)$tss
+
+printf "\n--- 字段值 ---\n"
+printf "_at_poll_safepoint: %d\n", $tss->_at_poll_safepoint
+printf "_has_called_back: %d\n", $tss->_has_called_back
+printf "_thread: %p\n", $tss->_thread
+printf "_type: %d (0=_running, 1=_at_safepoint, 2=_call_back)\n", $tss->_type
+printf "_orig_thread_state: %d\n", $tss->_orig_thread_state
+
+# ========== JavaThread 的 polling page ==========
+printf "\n========== JavaThread polling page ==========\n"
+printf "polling_page: %p\n", $jt->_polling_page
+printf "armed value: %p\n", SafepointMechanism::_poll_armed_value
+printf "disarmed value: %p\n", SafepointMechanism::_poll_disarmed_value
+printf "is_armed: %d\n", ((size_t)$jt->_polling_page & 8) != 0
+
+# ========== GuaranteedSafepointInterval ==========
+printf "\n========== 关键参数 ==========\n"
+printf "GuaranteedSafepointInterval: %ld\n", GuaranteedSafepointInterval
+printf "SafepointTimeout: %d\n", SafepointTimeout
+printf "SafepointTimeoutDelay: %ld\n", SafepointTimeoutDelay
+printf "ThreadLocalHandshakes: %d\n", ThreadLocalHandshakes
+printf "UseMembar: %d\n", UseMembar
+
+quit

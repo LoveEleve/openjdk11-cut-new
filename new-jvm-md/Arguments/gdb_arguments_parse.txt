@@ -1,0 +1,70 @@
+# Arguments::parse() GDB 验证脚本
+#
+# 使用方法:
+#   cd /data/workspace/openjdk-cut-new
+#   gdb -x jvm-md/Arguments/gdb_arguments_parse.txt \
+#       ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+#
+# JVM 参数:
+#   -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set pagination off
+set print pretty on
+
+# 在 Arguments::parse() 设置断点
+break Arguments::parse
+
+# 在 Arguments::apply_ergo() 设置断点
+break Arguments::apply_ergo
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========================================\n"
+printf "      Arguments::parse() 断点命中       \n"
+printf "========================================\n\n"
+
+# 继续执行到 parse 完成
+continue
+
+printf "\n========================================\n"
+printf "    Arguments::apply_ergo() 断点命中    \n"
+printf "========================================\n\n"
+
+# 在 apply_ergo 结束时获取参数
+finish
+
+printf "\n========== Arguments::parse() 执行完成 ==========\n\n"
+
+# 打印堆大小参数
+printf "========== 堆大小参数 ==========\n"
+print MaxHeapSize
+print MinHeapSize
+
+# 打印 GC 参数
+printf "\n========== GC 参数 ==========\n"
+print UseG1GC
+print ParallelGCThreads
+print ConcGCThreads
+
+# 打印执行模式
+printf "\n========== 执行模式 ==========\n"
+print UseCompiler
+
+# 打印压缩指针设置
+printf "\n========== 压缩指针 ==========\n"
+print UseCompressedOops
+print UseCompressedClassPointers
+
+# 打印 G1 特有参数
+printf "\n========== G1 参数 ==========\n"
+print G1HeapRegionSize
+print G1NewSizePercent
+print G1MaxNewSizePercent
+
+printf "\n========================================\n"
+printf "         GDB 验证完成          \n"
+printf "========================================\n"
+
+# 继续运行
+continue

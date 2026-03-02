@@ -25,10 +25,38 @@
 #include "memory/metaspaceClosure.hpp"
 #include "oops/methodCounters.hpp"
 #include "runtime/handles.inline.hpp"
+#include "utilities/ostream.hpp"
 
 MethodCounters* MethodCounters::allocate(const methodHandle& mh, TRAPS) {
   ClassLoaderData* loader_data = mh->method_holder()->class_loader_data();
-  return new(loader_data, method_counters_size(), MetaspaceObj::MethodCountersType, THREAD) MethodCounters(mh);
+  MethodCounters* mc = new(loader_data, method_counters_size(), MetaspaceObj::MethodCountersType, THREAD) MethodCounters(mh);
+  // [LOG] 验证 MethodCounters 分配位置（Metaspace）和 per-method 阈值
+  if (mc != NULL && !HAS_PENDING_EXCEPTION) {
+    tty->print_cr("[MethodCounters::allocate] method=%s::%s, mc=%p (Metaspace)",
+                  mh->method_holder()->name()->as_C_string(),
+                  mh->name()->as_C_string(),
+                  mc);
+    tty->print_cr("  sizeof(MethodCounters)=%zu bytes", sizeof(MethodCounters));
+    tty->print_cr("  _invocation_counter offset=0x%zx, _backedge_counter offset=0x%zx",
+                  (size_t)((char*)mc->invocation_counter() - (char*)mc),
+                  (size_t)((char*)mc->backedge_counter() - (char*)mc));
+    tty->print_cr("  per-method _interpreter_invocation_limit=%d (raw), actual=%d",
+                  mc->_interpreter_invocation_limit,
+                  mc->_interpreter_invocation_limit >> InvocationCounter::count_shift);
+    tty->print_cr("  per-method _interpreter_profile_limit=%d (raw), actual=%d",
+                  mc->_interpreter_profile_limit,
+                  mc->_interpreter_profile_limit >> InvocationCounter::count_shift);
+    tty->print_cr("  per-method _interpreter_backward_branch_limit=%d",
+                  mc->_interpreter_backward_branch_limit);
+    tty->print_cr("  _nmethod_age=%d (INT_MAX=%d, match=%s)",
+                  mc->nmethod_age(), INT_MAX,
+                  mc->nmethod_age() == INT_MAX ? "YES" : "NO!");
+    tty->print_cr("  invocation_counter initial _counter=0x%08x (state=%d=wait_for_compile?%s)",
+                  mc->invocation_counter()->raw_counter(),
+                  mc->invocation_counter()->state(),
+                  mc->invocation_counter()->state() == InvocationCounter::wait_for_compile ? "YES" : "NO");
+  }
+  return mc;
 }
 
 void MethodCounters::clear_counters() {

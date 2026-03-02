@@ -1,0 +1,76 @@
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# ========== 验证 DebugNonSafepoints 被 asprof 修改前后的值 ==========
+b vmEntry.cpp:282
+commands
+  printf "\n========== DebugNonSafepoints 修改 ==========\n"
+  # 在 JVMFlag::find 之后，打印 Flag 的实际状态
+  set $f = JVMFlag::find("DebugNonSafepoints")
+  printf "JVMFlag* f = %p\n", $f
+  if $f != 0
+    printf "f->name()      = '%s'\n", $f->name()
+    printf "f->addr()      = %p\n", $f->addr()
+    printf "f->get()       = %d  (修改前)\n", $f->get()
+    printf "f->isDefault() = %d\n", $f->isDefault()
+  end
+  continue
+end
+
+# ========== 验证 addSampleObjectsCapability 结果 ==========
+b vmEntry.cpp:293
+commands
+  printf "\n========== addSampleObjectsCapability 结果 ==========\n"
+  printf "说明: 请求 can_generate_sampled_object_alloc_events 成功\n"
+  printf "      已调用 releaseSampleObjectsCapability() 释放能力\n"
+  printf "      这里的目的只是在启动时激活 HeapSamplingInterval 配置\n"
+  continue
+end
+
+# ========== 验证 JVM 侧 AddCapabilities 实现 ==========
+b JvmtiManageCapabilities::add_capabilities
+commands
+  printf "\n========== [JVM] JvmtiManageCapabilities::add_capabilities ==========\n"
+  bt 5
+  continue
+end
+
+# ========== 验证 JVM 侧 set_event_callbacks 实现 ==========
+b JvmtiEventController::set_event_callbacks
+commands
+  printf "\n========== [JVM] JvmtiEventController::set_event_callbacks ==========\n"
+  bt 3
+  continue
+end
+
+# ========== 验证 JVM 侧 set_user_enabled (event notification) ==========
+b JvmtiEventController::set_user_enabled
+commands
+  printf "\n========== [JVM] JvmtiEventController::set_user_enabled ==========\n"
+  printf "event_type = %d\n", event_type
+  printf "enabled    = %d\n", enabled
+  continue
+end
+
+# ========== JVMTI 函数表 Hook — ready() 中 ==========
+b VM::ready
+commands
+  printf "\n========== [AP] VM::ready() ==========\n"
+  printf "说明: 即将 Hook JVMTI 函数表\n"
+  continue
+end
+
+# 断在 Hook JVMTI 函数表那一行
+b vmEntry.cpp:391
+commands
+  printf "\n========== [AP] JVMTI 函数表 Hook ==========\n"
+  printf "_orig_RedefineClasses    = %p\n", VM::_orig_RedefineClasses
+  printf "_orig_RetransformClasses = %p\n", VM::_orig_RetransformClasses
+  printf "RedefineClassesHook      = %p\n", &VM::RedefineClassesHook
+  printf "RetransformClassesHook   = %p\n", &VM::RetransformClassesHook
+  printf "说明: 替换 JVMTI 函数表, 在 RedefineClasses/RetransformClasses 后自动重载 jmethodID\n"
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -agentpath:/data/workspace/async-profiler/build/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/profile.jfr -cp /data/workspace/demo/src com.wjcoder.Main

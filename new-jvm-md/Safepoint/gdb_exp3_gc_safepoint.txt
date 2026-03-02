@@ -1,0 +1,38 @@
+set pagination off
+set print pretty on
+set confirm off
+
+# ========== 实验3: 完整追踪多次 Safepoint（含 GC）==========
+# 简化策略：只在 begin/end 打印关键信息，通过 -Xlog 获取详细日志
+
+set $sp_count = 0
+
+# 断点: begin() — 打印所有 safepoint
+b SafepointSynchronize::begin
+commands
+  silent
+  set $sp_count = $sp_count + 1
+  continue
+end
+
+# 断点: Entering safepoint region — 打印 VM_Operation
+b safepoint.cpp:471
+commands
+  silent
+  printf "SP#%d  Enter  op=%-30s  counter=%lu  jni_active=%d\n", $sp_count, VMThread::vm_safepoint_description(), SafepointSynchronize::_safepoint_counter, SafepointSynchronize::_current_jni_active_count
+  continue
+end
+
+# 断点: end()
+b SafepointSynchronize::end
+commands
+  silent
+  printf "SP#%d  End    counter=%lu\n", $sp_count, SafepointSynchronize::_safepoint_counter
+  if $sp_count >= 10
+    printf "\n========== 实验3 完成: 追踪了 %d 次 Safepoint ==========\n", $sp_count
+    quit
+  end
+  continue
+end
+
+run -XX:+UseG1GC -Xms256m -Xmx256m -Xint -Xlog:gc*=info:stdout -cp /data/workspace/demo/src com.wjcoder.SafepointTest

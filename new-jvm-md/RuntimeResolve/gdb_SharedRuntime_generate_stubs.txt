@@ -1,0 +1,31 @@
+# SharedRuntime::generate_stubs() GDB 验证脚本
+# 文件：jvm-md/SharedRuntime/gdb_SharedRuntime_generate_stubs.txt
+# 用法：gdb -x jvm-md/SharedRuntime/gdb_SharedRuntime_generate_stubs.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在 generate_stubs 完成后
+b init.cpp:132
+run -Xms256m -Xmx256m -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# === 方法解析桩 ===
+printf "\n========== Method Resolution Stubs ==========\n"
+printf "_wrong_method_blob:              %p\n", SharedRuntime::_wrong_method_blob
+printf "_wrong_method_abstract_blob:     %p\n", SharedRuntime::_wrong_method_abstract_blob
+printf "_ic_miss_blob:                   %p\n", SharedRuntime::_ic_miss_blob
+printf "_resolve_opt_virtual_call_blob:  %p\n", SharedRuntime::_resolve_opt_virtual_call_blob
+printf "_resolve_virtual_call_blob:      %p\n", SharedRuntime::_resolve_virtual_call_blob
+printf "_resolve_static_call_blob:       %p\n", SharedRuntime::_resolve_static_call_blob
+printf "_resolve_static_call_entry:      %p\n", SharedRuntime::_resolve_static_call_entry
+
+# === 安全点处理桩 ===
+printf "\n========== Safepoint Handler Blobs ==========\n"
+printf "_polling_page_safepoint_handler_blob: %p\n", SharedRuntime::_polling_page_safepoint_handler_blob
+printf "_polling_page_return_handler_blob:    %p\n", SharedRuntime::_polling_page_return_handler_blob
+
+# === 反优化桩 ===
+printf "\n========== Deoptimization Blob ==========\n"
+printf "_deopt_blob: %p\n", SharedRuntime::_deopt_blob
+
+quit

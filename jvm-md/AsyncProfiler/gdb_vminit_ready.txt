@@ -1,0 +1,192 @@
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# ========== 1. VMInit 回调入口 ==========
+b VM::VMInit
+commands
+  printf "\n========== [1] VMInit 回调触发 ==========\n"
+  printf "说明: JVM 初始化完成, 即将执行 ready() + loadAllMethodIDs() + Profiler::run()\n"
+  bt 8
+  continue
+end
+
+# ========== 2. VM::ready() 入口 ==========
+b VM::ready
+commands
+  printf "\n========== [2] VM::ready() 开始 ==========\n"
+  continue
+end
+
+# ========== 3. Profiler::setupSignalHandlers ==========
+b Profiler::setupSignalHandlers
+commands
+  printf "\n========== [3] Profiler::setupSignalHandlers() ==========\n"
+  printf "说明: 即将安装 SIGTRAP(分配追踪) + SIGSEGV(SafeAccess) + WAKEUP 信号处理器\n"
+  continue
+end
+
+# ========== 4. SIGTRAP handler 安装 ==========
+b AllocTracer::trapHandler
+commands
+  printf "\n========== [4] AllocTracer::trapHandler 被调用 ==========\n"
+  printf "signo=%d\n", signo
+  bt 3
+  continue
+end
+
+# ========== 5. VMStructs::ready() ==========
+b VMStructs::ready
+commands
+  printf "\n========== [5] VMStructs::ready() ==========\n"
+  printf "说明: 即将执行 resolveOffsets() + patchSafeFetch() + initThreadBridge()\n"
+  continue
+end
+
+# ========== 6. resolveOffsets — 核心偏移量解析 ==========
+b VMStructs::resolveOffsets
+commands
+  printf "\n========== [6] VMStructs::resolveOffsets() ==========\n"
+  continue
+end
+
+# 在 resolveOffsets 返回后检查结果
+b vmStructs.cpp:598
+commands
+  printf "\n========== [6b] resolveOffsets 结果 ==========\n"
+  printf "_has_class_names       = %d\n", VMStructs::_has_class_names
+  printf "_has_method_structs    = %d\n", VMStructs::_has_method_structs
+  printf "_has_compiler_structs  = %d\n", VMStructs::_has_compiler_structs
+  printf "_has_stack_structs     = %d\n", VMStructs::_has_stack_structs
+  printf "_has_class_loader_data = %d\n", VMStructs::_has_class_loader_data
+  printf "_has_native_thread_id  = %d\n", VMStructs::_has_native_thread_id
+  printf "_compact_object_headers = %d\n", VMStructs::_compact_object_headers
+  printf "_can_dereference_jmethod_id = %d\n", VMStructs::_can_dereference_jmethod_id
+  printf "_interpreter_frame_bcp_offset = %d\n", VMStructs::_interpreter_frame_bcp_offset
+  printf "_narrow_klass_base     = %p\n", VMStructs::_narrow_klass_base
+  printf "_narrow_klass_shift    = %d\n", VMStructs::_narrow_klass_shift
+  printf "_code_heap_low         = %p\n", VMStructs::_code_heap_low
+  printf "_code_heap_high        = %p\n", VMStructs::_code_heap_high
+  continue
+end
+
+# ========== 7. patchSafeFetch ==========
+b VMStructs::patchSafeFetch
+commands
+  printf "\n========== [7] VMStructs::patchSafeFetch() ==========\n"
+  printf "WX_MEMORY = %d, hotspot_version = %d\n", 0, VM::_hotspot_version
+  printf "说明: 修补 JDK-8307549/JDK-8321116 SafeFetch bug\n"
+  continue
+end
+
+# ========== 8. initThreadBridge ==========
+b VMStructs::initThreadBridge
+commands
+  printf "\n========== [8] VMStructs::initThreadBridge() ==========\n"
+  printf "说明: 建立 Java Thread <-> VMThread 桥\n"
+  continue
+end
+
+# 在 initThreadBridge 中捕获 eetop 和 TLS
+b vmStructs.cpp:641
+commands
+  printf "\n========== [8b] initThreadBridge 结果 ==========\n"
+  printf "vm_thread   = %p\n", vm_thread
+  printf "_eetop      = %p\n", VMStructs::_eetop
+  printf "_tid        = %p\n", VMStructs::_tid
+  printf "_tls_index  = %d\n", VMStructs::_tls_index
+  printf "_env_offset = %ld\n", VMStructs::_env_offset
+  printf "_has_native_thread_id = %d\n", VMStructs::_has_native_thread_id
+  continue
+end
+
+# ========== 9. initTLS — 暴力搜索 TLS key ==========
+b VMStructs::initTLS
+commands
+  printf "\n========== [9] VMStructs::initTLS(vm_thread=%p) ==========\n", vm_thread
+  printf "说明: 遍历 pthread TLS key 0~1023, 找到哪个 key 存的是 vm_thread\n"
+  continue
+end
+
+# ========== 10. JVMTI 函数表 Hook ==========
+b vmEntry.cpp:391
+commands
+  printf "\n========== [10] JVMTI 函数表 Hook ==========\n"
+  printf "_orig_RedefineClasses    = %p\n", VM::_orig_RedefineClasses
+  printf "_orig_RetransformClasses = %p\n", VM::_orig_RetransformClasses
+  continue
+end
+
+# ========== 11. loadAllMethodIDs ==========
+b VM::loadAllMethodIDs
+commands
+  printf "\n========== [11] VM::loadAllMethodIDs() ==========\n"
+  printf "说明: 遍历所有已加载类, 为每个方法预分配 jmethodID\n"
+  continue
+end
+
+# ========== 12. loadMethodIDs 第一次调用 ==========
+b VM::loadMethodIDs
+commands
+  printf "\n========== [12] VM::loadMethodIDs() 第一次调用 ==========\n"
+  printf "hasClassLoaderData = %d\n", VMStructs::_has_class_loader_data
+  # 只打一次，然后删除断点
+  delete breakpoints 12
+  continue
+end
+
+# ========== 13. Profiler::run ==========
+b Profiler::run
+commands
+  printf "\n========== [13] Profiler::run() ==========\n"
+  continue
+end
+
+# ========== 14. Profiler::start ==========
+b Profiler::start
+commands
+  printf "\n========== [14] Profiler::start(reset=%d) ==========\n", reset
+  printf "_event_mask will be computed from args\n"
+  continue
+end
+
+# ========== 15. selectEngine ==========
+b Profiler::selectEngine
+commands
+  printf "\n========== [15] selectEngine(event='%s') ==========\n", event_name
+  continue
+end
+
+# ========== 16. Engine::start (PerfEvents) ==========
+b PerfEvents::start
+commands
+  printf "\n========== [16] PerfEvents::start() ==========\n"
+  printf "说明: 采样引擎启动, 后续章节(4.1)详细分析\n"
+  continue
+end
+
+# ========== 17. switchThreadEvents ==========
+b Profiler::switchThreadEvents
+commands
+  printf "\n========== [17] Profiler::switchThreadEvents(mode=%d) ==========\n", mode
+  printf "说明: JVMTI_ENABLE(1) ThreadStart + ThreadEnd\n"
+  continue
+end
+
+# ========== 18. 状态转换为 RUNNING ==========
+b profiler.cpp:1318
+commands
+  printf "\n========== [18] _state = RUNNING, profiling 正式开始! ==========\n"
+  printf "_start_time = %lu\n", instance()->_start_time
+  printf "_epoch      = %d\n", instance()->_epoch
+  continue
+end
+
+# ========== 19. HttpServer (如果有) ==========
+b JavaAPI::startHttpServer
+commands
+  printf "\n========== [19] JavaAPI::startHttpServer ==========\n"
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -agentpath:/data/workspace/async-profiler/build/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/profile.jfr -cp /data/workspace/demo/src com.wjcoder.Main

@@ -2,7 +2,7 @@
 description: GDB 断点调试：在关键函数设断点，观察执行流和参数，验证流程走向。
 alwaysApply: false
 enabled: true
-updatedAt: 2026-02-07T03:32:11.449Z
+updatedAt: 2026-02-25T04:05:58.757Z
 provider: 
 ---
 
@@ -21,6 +21,43 @@ JVM：/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug
 ```
 
 ## 执行步骤
+
+### Step 0：确认目标函数在目标路径上（强制，不可跳过）⭐
+
+**血泪教训**：设断点前必须先确认目标函数确实在你期望的代码路径上会被调用。
+
+**必须做的事**：
+1. **从源码确认调用链**：从入口函数开始，追踪到你要断的函数，确认中间没有分支跳过它
+2. **区分不同的代码路径**：同一个功能可能有多条路径（正常/异常/快速/慢速），你要断的函数可能只在其中一条上
+3. **用 `nm` 或 `info functions` 确认符号存在**：
+   ```bash
+   nm build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so | grep "函数名"
+   # 或在 GDB 中
+   info functions 函数名
+   ```
+
+**典型陷阱**：
+
+| 陷阱 | 正确做法 |
+|------|----------|
+| JVM 正常退出断在 `os::shutdown` | `os::shutdown` 只在异常退出调用。正常退出走 `before_exit` (java.cpp:446) |
+| 想断 G1 Young GC 断在 `Full GC` 函数上 | 先确认 Young GC 和 Full GC 是不同入口 |
+| 想断类加载但断在 `defineClass` 的 JNI 版本 | 确认 JVM 内部走的是 `SystemDictionary::resolve_or_null` 路径 |
+
+**JVM 常见退出路径速查**：
+```
+正常退出（main 结束）：
+  jni_DestroyJavaVM → Threads::destroy_vm → before_exit → exit_globals
+  ★ 断点：before_exit（VM 完全可用，可查询所有数据）
+
+主动退出（System.exit）：
+  vm_exit → VM_Exit::doit → exit_globals → os::exit
+  ★ 断点：vm_exit 或 before_exit（两条路径都经过 before_exit）
+
+异常退出（初始化失败等）：
+  vm_shutdown → vm_perform_shutdown_actions → os::shutdown
+  ★ 断点：os::shutdown（只有异常退出才走这里！）
+```
 
 ### Step 1：明确验证目标
 写清楚要验证什么，转化为可观测的断点方案：
@@ -66,6 +103,15 @@ run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Ma
 - **参数分析**：参数值是否符合预期
 - **命中次数**：是否符合预期频率
 - **意外发现**：有没有超出预期的情况
+
+**如果断点没有命中**（⭐ 关键规则）：
+- **禁止跳过**！必须分析原因
+- 可能的原因：
+  1. 函数不在目标路径上（回到 Step 0 重新确认）
+  2. C++ 命名空间/类名写错（用 `nm | grep` 确认符号）
+  3. 函数被内联了（slowdebug 不太会，但要考虑）
+  4. 条件没满足，走了其他分支
+- 修复后重新运行，直到断点正确命中
 
 ### Step 5：输出验证结论
 ```

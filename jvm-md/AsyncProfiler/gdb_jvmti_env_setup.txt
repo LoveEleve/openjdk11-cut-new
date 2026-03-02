@@ -1,0 +1,133 @@
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# ========== 1. JVMTI GetEnv 返回值 ==========
+b vmEntry.cpp:144
+commands
+  printf "\n========== [1] JVMTI GetEnv ==========\n"
+  printf "_jvmti = %p\n", VM::_jvmti
+  printf "说明: GetEnv(JVMTI_VERSION_1_0) 返回 JVMTI 环境指针\n"
+  continue
+end
+
+# ========== 2. JVM 版本识别 ==========
+b vmEntry.cpp:170
+commands
+  printf "\n========== [2] JVM 版本识别结果 ==========\n"
+  printf "is_hotspot       = %d\n", is_hotspot
+  printf "_hotspot_version = %d\n", VM::_hotspot_version
+  printf "_openj9          = %d\n", VM::_openj9
+  printf "_zing            = %d\n", VM::_zing
+  continue
+end
+
+# ========== 3. AddCapabilities — 哪些能力被请求 ==========
+b vmEntry.cpp:248
+commands
+  printf "\n========== [3] JVMTI AddCapabilities ==========\n"
+  printf "=== 类相关 ===\n"
+  printf "  can_generate_all_class_hook_events     = %d\n", capabilities.can_generate_all_class_hook_events
+  printf "  can_retransform_classes                = %d\n", capabilities.can_retransform_classes
+  printf "  can_retransform_any_class              = %d\n", capabilities.can_retransform_any_class
+  printf "  can_get_bytecodes                      = %d\n", capabilities.can_get_bytecodes
+  printf "  can_get_constant_pool                  = %d\n", capabilities.can_get_constant_pool
+  printf "  can_get_source_file_name               = %d\n", capabilities.can_get_source_file_name
+  printf "  can_get_line_numbers                   = %d\n", capabilities.can_get_line_numbers
+  printf "=== 运行时事件 ===\n"
+  printf "  can_generate_compiled_method_load_events = %d\n", capabilities.can_generate_compiled_method_load_events
+  printf "  can_generate_monitor_events              = %d\n", capabilities.can_generate_monitor_events
+  printf "  can_generate_garbage_collection_events    = %d\n", capabilities.can_generate_garbage_collection_events
+  printf "  can_tag_objects                           = %d\n", capabilities.can_tag_objects
+  printf "=== OpenJ9 特有 ===\n"
+  printf "  can_generate_vm_object_alloc_events       = %d\n", capabilities.can_generate_vm_object_alloc_events
+  continue
+end
+
+# ========== 4. SetEventCallbacks — 查看回调函数指针 ==========
+b vmEntry.cpp:267
+commands
+  printf "\n========== [4] JVMTI SetEventCallbacks ==========\n"
+  printf "=== 生命周期回调 ===\n"
+  printf "  VMInit       = %p\n", callbacks.VMInit
+  printf "  VMDeath      = %p\n", callbacks.VMDeath
+  printf "=== 类加载回调 ===\n"
+  printf "  ClassLoad         = %p\n", callbacks.ClassLoad
+  printf "  ClassPrepare      = %p\n", callbacks.ClassPrepare
+  printf "  ClassFileLoadHook = %p\n", callbacks.ClassFileLoadHook
+  printf "=== 编译回调 ===\n"
+  printf "  CompiledMethodLoad    = %p\n", callbacks.CompiledMethodLoad
+  printf "  DynamicCodeGenerated  = %p\n", callbacks.DynamicCodeGenerated
+  printf "=== 线程回调 ===\n"
+  printf "  ThreadStart  = %p\n", callbacks.ThreadStart
+  printf "  ThreadEnd    = %p\n", callbacks.ThreadEnd
+  printf "=== 锁+GC+分配回调 ===\n"
+  printf "  MonitorContendedEnter   = %p\n", callbacks.MonitorContendedEnter
+  printf "  MonitorContendedEntered = %p\n", callbacks.MonitorContendedEntered
+  printf "  GarbageCollectionStart  = %p\n", callbacks.GarbageCollectionStart
+  printf "  GarbageCollectionFinish = %p\n", callbacks.GarbageCollectionFinish
+  printf "  VMObjectAlloc           = %p\n", callbacks.VMObjectAlloc
+  printf "  SampledObjectAlloc      = %p\n", callbacks.SampledObjectAlloc
+  continue
+end
+
+# ========== 5. SetEventNotificationMode — 哪些事件被启用 ==========
+# 断在 VM_DEATH 启用处
+b vmEntry.cpp:269
+commands
+  printf "\n========== [5] JVMTI 默认启用的事件 ==========\n"
+  printf "说明: 以下事件在所有模式下都立即启用\n"
+  printf "  JVMTI_EVENT_VM_DEATH               = ENABLE\n"
+  printf "  JVMTI_EVENT_CLASS_LOAD             = ENABLE\n"
+  printf "  JVMTI_EVENT_CLASS_PREPARE          = ENABLE\n"
+  printf "  JVMTI_EVENT_DYNAMIC_CODE_GENERATED = ENABLE\n"
+  printf "  JVMTI_EVENT_GARBAGE_COLLECTION_FINISH = ENABLE\n"
+  continue
+end
+
+# ========== 6. CompiledMethodLoad 条件判断 ==========
+b vmEntry.cpp:276
+commands
+  printf "\n========== [6] CompiledMethodLoad 条件分支 ==========\n"
+  printf "hotspot_version() = %d\n", VM::_hotspot_version
+  printf "CodeHeap::available() = %d\n", CodeHeap::available()
+  printf "说明: hotspot_version==0 或 CodeHeap不可用 → 启用 CompiledMethodLoad 事件\n"
+  printf "       否则 → 手动设置 DebugNonSafepoints Flag\n"
+  continue
+end
+
+# ========== 7. DebugNonSafepoints Flag 设置 ==========
+b vmEntry.cpp:282
+commands
+  printf "\n========== [7] DebugNonSafepoints Flag ==========\n"
+  printf "说明: 手动设置 DebugNonSafepoints=true, 让 JIT 编译生成更精确的 PC 映射\n"
+  continue
+end
+
+# ========== 8. SampledObjectAlloc capability ==========
+b vmEntry.cpp:287
+commands
+  printf "\n========== [8] SampledObjectAlloc 能力请求 ==========\n"
+  printf "说明: 尝试请求 can_generate_sampled_object_alloc_events\n"
+  printf "      如果成功, 检查 UseTLAB → 设置 HeapSamplingInterval\n"
+  continue
+end
+
+# ========== 9. attach=false → 注册 VMInit 事件 ==========
+b vmEntry.cpp:300
+commands
+  printf "\n========== [9] attach=false → 注册 VMInit 等待回调 ==========\n"
+  printf "说明: 启动加载模式, 注册 VM_INIT 事件, 等 JVM 就绪后再启动 profiling\n"
+  continue
+end
+
+# ========== 10. VMInit 回调被触发 ==========
+b VM::VMInit
+commands
+  printf "\n========== [10] VMInit 回调触发! ==========\n"
+  printf "_global_args._preloaded = %d\n", _global_args._preloaded
+  bt 5
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -agentpath:/data/workspace/async-profiler/build/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/profile.jfr -cp /data/workspace/demo/src com.wjcoder.Main

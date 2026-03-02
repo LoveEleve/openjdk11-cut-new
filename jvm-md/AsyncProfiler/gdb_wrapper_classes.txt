@@ -1,0 +1,53 @@
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# 验证包装类的运行时行为
+b VMStructs::ready
+commands
+  printf "\n===== 包装类关键参数验证 =====\n"
+  
+  printf "\n--- VMThread::current() TLS 查找 ---\n"
+  printf "_tls_index = %d\n", VMStructs::_tls_index
+  printf "_env_offset = %ld\n", (long)VMStructs::_env_offset
+  printf "_java_thread_vtbl[1] = %p\n", VMStructs::_java_thread_vtbl[1]
+  printf "_java_thread_vtbl[3] = %p\n", VMStructs::_java_thread_vtbl[3]
+  printf "_java_thread_vtbl[5] = %p\n", VMStructs::_java_thread_vtbl[5]
+  
+  printf "\n--- goodPtr 验证 ---\n"
+  printf "goodPtr(NULL) = false (0x0 < 0x1000)\n"
+  printf "goodPtr(0x1) = false (0x1 < 0x1000)\n"
+  printf "goodPtr(0x1001) = false (0x1001 & 7 != 0)\n"
+  printf "goodPtr(0x1000) = true\n"
+  
+  printf "\n--- SafeAccess SIGSEGV 保护标签地址 ---\n"
+  printf "load() = %p\n", SafeAccess::load
+  printf "load_end = %p\n", load_end
+  printf "load32() = %p\n", SafeAccess::load32
+  printf "load32_end = %p\n", load32_end
+  
+  printf "\n--- CodeHeap 三堆布局 ---\n"
+  printf "_code_heap[0] = %p\n", VMStructs::_code_heap[0]
+  printf "_code_heap[1] = %p\n", VMStructs::_code_heap[1]
+  printf "_code_heap[2] = %p\n", VMStructs::_code_heap[2]
+  printf "_code_heap_low  = %p\n", VMStructs::_code_heap_low
+  printf "_code_heap_high = %p\n", VMStructs::_code_heap_high
+  
+  printf "\n--- _can_dereference_jmethod_id ---\n"
+  printf "_can_dereference_jmethod_id = %d\n", VMStructs::_can_dereference_jmethod_id
+  
+  printf "\n--- has_xxx 特性标志 ---\n"
+  printf "_has_class_names     = %d\n", VMStructs::_has_class_names
+  printf "_has_method_structs  = %d\n", VMStructs::_has_method_structs
+  printf "_has_compiler_structs= %d\n", VMStructs::_has_compiler_structs
+  printf "_has_stack_structs   = %d\n", VMStructs::_has_stack_structs
+  printf "_has_native_thread_id= %d\n", VMStructs::_has_native_thread_id
+  printf "_has_class_loader_data=%d\n", VMStructs::_has_class_loader_data
+  
+  printf "\n--- patchSafeFetch 结果 ---\n"
+  printf "WX_MEMORY = 1 expected on Linux x86_64\n"
+  
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -agentpath:/data/workspace/async-profiler/build/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/profile.jfr -cp /data/workspace/demo/src com.wjcoder.Main

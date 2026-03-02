@@ -1,0 +1,50 @@
+set pagination off
+set print pretty on
+
+# 断点1: 辅助类初始化 - Module 类
+b thread.cpp:3840
+commands
+printf "\n========== 6.3.1 Module 类初始化 ==========\n"
+printf "准备初始化 java.lang.Module\n"
+continue
+end
+
+# 断点2: 辅助类初始化 - Method 类
+b thread.cpp:3843
+commands
+printf "\n========== 6.3.2 Method 类初始化 ==========\n"
+printf "准备初始化 java.lang.reflect.Method\n"
+continue
+end
+
+# 断点3: 辅助类初始化 - Finalizer 类
+b thread.cpp:3844
+commands
+printf "\n========== 6.3.3 Finalizer 类初始化 ==========\n"
+printf "准备初始化 java.lang.ref.Finalizer\n"
+continue
+end
+
+# 断点4: initialize_known_methods - Finalizer.register 方法缓存
+b universe.cpp:1165
+commands
+printf "\n========== Finalizer.register 方法缓存初始化 ==========\n"
+printf "SystemDictionary::Finalizer_klass(): %p\n", SystemDictionary::Finalizer_klass()
+continue
+end
+
+# 断点5: register_finalizer 调用 - 跟踪 finalizer 注册
+b instanceKlass.cpp:1225
+commands
+printf "\n========== InstanceKlass::register_finalizer ==========\n"
+printf "对象 i: %p\n", i
+printf "对象类名: "
+call i->klass()->name()->print()
+printf "\n"
+continue
+end
+
+# 启动 JVM
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+quit

@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Premain-Class: MySimpleAgent
+Agent-Class: MySimpleAgent
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+Can-Set-Native-Method-Prefix: false
+
+Name: MySimpleAgent
+Build-Time: 2026-02-26

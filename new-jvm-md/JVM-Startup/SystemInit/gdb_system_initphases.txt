@@ -1,0 +1,71 @@
+# System 初始化三阶段 GDB 验证脚本
+# 文件位置: jvm-md/SystemInit/gdb_system_initphases.txt
+# 执行方式: cd /data/workspace/openjdk-cut-new && gdb -x jvm-md/SystemInit/gdb_system_initphases.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# ============================================
+# 断点1: call_initPhase1 - 系统属性和标准流初始化
+# ============================================
+b thread.cpp:call_initPhase1
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  Phase 1: call_initPhase1() - 系统属性和标准流初始化                  ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  初始化内容:                                                          ║\n"
+  printf "║  • 系统属性 (java.home, user.name, os.name 等)                       ║\n"
+  printf "║  • 标准流 (System.in/out/err)                                        ║\n"
+  printf "║  • 信号处理器 (Terminator.setup())                                   ║\n"
+  printf "║  • 主线程加入线程组                                                   ║\n"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点2: call_initPhase2 - 模块系统初始化
+# ============================================
+b thread.cpp:call_initPhase2
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  Phase 2: call_initPhase2() - 模块系统初始化 (JPMS)                   ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  初始化内容:                                                          ║\n"
+  printf "║  • ModuleBootstrap.boot() 创建 boot Layer                           ║\n"
+  printf "║  • 解析 --module-path 和 --add-modules                              ║\n"
+  printf "║  • 构建模块依赖图                                                     ║\n"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点3: call_initPhase3 - 系统类加载器初始化
+# ============================================
+b thread.cpp:call_initPhase3
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  Phase 3: call_initPhase3() - 系统类加载器初始化                      ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  初始化内容:                                                          ║\n"
+  printf "║  • SecurityManager 设置 (如果配置)                                   ║\n"
+  printf "║  • AppClassLoader 初始化                                             ║\n"
+  printf "║  • 线程上下文类加载器 (TCCL) 设置                                    ║\n"
+  printf "║  • VM.initLevel(4) - SYSTEM_BOOTED                                   ║\n"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 运行程序
+# ============================================
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 输出完成标志
+printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+printf "║  System 三阶段初始化验证完成                                          ║\n"
+printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+
+quit

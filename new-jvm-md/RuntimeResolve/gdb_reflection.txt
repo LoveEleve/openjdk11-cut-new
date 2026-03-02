@@ -1,0 +1,27 @@
+set pagination off
+set print pretty on
+
+b Reflection::invoke_method
+
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========== invoke_method 调用信息 ==========\n"
+printf "method_mirror: %p\n", method_mirror
+
+set $mirror = method_mirror
+set $slot_off = java_lang_reflect_Method::slot_offset
+set $mod_off = java_lang_reflect_Method::modifiers_offset
+set $override_off = 12
+set $clazz_off = java_lang_reflect_Method::clazz_offset
+
+printf "slot (idnum):  %d\n", *(int*)((char*)$mirror + $slot_off)
+printf "modifiers:     0x%x\n", *(int*)((char*)$mirror + $mod_off)
+printf "clazz_mirror:  %p\n", *(void**)((char*)$mirror + $clazz_off)
+
+printf "\n========== JVM 参数 ==========\n"
+printf "JVMInvokeMethodSlack: %d\n", JVMInvokeMethodSlack
+
+printf "\n========== 调用栈 ==========\n"
+bt 15
+
+quit

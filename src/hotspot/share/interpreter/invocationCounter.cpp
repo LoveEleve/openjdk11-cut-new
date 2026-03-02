@@ -26,6 +26,7 @@
 #include "interpreter/invocationCounter.hpp"
 #include "runtime/frame.hpp"
 #include "runtime/handles.inline.hpp"
+#include "utilities/ostream.hpp"
 
 
 // Implementation of InvocationCounter
@@ -51,6 +52,10 @@ void InvocationCounter::set_carry() {
   // prevent from going to zero, to distinguish from never-executed methods
   if (new_count == 0)  new_count = 1;
   if (old_count != new_count)  set(state(), new_count);
+  // [LOG] 验证 carry 粘性标志设置
+  tty->print_cr("[InvocationCounter::set_carry] carry flag set! "
+                "old_count=%d, new_count=%d, _counter=0x%08x, carry_bit=%d",
+                old_count, new_count, _counter, carry() ? 1 : 0);
 }
 
 void InvocationCounter::set_state(State state) {
@@ -118,7 +123,14 @@ static address do_decay(const methodHandle& method, TRAPS) {
   // decay invocation counters so compilation gets delayed
   MethodCounters* mcs = method->method_counters();
   assert(mcs != NULL, "");
+  int before = mcs->invocation_counter()->count();
   mcs->invocation_counter()->decay();
+  int after = mcs->invocation_counter()->count();
+  // [LOG] 验证衰减机制：计数减半
+  tty->print_cr("[do_decay] method=%s, count: %d -> %d (halved=%s)",
+                method->name()->as_C_string(),
+                before, after,
+                (before > 0 && after == before / 2) ? "YES" : (before <= 1 ? "YES(min1)" : "NO!"));
   return NULL;
 }
 
@@ -164,8 +176,31 @@ void InvocationCounter::reinitialize(bool delay_overflow) {
          InterpreterProfileLimit <= InterpreterInvocationLimit,
          "profile threshold should be less than the compilation threshold "
          "and non-negative");
+
+  // [LOG] 验证 reinitialize() 阈值计算结果
+  tty->print_cr("[InvocationCounter::reinitialize] ===========================================");
+  tty->print_cr("[InvocationCounter::reinitialize] delay_overflow=%s", delay_overflow ? "true" : "false");
+  tty->print_cr("[InvocationCounter::reinitialize] CompileThreshold=%d", (int)CompileThreshold);
+  tty->print_cr("[InvocationCounter::reinitialize] number_of_noncount_bits=%d (= count_shift)", (int)number_of_noncount_bits);
+  tty->print_cr("[InvocationCounter::reinitialize] InterpreterInvocationLimit=%d (raw), actual_count=%d",
+                InterpreterInvocationLimit, InterpreterInvocationLimit >> number_of_noncount_bits);
+  tty->print_cr("[InvocationCounter::reinitialize] InterpreterProfileLimit=%d (raw), actual_count=%d",
+                InterpreterProfileLimit, InterpreterProfileLimit >> number_of_noncount_bits);
+  tty->print_cr("[InvocationCounter::reinitialize] InterpreterBackwardBranchLimit=%d (ProfileInterpreter=%s)",
+                InterpreterBackwardBranchLimit, ProfileInterpreter ? "true" : "false");
+  tty->print_cr("[InvocationCounter::reinitialize] sizeof(InvocationCounter)=%zu, sizeof(MethodCounters)=%zu",
+                sizeof(InvocationCounter), sizeof(MethodCounters));
+  tty->print_cr("[InvocationCounter::reinitialize] count_increment=%d, carry_mask=0x%x, count_mask_value=0x%x",
+                (int)count_increment, (int)carry_mask, (int)count_mask_value);
+  tty->print_cr("[InvocationCounter::reinitialize] state_machine: wait_for_compile action=%s",
+                delay_overflow ? "do_decay" : "dummy_invocation_counter_overflow");
+  tty->print_cr("[InvocationCounter::reinitialize] ===========================================");
 }
 
 void invocationCounter_init() {
+  // [LOG] 验证 invocationCounter_init() 入口
+  tty->print_cr("[invocationCounter_init] called, DelayCompilationDuringStartup=%s",
+                DelayCompilationDuringStartup ? "true" : "false");
   InvocationCounter::reinitialize(DelayCompilationDuringStartup);
+  tty->print_cr("[invocationCounter_init] done.");
 }

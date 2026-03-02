@@ -1,0 +1,95 @@
+# Handshake GDB 验证脚本
+# 文件位置: jvm-md/Handshake/gdb_handshake.txt
+# 执行方式: cd /data/workspace/openjdk-cut-new && gdb -x jvm-md/Handshake/gdb_handshake.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# ============================================
+# 断点1: Handshake::execute (对单个线程)
+# ============================================
+b Handshake::execute(HandshakeClosure*, JavaThread*)
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  Handshake::execute() - 对单个线程执行 Handshake                       ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  HandshakeClosure: %p\n", thread_cl
+  printf "║  目标线程: %p\n", target
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  bt 5
+  continue
+end
+
+# ============================================
+# 断点2: Handshake::execute (对所有线程)
+# ============================================
+b Handshake::execute(HandshakeClosure*)
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  Handshake::execute() - 对所有线程执行 Handshake                       ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  HandshakeClosure: %p\n", thread_cl
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  bt 5
+  continue
+end
+
+# ============================================
+# 断点3: HandshakeState::set_operation
+# ============================================
+b HandshakeState::set_operation
+commands
+  silent
+  printf "【Handshake】设置操作: target=%p, op=%p\n", target, op
+  printf "            将 arm 目标线程的 poll...\n"
+  continue
+end
+
+# ============================================
+# 断点4: 目标线程自己处理
+# ============================================
+b HandshakeState::process_self_inner
+commands
+  silent
+  printf "【Handshake】目标线程自己处理: thread=%p\n", thread
+  continue
+end
+
+# ============================================
+# 断点5: VMThread 尝试代为处理
+# ============================================
+b HandshakeState::try_process_by_vmThread
+commands
+  silent
+  printf "【Handshake】VMThread 尝试代为处理: target=%p\n", target
+  continue
+end
+
+# ============================================
+# 断点6: 操作执行
+# ============================================
+b HandshakeThreadsOperation::do_handshake
+commands
+  silent
+  printf "【Handshake】执行操作: thread=%p, closure=%s\n", thread, _handshake_cl->name()
+  continue
+end
+
+# ============================================
+# 断点7: 清除 Handshake
+# ============================================
+b HandshakeState::clear_handshake
+commands
+  silent
+  printf "【Handshake】清除操作并 disarm: target=%p\n", target
+  continue
+end
+
+# ============================================
+# 运行程序
+# ============================================
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+quit

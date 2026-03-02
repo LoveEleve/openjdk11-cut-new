@@ -1,0 +1,74 @@
+# templateTable_init() GDB 验证脚本
+# 文件：jvm-md/TemplateTable/gdb_templateTable_init.txt
+# 用法：gdb -x jvm-md/TemplateTable/gdb_templateTable_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在初始化完成后
+b TemplateTable::initialize
+run -Xms256m -Xmx256m -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+printf "\n========== TemplateTable Basic Info ==========\n"
+printf "_is_initialized: %d\n", TemplateTable::_is_initialized
+printf "sizeof(Template): %lu\n", sizeof(Template)
+printf "_bs (BarrierSet): %p\n", TemplateTable::_bs
+
+printf "\n========== Sample Templates ==========\n"
+
+# nop (0x00)
+printf "\n_template_table[0x00] (nop):\n"
+printf "  _flags: %d\n", TemplateTable::_template_table[0]._flags
+printf "  _tos_in: %d (vtos=9)\n", TemplateTable::_template_table[0]._tos_in
+printf "  _tos_out: %d (vtos=9)\n", TemplateTable::_template_table[0]._tos_out
+printf "  _gen: %p\n", TemplateTable::_template_table[0]._gen
+printf "  _arg: %d\n", TemplateTable::_template_table[0]._arg
+
+# iconst_0 (0x03)
+printf "\n_template_table[0x03] (iconst_0):\n"
+printf "  _flags: %d\n", TemplateTable::_template_table[3]._flags
+printf "  _tos_in: %d, _tos_out: %d\n", TemplateTable::_template_table[3]._tos_in, TemplateTable::_template_table[3]._tos_out
+printf "  _arg: %d (constant value)\n", TemplateTable::_template_table[3]._arg
+
+# iadd (0x60)
+printf "\n_template_table[0x60] (iadd):\n"
+printf "  _flags: %d\n", TemplateTable::_template_table[0x60]._flags
+printf "  _tos_in: %d (itos=4)\n", TemplateTable::_template_table[0x60]._tos_in
+printf "  _tos_out: %d (itos=4)\n", TemplateTable::_template_table[0x60]._tos_out
+printf "  _gen: %p\n", TemplateTable::_template_table[0x60]._gen
+
+# invokevirtual (0xb6)
+printf "\n_template_table[0xb6] (invokevirtual):\n"
+printf "  _flags: %d (ubcp|disp|clvm = 7)\n", TemplateTable::_template_table[0xb6]._flags
+printf "  _tos_in: %d (vtos=9)\n", TemplateTable::_template_table[0xb6]._tos_in
+printf "  _tos_out: %d (vtos=9)\n", TemplateTable::_template_table[0xb6]._tos_out
+
+# new (0xbb)
+printf "\n_template_table[0xbb] (new):\n"
+printf "  _flags: %d (ubcp|clvm = 5)\n", TemplateTable::_template_table[0xbb]._flags
+printf "  _tos_in: %d (vtos=9)\n", TemplateTable::_template_table[0xbb]._tos_in
+printf "  _tos_out: %d (atos=8)\n", TemplateTable::_template_table[0xbb]._tos_out
+
+printf "\n========== Fast Bytecodes ==========\n"
+
+# _fast_igetfield (0xcc)
+printf "\n_template_table[0xcc] (_fast_igetfield):\n"
+printf "  _flags: %d\n", TemplateTable::_template_table[0xcc]._flags
+printf "  _tos_in: %d (atos=8)\n", TemplateTable::_template_table[0xcc]._tos_in
+printf "  _tos_out: %d (itos=4)\n", TemplateTable::_template_table[0xcc]._tos_out
+
+printf "\n========== Wide Templates ==========\n"
+
+# wide iload (0x15)
+printf "\n_template_table_wide[0x15] (wide iload):\n"
+printf "  _flags: %d (ubcp|iswd = 9)\n", TemplateTable::_template_table_wide[0x15]._flags
+printf "  _tos_in: %d (vtos=9)\n", TemplateTable::_template_table_wide[0x15]._tos_in
+printf "  _tos_out: %d (itos=4)\n", TemplateTable::_template_table_wide[0x15]._tos_out
+
+printf "\n========== TosState Reference ==========\n"
+printf "btos=0, ztos=1, ctos=2, stos=3, itos=4\n"
+printf "ltos=5, ftos=6, dtos=7, atos=8, vtos=9\n"
+
+quit

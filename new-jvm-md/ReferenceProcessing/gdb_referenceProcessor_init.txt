@@ -1,0 +1,22 @@
+# ReferenceProcessor 初始化 GDB 验证脚本
+# 用法：gdb -x gdb_referenceProcessor_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+b ReferenceProcessor::init_statics
+run -Xms256m -Xmx256m -XX:+UseG1GC -XX:SoftRefLRUPolicyMSPerMB=1000 -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+printf "\n========== Soft Ref Timestamp Clock ==========\n"
+printf "_soft_ref_timestamp_clock: %ld ms\n", ReferenceProcessor::_soft_ref_timestamp_clock
+
+printf "\n========== Reference Policies ==========\n"
+printf "_always_clear_soft_ref_policy: %p\n", ReferenceProcessor::_always_clear_soft_ref_policy
+printf "_default_soft_ref_policy: %p\n", ReferenceProcessor::_default_soft_ref_policy
+
+printf "\n========== JVM Parameters ==========\n"
+printf "SoftRefLRUPolicyMSPerMB: %d\n", SoftRefLRUPolicyMSPerMB
+
+quit

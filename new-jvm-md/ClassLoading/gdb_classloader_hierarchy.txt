@@ -1,0 +1,26 @@
+set pagination off
+set print pretty on
+set confirm off
+
+# 添加源码搜索路径
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/classfile
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/prims
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/runtime
+
+# 断点: resolve_or_null 入口
+b systemDictionary.cpp:246
+commands
+  silent
+  printf "resolve_or_null: %s\n", class_name->_body
+  continue
+end
+
+# 断点: JVM_FindClassFromBootLoader 入口
+b jvm.cpp:770
+commands
+  silent
+  printf "FindClassFromBootLoader: %s\n", name
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -cp /data/workspace/demo/src com.wjcoder.Main

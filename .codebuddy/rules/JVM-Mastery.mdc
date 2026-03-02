@@ -20,21 +20,21 @@ provider:
 
 | 用户问的是... | 自动加载 |
 |-------------|---------|
-| "XXX 是怎么实现的/流程是什么" | `Read-TopDown` |
-| "这个类/结构体是干嘛的" | `Read-BottomUp` |
-| "这个值怎么算出来的/这个指针指向哪" | `Read-DataFlow` |
+| "XXX 是怎么实现的/流程是什么" | `Read-TopDown` + `Read-Runtime-Verify` |
+| "这个类/结构体是干嘛的" | `Read-BottomUp` + `Read-Runtime-Verify` |
+| "这个值怎么算出来的/这个指针指向哪" | `Read-DataFlow` + `Read-Runtime-Verify` |
 | "A 和 B 有什么区别" | `Read-Diff` |
 | "为什么要有这个东西" | `Read-WhyNot` + `JVM-Problem-Driven` |
 | "这段代码太复杂看不懂" | `Read-Layered` |
 | "这个函数需要深入看吗" | `Read-Boundary` |
-| "不确定走哪个分支/值是多少" | `Read-Runtime-First` |
+| "不确定走哪个分支/值是多少" | `Read-Runtime-First` + `Read-Runtime-Verify` |
 | "为什么设计成这样" | `Read-History` |
 | "这个组件在系统中什么位置" | `Read-Connector` |
-| 涉及 C++ 对象的字段/大小/布局 | `JVM-Object-Layout` |
-| 涉及哈希表/队列/数组等容器 | `JVM-Container-Analysis` |
-| 涉及 Stub/CodeBlob/生成代码 | `JVM-Assembly-Layout` |
-| 涉及并发/锁/CAS/SafePoint | `JVM-Concurrency-Design` |
-| 涉及性能优化/快慢路径 | `JVM-Optimization-Design` |
+| 涉及 C++ 对象的字段/大小/布局 | `JVM-Object-Layout` + `Read-Runtime-Verify` |
+| 涉及哈希表/队列/数组等容器 | `JVM-Container-Analysis` + `Read-Runtime-Verify` |
+| 涉及 Stub/CodeBlob/生成代码 | `JVM-Assembly-Layout` + `Read-Runtime-Verify` |
+| 涉及并发/锁/CAS/SafePoint | `JVM-Concurrency-Design` + `Read-Runtime-Verify` |
+| 涉及性能优化/快慢路径 | `JVM-Optimization-Design` + `Read-Runtime-Verify` |
 | 需要输出教学文档 | `JVM-Doc-Tutorial` |
 | 需要输出参考手册 | `JVM-Doc-Reference` |
 | 需要输出图表 | `JVM-Doc-Diagram` |
@@ -49,12 +49,36 @@ provider:
 
 **每次分析必须达到以下标准：**
 
-- **基于源码**：所有结论必须从 `/data/workspace/openjdk-cut-new/` 本地源码中得出，不靠猜、不靠搜索引擎
-- **GDB 验证**：涉及具体数值（大小、偏移、值）时，必须用 GDB 验证，不接受纯理论推导
+- **基于本地源码（禁止 Web 搜索）**：所有结论必须从本地源码得出，**绝对不允许通过网络搜索获取信息**
+  - **JVM 核心 .so 库**：源码在 `/data/workspace/openjdk-cut-new/src/hotspot/`
+    - `libjvm.so` → hotspot 源码
+    - `libattach.so` → `src/java.base/unix/native/libattach/`
+    - `libjsig.so` → `src/java.base/unix/native/libsig/`
+    - `libjli.so` → `src/java.base/share/native/libjli/`
+  - **async-profiler 源码**：`/data/workspace/async-profiler/src/`
+  - **Arthas 源码**：`/data/workspace/arthas-4.1.2/arthas/core/src/main/java/`
+  - 如果本地源码没有相关信息，明确告知用户"本地源码未覆盖此内容"
+- **实际验证**：所有结论必须经过实际验证，遵循 `Read-Runtime-Verify` 规则
+  - 使用 strace、C++ 程序、GDB 脚本文件等多种方法验证
+  - 看到异常值必须深入分析，绝不敷衍
+  - 至少用两种方法交叉验证关键结论
+- **GDB 规范**：使用 GDB 时必须使用脚本文件，而非批处理命令参数
+- **异常必须追因（零容忍跳过）⭐**：
+  - **GDB 断点没有命中** → 必须分析原因（函数不在路径上？符号名错误？），修复后重新运行
+  - **GDB 输出与预期不符** → 必须解释差异原因，不能用"已经有足够数据了"跳过
+  - **输出被截断/不完整** → 必须调整参数重新采集完整数据
+  - **程序退出方式异常** → 必须确认退出路径，设对应断点重新验证
+  - **禁止的话术**：~~"不过已经有足够的数据了"~~、~~"这个不影响结论"~~、~~"可以忽略"~~
+  - **正确做法**：发现问题 → 分析根因 → 修复 → 重新运行 → 确认修复成功
+- **GDB 脚本编写前必须过检查清单**（参考 `JVM-GDB-Script` 规则）：
+  - 检查 C++ 符号命名空间（用 `nm | grep` 确认）
+  - 检查断点函数在目标代码路径上（参考 `JVM-GDB-Breakpoint` Step 0）
+  - 检查退出断点选择正确（正常退出 = `before_exit`，异常退出 = `os::shutdown`）
 - **先问题后方案**：讲解任何机制，先说"解决什么问题"，再说"怎么实现的"
 - **先整体后细节**：先一句话总结，再展开。先骨架后细节
 - **每个细节有理由**：不能出现"这里做了 X"但不解释为什么
-- **数据结构要完整**：分析数据结构时，必须分析所有子结构（遵循 memory 中的要求）
+- **程序 = 数据结构 + 算法**：写分析文档时，**必须先完整分析所有数据结构，再写算法流程**（遵循 `Doc-DataStructure-First` 规则）
+- **数据结构要完整**：分析数据结构时，必须分析所有子结构，每个结构覆盖 6 项：全部字段 + 含义 + sizeof + 创建位置 + 关键字段生命周期 + 值域图
 - **标注 JVM 参数**：涉及日志输出时，告知需要什么 JVM 参数才能看到日志，并给出输出示例
 
 ### 3. 讲解风格

@@ -1,0 +1,38 @@
+# invocationCounter_init() GDB 验证脚本
+# 文件：jvm-md/InvocationCounter/gdb_invocationCounter_init.txt
+# 用法：gdb -x jvm-md/InvocationCounter/gdb_invocationCounter_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在初始化完成后
+b invocationCounter_init
+run -Xms256m -Xmx256m -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+# === 全局阈值 ===
+printf "\n========== Global Invocation Thresholds ==========\n"
+printf "CompileThreshold: %d\n", CompileThreshold
+printf "OnStackReplacePercentage: %d\n", OnStackReplacePercentage
+printf "InterpreterProfilePercentage: %d\n", InterpreterProfilePercentage
+
+printf "\n========== Computed Limits ==========\n"
+printf "InterpreterInvocationLimit: %d (raw) / %d (actual count)\n", InvocationCounter::InterpreterInvocationLimit, InvocationCounter::InterpreterInvocationLimit >> 3
+printf "InterpreterProfileLimit: %d (raw) / %d (actual count)\n", InvocationCounter::InterpreterProfileLimit, InvocationCounter::InterpreterProfileLimit >> 3
+printf "InterpreterBackwardBranchLimit: %d\n", InvocationCounter::InterpreterBackwardBranchLimit
+
+# === 状态机 ===
+printf "\n========== State Machine ==========\n"
+printf "_init[wait_for_nothing=0]: %d\n", InvocationCounter::_init[0]
+printf "_init[wait_for_compile=1]: %d\n", InvocationCounter::_init[1]
+printf "_action[wait_for_nothing]: %p\n", InvocationCounter::_action[0]
+printf "_action[wait_for_compile]: %p\n", InvocationCounter::_action[1]
+
+# === 验证位布局常量 ===
+printf "\n========== Bit Layout ==========\n"
+printf "count_increment (should be 8): %d\n", (1 << 3)
+printf "state_mask (should be 3): %d\n", 3
+printf "carry_mask (should be 4): %d\n", 4
+
+quit

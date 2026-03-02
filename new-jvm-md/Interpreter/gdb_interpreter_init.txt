@@ -1,0 +1,45 @@
+# interpreter_init() GDB 验证脚本
+# 文件：jvm-md/Interpreter/gdb_interpreter_init.txt
+# 用法：gdb -x jvm-md/Interpreter/gdb_interpreter_init.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# 断点设在解释器初始化完成后
+b interpreter_init
+run -Xms256m -Xmx256m -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+finish
+
+# === 解释器代码区域 ===
+printf "\n========== Interpreter Code Region ==========\n"
+printf "code used space: %d KB\n", AbstractInterpreter::_code->_used_size / 1024
+printf "code total space: %d KB\n", AbstractInterpreter::_code->_buffer_limit / 1024
+
+# === 方法入口点 ===
+printf "\n========== Method Entry Points ==========\n"
+printf "zerolocals:              %p\n", AbstractInterpreter::_entry_table[0]
+printf "zerolocals_synchronized: %p\n", AbstractInterpreter::_entry_table[1]
+printf "native:                  %p\n", AbstractInterpreter::_entry_table[2]
+printf "native_synchronized:     %p\n", AbstractInterpreter::_entry_table[3]
+printf "empty:                   %p\n", AbstractInterpreter::_entry_table[4]
+printf "accessor:                %p\n", AbstractInterpreter::_entry_table[5]
+printf "abstract:                %p\n", AbstractInterpreter::_entry_table[6]
+
+# === 调度表示例（nop = 0x00）===
+printf "\n========== Dispatch Table (nop, code=0x00) ==========\n"
+printf "entry[vtos][nop]: %p\n", TemplateInterpreter::_normal_table._table[9][0x00]
+
+# === 调度表示例（iconst_0 = 0x03）===
+printf "\n========== Dispatch Table (iconst_0, code=0x03) ==========\n"
+printf "entry[vtos][iconst_0]: %p\n", TemplateInterpreter::_normal_table._table[9][0x03]
+
+# === 调度表示例（iadd = 0x60）===
+printf "\n========== Dispatch Table (iadd, code=0x60) ==========\n"
+printf "entry[itos][iadd]: %p\n", TemplateInterpreter::_normal_table._table[4][0x60]
+
+# === 反汇编 zerolocals 入口点 ===
+printf "\n========== Disasm zerolocals entry (first 15 insns) ==========\n"
+x/15i AbstractInterpreter::_entry_table[0]
+
+quit

@@ -1,0 +1,111 @@
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# ========== 1. JVM 侧: 断点在调用 Agent_OnLoad 之前 ==========
+# Threads::create_vm_init_agents() 中调用 (*on_load_entry)(&main_vm, agent->options(), NULL)
+b Threads::create_vm_init_agents
+commands
+  printf "\n========== [JVM] Threads::create_vm_init_agents() ==========\n"
+  printf "说明: JVM 启动阶段加载 -agentpath 指定的 agent\n"
+  bt 5
+  continue
+end
+
+# ========== 2. async-profiler 侧: Agent_OnLoad 入口 ==========
+b Agent_OnLoad
+commands
+  printf "\n========== [AP] Agent_OnLoad() ==========\n"
+  printf "vm = %p\n", vm
+  printf "options = '%s'\n", options ? options : "(null)"
+  printf "_global_args._preloaded = %d\n", _global_args._preloaded
+  bt 10
+  continue
+end
+
+# ========== 3. VM::init() — 核心初始化 ==========
+b VM::init
+commands
+  printf "\n========== [AP] VM::init(vm=%p, attach=%d) ==========\n", vm, attach
+  printf "说明: attach=false 表示启动加载, attach=true 表示动态附加\n"
+  continue
+end
+
+# ========== 4. JVM 版本识别 ==========
+b vmEntry.cpp:151
+commands
+  printf "\n========== [AP] JVM 类型识别 ==========\n"
+  printf "is_hotspot = %d\n", is_hotspot
+  printf "is_zero_vm = %d\n", is_zero_vm
+  printf "_zing = %d\n", VM::_zing
+  continue
+end
+
+# ========== 5. dlsym 查找 AsyncGetCallTrace ==========
+b vmEntry.cpp:178
+commands
+  printf "\n========== [AP] dlsym 查找关键函数 ==========\n"
+  printf "AsyncGetCallTrace = %p\n", VM::_asyncGetCallTrace
+  printf "JVM_TotalMemory   = %p\n", VM::_totalMemory
+  printf "JVM_FreeMemory    = %p\n", VM::_freeMemory
+  continue
+end
+
+# ========== 6. VMStructs::init() — 偏移量初始化 ==========
+b VMStructs::init
+commands
+  printf "\n========== [AP] VMStructs::init(libjvm=%p) ==========\n", libjvm
+  printf "说明: 在 Agent_OnLoad 阶段就开始推断 JVM 内部结构偏移量\n"
+  continue
+end
+
+# ========== 7. Capabilities 和 Callbacks 注册 ==========
+b vmEntry.cpp:267
+commands
+  printf "\n========== [AP] JVMTI 事件注册完毕 ==========\n"
+  printf "_hotspot_version = %d\n", VM::_hotspot_version
+  printf "CodeHeap::available() — 检查中...\n"
+  continue
+end
+
+# ========== 8. VMInit 回调 ==========
+b VM::VMInit
+commands
+  printf "\n========== [AP] VM::VMInit() — JVM 初始化完成回调 ==========\n"
+  printf "说明: JVM 初始化完成后调用, 此时可以使用 JNI\n"
+  bt 5
+  continue
+end
+
+# ========== 9. VM::ready() ==========
+b VM::ready
+commands
+  printf "\n========== [AP] VM::ready() ==========\n"
+  printf "说明: 设置信号处理器 + VMStructs::ready() + Hook JVMTI 函数表\n"
+  continue
+end
+
+# ========== 10. VMStructs::ready() ==========
+b VMStructs::ready
+commands
+  printf "\n========== [AP] VMStructs::ready() ==========\n"
+  printf "说明: 解析偏移量 + Patch SafeFetch + 初始化线程桥\n"
+  continue
+end
+
+# ========== 11. Profiler::setupSignalHandlers ==========
+b Profiler::setupSignalHandlers
+commands
+  printf "\n========== [AP] Profiler::setupSignalHandlers() ==========\n"
+  continue
+end
+
+# ========== 12. loadAllMethodIDs ==========
+b VM::loadAllMethodIDs
+commands
+  printf "\n========== [AP] VM::loadAllMethodIDs() ==========\n"
+  printf "说明: 预加载所有已有类的 jmethodID\n"
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -agentpath:/data/workspace/async-profiler/build/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/profile.jfr -cp /data/workspace/demo/src com.wjcoder.Main

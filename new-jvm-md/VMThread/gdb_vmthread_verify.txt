@@ -1,0 +1,34 @@
+# VMThread GDB 验证脚本
+set pagination off
+set confirm off
+
+# 设置运行时参数
+set environment JAVA_HOME=/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk
+set args -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 启动 JVM
+file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+# 等待 JVM 启动完成后再加载 libjvm.so
+set breakpoint pending on
+
+# 设置断点：VMThread 创建
+b VMThread::create
+# 设置断点：VMThread::run()
+b VMThread::run
+# 设置断点：VMThread::loop()
+b VMThread::loop
+# 设置断点：SafepointSynchronize::begin
+b SafepointSynchronize::begin
+# 设置断点：SafepointSynchronize::end
+b SafepointSynchronize::end
+
+# 运行
+run
+
+# 启动后加载 libjvm.so 符号
+shell sleep 5
+sharedlibrary /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so
+
+# 继续运行
+continue

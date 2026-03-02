@@ -1,0 +1,62 @@
+# os::init_2() GDB 验证脚本
+#
+# 使用方法:
+#   cd /data/workspace/openjdk-cut-new
+#   gdb -x jvm-md/OSInit2/gdb_os_init_2.txt \
+#       ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+#
+# JVM 参数:
+#   -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set pagination off
+set print pretty on
+
+# 在 os::init_2() 设置断点
+break os::init_2
+
+# 在 SR_initialize() 设置断点
+break SR_initialize
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========================================\n"
+printf "        os::init_2() 断点命中          \n"
+printf "========================================\n\n"
+
+# 继续到 SR_initialize
+continue
+
+printf "\n========================================\n"
+printf "     SR_initialize() 断点命中          \n"
+printf "========================================\n\n"
+
+# 执行完 SR_initialize
+finish
+
+printf "\n========== SR_initialize() 执行完成 ==========\n\n"
+
+# 打印 SR_signum
+printf "========== Suspend/Resume 信号 ==========\n"
+print SR_signum
+
+# 打印信号集
+printf "\n========== 信号集 ==========\n"
+print SR_sigset
+
+# 继续执行完 os::init_2
+finish
+
+printf "\n========== os::init_2() 执行完成 ==========\n\n"
+
+# 验证信号处理器是否安装
+printf "========== 信号处理器验证 ==========\n"
+# 通过系统命令检查
+shell kill -l 12
+
+printf "\n========================================\n"
+printf "         GDB 验证完成          \n"
+printf "========================================\n"
+
+# 继续运行
+continue

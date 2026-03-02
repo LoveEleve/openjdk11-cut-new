@@ -378,6 +378,7 @@ oop StringTable::do_intern(Handle string_or_null_h, jchar* name,
 
   bool rehash_warning;
   _local_table->get_insert_lazy(THREAD, lookup, stc, stc, &rehash_warning);
+
   if (rehash_warning) {
     _needs_rehashing = true;
   }

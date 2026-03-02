@@ -1,0 +1,56 @@
+set pagination off
+set print pretty on
+set confirm off
+
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/classfile
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/prims
+
+# 断点1: jvm_define_class_common — JNI 入口
+b jvm.cpp:938
+commands
+  silent
+  printf "JVM_DefineClass: name=%s source=%s len=%d\n", name, source, len
+  continue
+end
+
+# 断点2: KlassFactory::create_from_stream
+b klassFactory.cpp:200
+commands
+  silent
+  printf "KlassFactory::create_from_stream: name=%s loader_data=%p\n", name ? name->_body : "null", loader_data
+  continue
+end
+
+# 断点3: ClassFileParser::create_instance_klass
+b classFileParser.cpp:5567
+commands
+  silent
+  printf "ClassFileParser::create_instance_klass\n"
+  continue
+end
+
+# 断点4: define_instance_class — 注册到 SystemDictionary
+b systemDictionary.cpp:1555
+commands
+  silent
+  printf "define_instance_class: %s loader=%p\n", k->_name->_body, k->_class_loader_data
+  continue
+end
+
+# 断点5: update_dictionary — 添加到 Dictionary 哈希表
+b systemDictionary.cpp:2194
+commands
+  silent
+  printf "update_dictionary: add_klass %s to dictionary\n", name->_body
+  continue
+end
+
+# 断点6: find_or_define_instance_class — 并行加载器路径
+b systemDictionary.cpp:1646
+commands
+  silent
+  printf "find_or_define_instance_class: %s\n", class_name->_body
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -cp /data/workspace/demo/src com.wjcoder.Main

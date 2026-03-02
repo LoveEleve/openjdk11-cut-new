@@ -1,0 +1,87 @@
+set pagination off
+set print pretty on
+set confirm off
+
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/classfile
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/prims
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/oops
+dir /data/workspace/openjdk-cut-new/src/hotspot/share/runtime
+
+# ========== 全链路追踪 com.wjcoder.Main 的一次类加载 ==========
+
+# 断点1: resolve_or_null — 总入口
+b systemDictionary.cpp:246
+commands
+  silent
+  printf ">>> [1] resolve_or_null: %s\n", class_name->_body
+  continue
+end
+
+# 断点2: resolve_instance_class_or_null — 非数组类加载
+b systemDictionary.cpp:754
+commands
+  silent
+  printf ">>> [2] resolve_instance_class_or_null: %s\n", name->_body
+  continue
+end
+
+# 断点3: resolve_from_stream — defineClass 入口
+b systemDictionary.cpp:1044
+commands
+  silent
+  printf ">>> [3] resolve_from_stream: %s\n", class_name ? class_name->_body : "null"
+  continue
+end
+
+# 断点4: KlassFactory::create_from_stream — 解析字节码
+b klassFactory.cpp:200
+commands
+  silent
+  printf ">>> [4] KlassFactory::create_from_stream\n"
+  continue
+end
+
+# 断点5: define_instance_class — 注册到 SystemDictionary
+b systemDictionary.cpp:1555
+commands
+  silent
+  printf ">>> [5] define_instance_class: %s  loader_data=%p\n", k->_name->_body, k->_class_loader_data
+  continue
+end
+
+# 断点6: update_dictionary — 添加到 Dictionary 哈希表
+b systemDictionary.cpp:2194
+commands
+  silent
+  printf ">>> [6] update_dictionary: %s\n", name->_body
+  continue
+end
+
+# 断点7: JVM_DefineClassWithSource — JNI 入口
+b jvm.cpp:938
+commands
+  silent
+  printf ">>> [JNI] JVM_DefineClass: name=%s source=%s len=%d\n", name, source, len
+  continue
+end
+
+# 断点8: InstanceKlass 创建完成后观察内存
+b classFileParser.cpp:5588
+commands
+  silent
+  printf ">>> [7] create_instance_klass done: ik=%p\n", ik
+  # 打印 InstanceKlass 的关键字段
+  if ik != 0
+    printf "    ik->_name=%p (%s)\n", ik->_name, ik->_name->_body
+    printf "    ik->_java_fields_count=%d\n", ik->_java_fields_count
+    printf "    ik->_vtable_len=%d\n", ik->_vtable_len
+    printf "    ik->_itable_len=%d\n", ik->_itable_len
+    printf "    ik->_nonstatic_field_size=%d\n", ik->_nonstatic_field_size
+    printf "    ik->_static_field_size=%d\n", ik->_static_field_size
+    printf "    ik->_static_oop_field_count=%d\n", ik->_static_oop_field_count
+    printf "    sizeof(InstanceKlass)=%lu\n", sizeof(InstanceKlass)
+  end
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -cp /data/workspace/demo/src com.wjcoder.Main

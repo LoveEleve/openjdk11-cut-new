@@ -1,0 +1,75 @@
+set pagination off
+set print pretty on
+set confirm off
+
+# ========== 实验2: 观察线程状态检查 + block() 调用栈 ==========
+# 目标: 看 examine_state_of_thread 如何判定不同状态的线程，以及 block() 的完整调用栈
+
+set $sp_count = 0
+
+# 断点1: examine_state_of_thread — 观察线程状态判定
+b ThreadSafepointState::examine_state_of_thread
+commands
+  silent
+  if $sp_count == 0
+    set $tstate = _thread->_thread_state
+    printf "【实验2】examine 线程 %p  thread_state=%d", _thread, $tstate
+    if $tstate == 4
+      printf " (_thread_in_Java → 继续等)"
+    end
+    if $tstate == 5
+      printf " (_thread_in_vm → _call_back)"
+    end
+    if $tstate == 7
+      printf " (_thread_in_native → 安全!)"
+    end
+    if $tstate == 10
+      printf " (_thread_blocked → 安全!)"
+    end
+    printf "\n"
+  end
+  continue
+end
+
+# 断点2: block() — 线程自行阻塞
+b SafepointSynchronize::block
+commands
+  silent
+  if $sp_count == 0
+    printf "\n【实验2】block() 被调用!\n"
+    printf "  线程: %p  thread_state: %d\n", thread, thread->_thread_state
+    printf "  _waiting_to_block: %d\n", SafepointSynchronize::_waiting_to_block
+    bt 8
+    printf "\n"
+  end
+  continue
+end
+
+# 断点3: begin() 入口标记
+b SafepointSynchronize::begin
+commands
+  silent
+  if $sp_count == 0
+    printf "\n========== 实验2: 第1次 Safepoint Begin ==========\n"
+    printf "线程数: 即将检查...\n\n"
+  end
+  continue
+end
+
+# 断点4: end() — 退出
+b SafepointSynchronize::end
+commands
+  silent
+  if $sp_count == 0
+    set $sp_count = 1
+    printf "\n========== 实验2: 第1次 Safepoint End ==========\n"
+    continue
+  end
+  if $sp_count == 1
+    printf "\n========== 实验2: 完成 ==========\n"
+    quit
+  end
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -cp /data/workspace/demo/src com.wjcoder.Main

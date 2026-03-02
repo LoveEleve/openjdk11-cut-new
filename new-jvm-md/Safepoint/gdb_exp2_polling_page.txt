@@ -1,0 +1,57 @@
+set pagination off
+set print pretty on
+set confirm off
+
+# ========== 实验2: 观察 Polling Page Arm/Disarm ==========
+# 目标: 看到 arm_local_poll 和 disarm_local_poll 的前后状态变化
+
+# 用一个计数器只观察第一次 safepoint
+set $sp_count = 0
+
+# 断点: arm_local_poll — 每个线程被 arm
+b SafepointMechanism::arm_local_poll_with_reason
+commands
+  silent
+  if $sp_count == 0
+    printf "【实验2-ARM】线程 %p  polling_page: %p → armed\n", cur, cur->_polling_page
+  end
+  continue
+end
+
+# 断点: disarm_local_poll — 每个线程被 disarm (end 阶段)
+b SafepointMechanism::disarm_local_poll
+commands
+  silent
+  if $sp_count == 0
+    printf "【实验2-DISARM】线程 %p  polling_page 恢复 disarmed\n", current
+  end
+  continue
+end
+
+# 断点: begin() — 标记第一次
+b SafepointSynchronize::begin
+commands
+  silent
+  if $sp_count == 0
+    printf "\n======== 实验2: 第1次 Safepoint — 观察 Arm/Disarm ========\n"
+  end
+  continue
+end
+
+# 断点: end() 结束后退出
+b SafepointSynchronize::end
+commands
+  silent
+  if $sp_count == 0
+    set $sp_count = 1
+    printf "\n======== 实验2: 第1次 Safepoint End ========\n"
+    continue
+  end
+  if $sp_count == 1
+    printf "\n======== 实验2: 完成 ========\n"
+    quit
+  end
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -cp /data/workspace/demo/src com.wjcoder.Main

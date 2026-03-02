@@ -2,7 +2,7 @@
 description: GDB 批量脚本：编写自动化 GDB 脚本批量采集数据。
 alwaysApply: false
 enabled: true
-updatedAt: 2026-02-07T03:32:55.780Z
+updatedAt: 2026-02-25T04:06:37.683Z
 provider: 
 ---
 
@@ -22,21 +22,65 @@ JVM：/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug
 输出目录：同上
 ```
 
+## ⭐ 脚本编写前的强制检查清单
+
+**每次编写 GDB 脚本前，必须逐项确认**：
+
+### 检查 1：C++ 符号命名空间是否正确
+HotSpot 的类不一定在你以为的命名空间里。**必须用 `nm` 确认**：
+
+```bash
+nm build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so | grep "类名"
+# 或用 c++filt 解码
+nm libjvm.so | grep "_chunk_manager" | c++filt
+```
+
+**已知的常见陷阱**：
+
+| 你以为的 | 实际的 | 原因 |
+|----------|--------|------|
+| `metaspace::Metaspace::_chunk_manager_metadata` | `Metaspace::_chunk_manager_metadata` | `Metaspace` 是顶层类，不在 `metaspace` 命名空间 |
+| `metaspace::MetaspaceGC::xxx` | `MetaspaceGC::xxx` | `MetaspaceGC` 也是顶层类 |
+| `g1::G1CollectedHeap::xxx` | `G1CollectedHeap::xxx` | G1 类都是顶层的 |
+
+**规则**：如果 GDB 报 `No type "XXX" within class or namespace "YYY"`，立刻用 `nm | grep` 查找正确的符号路径。
+
+### 检查 2：断点函数在目标路径上
+参考 `JVM-GDB-Breakpoint` 的 Step 0 —— 确认每个断点对应的函数确实会在目标场景下被调用。
+
+### 检查 3："结束状态"断点选择正确的退出路径
+
+**JVM 退出路径断点速查表**：
+
+| 场景 | 正确断点 | 错误断点 |
+|------|----------|----------|
+| 正常退出（main 结束）| `before_exit` | ~~`os::shutdown`~~ |
+| 正常退出（System.exit）| `before_exit` 或 `vm_exit` | ~~`os::shutdown`~~ |
+| 异常退出（启动失败）| `os::shutdown` | ~~`before_exit`~~（可能没初始化完） |
+| 捕获 Metaspace 最终状态 | `before_exit`（VM 完全可用）| ~~`exit_globals`~~（tty 即将关闭）|
+| 捕获 GC 最终状态 | `before_exit`（在 `Universe::heap()->stop()` 之前）| |
+
+### 检查 4：GDB logging 路径一致
+```gdb
+set logging file /正确的绝对路径/output.txt  # ← 用绝对路径
+set logging overwrite on
+set logging on
+```
+注意：如果之前执行过 `set logging file xxx`，新的 `set logging file yyy` 不会自动切换，需要先 `set logging off` 再 `set logging on`。
+
 ## 脚本模板
 
 ### 模板1：基础采集脚本
 ```gdb
 # 文件：gdb_collect.txt
 # 用途：采集 XXX 相关数据
-# 执行：gdb -x gdb_collect.txt
+# 执行：gdb -batch -x gdb_collect.txt <target>
 
 set pagination off
 set print pretty on
 set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题>/gdb_output.txt
 set logging overwrite on
 set logging on
-
-file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
 
 # ========== 断点设置 ==========
 break 文件1.cpp:行号1
@@ -71,8 +115,6 @@ set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题>/memory
 set logging overwrite on
 set logging on
 
-file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
-
 break 目标函数
 commands
   silent
@@ -99,15 +141,13 @@ end
 run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
 ```
 
-### 模板3：计数统计脚本
+### 模板3：计数统计 + 最终状态脚本
 ```gdb
-# 统计某个函数被调用的次数和参数分布
+# 统计调用次数 + 程序正常退出时 dump 最终状态
 set pagination off
 set logging file /data/workspace/openjdk-cut-new/jvm-md/tmp-file/<主题>/count_output.txt
 set logging overwrite on
 set logging on
-
-file /data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
 
 set $call_count = 0
 
@@ -115,12 +155,19 @@ break 目标函数
 commands
   silent
   set $call_count = $call_count + 1
-  printf "call #%d: arg1=%d, arg2=%p\n", $call_count, arg1, arg2
-  # 只记录前 50 次
-  if $call_count >= 50
-    printf "\n=== Reached 50 calls, detaching ===\n"
-    detach
+  if $call_count <= 50
+    printf "call #%d: arg1=%d, arg2=%p\n", $call_count, arg1, arg2
   end
+  continue
+end
+
+# ★ 最终状态：用 before_exit，不用 os::shutdown
+break before_exit
+commands
+  printf "\n========== FINAL STATE ==========\n"
+  printf "total calls = %d\n", $call_count
+  # 打印全局状态...
+  # 注意：全局变量用正确的命名空间（先用 nm 确认！）
   continue
 end
 
@@ -134,23 +181,35 @@ run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Ma
 - 需要在哪些点采集
 - 预计采集多少数据量
 
-### Step 2：编写脚本
+### Step 2：编写脚本（过强制检查清单！）
 - 从模板开始修改
+- **逐项过检查清单**（命名空间、路径、退出断点）
 - 脚本保存到 `jvm-md/tmp-file/<主题>/gdb_xxx.txt`
 - 输出文件保存到同一目录
 
 ### Step 3：执行脚本
 ```bash
 cd /data/workspace/openjdk-cut-new
-gdb -x jvm-md/tmp-file/<主题>/gdb_xxx.txt
+# 推荐用 timeout 限制运行时间
+timeout 180 gdb -batch -x jvm-md/tmp-file/<主题>/gdb_xxx.txt \
+  build/linux-x86_64-normal-server-slowdebug/jdk/bin/java 2>&1 | tee output.txt
 ```
 
-### Step 4：分析输出
+### Step 4：验证输出完整性（⭐ 不可跳过）
+脚本运行后，**必须检查**：
+1. **每个断点都命中了吗？** 如果某个断点没有输出，必须分析原因（回到检查清单）
+2. **"最终状态"断点命中了吗？** 如果没有，说明退出路径不对或程序非正常退出
+3. **输出数据是否被截断？** 检查 `head`/`tail` 限制、logging 文件大小
+4. **有没有 GDB 错误信息？** 如 `No type`、`Cannot access memory`
+
+**如果有任何检查未通过，禁止继续，必须先修复问题再重新运行。**
+
+### Step 5：分析输出
 - 读取输出文件
 - 提取关键数据
 - 整理为结构化格式
 
-### Step 5：输出结论
+### Step 6：输出结论
 1. **采集目标**
 2. **GDB 脚本**（完整脚本内容）
 3. **原始输出**（关键部分）
@@ -162,6 +221,7 @@ gdb -x jvm-md/tmp-file/<主题>/gdb_xxx.txt
 - 大量数据采集时用 `set logging` 输出到文件，不要靠终端
 - 设置合理的终止条件（计数上限/detach），避免无限运行
 - slowdebug 版本运行慢，脚本要高效，避免不必要的输出
+- **用 `timeout` 包裹 GDB 命令**，防止死等
 
 ## 源码项目路径
 - HotSpot 源码根目录：`/data/workspace/openjdk-cut-new/src/hotspot/share/`

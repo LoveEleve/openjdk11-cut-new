@@ -1,0 +1,86 @@
+# VMThread GDB 验证脚本
+# 文件位置: jvm-md/VMThread/gdb_vmthread.txt
+# 执行方式: cd /data/workspace/openjdk-cut-new && gdb -x jvm-md/VMThread/gdb_vmthread.txt ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+
+set pagination off
+set print pretty on
+
+# ============================================
+# 断点1: VMThread::create() - VMThread 创建
+# ============================================
+b vmThread.cpp:VMThread::create
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  VMThread::create() - VMThread 单例创建                               ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  即将创建:                                                            ║\n"
+  printf "║  • VMThread 单例对象                                                  ║\n"
+  printf "║  • VMOperationQueue 操作队列                                          ║\n"
+  printf "║  • 终止锁和性能计数器                                                 ║\n"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点2: VMThread::run() - VMThread 启动
+# ============================================
+b vmThread.cpp:VMThread::run
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  VMThread::run() - VMThread 开始运行                                  ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  执行步骤:                                                            ║\n"
+  printf "║  1. 初始化命名线程                                                    ║\n"
+  printf "║  2. 设置 JNI 句柄块                                                   ║\n"
+  printf "║  3. 通知创建者线程                                                    ║\n"
+  printf "║  4. 设置高优先级                                                      ║\n"
+  printf "║  5. 进入 loop() 主循环                                                ║\n"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点3: VMThread::loop() - VMThread 主循环
+# ============================================
+b vmThread.cpp:VMThread::loop
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  VMThread::loop() - 进入主循环                                        ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  循环内容:                                                            ║\n"
+  printf "║  • 从 VMOperationQueue 取操作                                         ║\n"
+  printf "║  • 进入/退出安全点                                                    ║\n"
+  printf "║  • 执行 VM 操作                                                       ║\n"
+  printf "║  • 通知等待线程                                                       ║\n"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 断点4: SafepointSynchronize::begin() - 进入安全点
+# ============================================
+b SafepointSynchronize::begin
+commands
+  silent
+  printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+  printf "║  SafepointSynchronize::begin() - 进入安全点                           ║\n"
+  printf "╠══════════════════════════════════════════════════════════════════════╣\n"
+  printf "║  当前 VM 操作: %s\n", VMThread::vm_operation() ? VMThread::vm_operation()->name() : "none"
+  printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+  continue
+end
+
+# ============================================
+# 运行程序
+# ============================================
+run -Xms256m -Xmx256m -XX:+UseG1GC -cp /data/workspace/demo/src com.wjcoder.Main
+
+# 输出完成标志
+printf "\n╔══════════════════════════════════════════════════════════════════════╗\n"
+printf "║  VMThread 验证完成                                                     ║\n"
+printf "╚══════════════════════════════════════════════════════════════════════╝\n"
+
+quit

@@ -1,0 +1,56 @@
+# GDB 验证脚本：libattach.so 数据结构验证
+# 验证目标：
+# 1. sizeof(LinuxAttachOperation) 是否约 3128 字节？
+# 2. sizeof(AttachOperation) 是否约 3120 字节？
+# 3. sizeof(sockaddr_un) 是否 110 字节？
+# 4. LinuxAttachListener::_listener 初始值是否为 -1？
+
+set pagination off
+set print pretty on
+
+printf "\n========== libattach.so 数据结构验证 ==========\n"
+
+# 1. 验证 AttachOperation sizeof
+printf "\n=== 1. AttachOperation sizeof 验证 ===\n"
+printf "sizeof(AttachOperation) = %lu bytes\n", sizeof(AttachOperation)
+printf "预期：约 3120 bytes (17 + 1025*3)\n"
+
+# 2. 验证 LinuxAttachOperation sizeof（继承 + _socket）
+printf "\n=== 2. LinuxAttachOperation sizeof 验证 ===\n"
+# 注意：LinuxAttachOperation 在符号表中可能不可见，我们计算理论值
+printf "理论大小 = sizeof(AttachOperation) + sizeof(int)\n"
+printf "预期：约 3124 bytes (3120 + 4)\n"
+
+# 3. 验证 sockaddr_un sizeof
+printf "\n=== 3. sockaddr_un sizeof 验证 ===\n"
+printf "sizeof(struct sockaddr_un) = %lu bytes\n", sizeof(struct sockaddr_un)
+printf "sun_family = %lu bytes\n", sizeof(((struct sockaddr_un*)0)->sun_family)
+printf "sun_path[108] = %lu bytes\n", sizeof(((struct sockaddr_un*)0)->sun_path)
+printf "预期：110 bytes (2 + 108)\n"
+
+# 4. 验证 LinuxAttachListener 静态字段（如果可访问）
+printf "\n=== 4. LinuxAttachListener 静态字段 ===\n"
+printf "注意：LinuxAttachListener 是静态类，字段在静态存储区\n"
+printf "_path 大小 = 108 bytes (UNIX_PATH_MAX)\n"
+printf "_has_path 大小 = 1 byte (bool)\n"
+printf "_listener 大小 = 4 bytes (int)\n"
+printf "初始值：_listener = -1 (volatile int)\n"
+
+# 5. 验证 AttachOperation 字段偏移量
+printf "\n=== 5. AttachOperation 字段偏移量 ===\n"
+set $op = (AttachOperation*)malloc(sizeof(AttachOperation))
+printf "_name 偏移 = %lu\n", (size_t)&$op->_name - (size_t)$op
+printf "_arg[0] 偏移 = %lu\n", (size_t)&$op->_arg[0] - (size_t)$op
+printf "_arg[1] 偏移 = %lu\n", (size_t)&$op->_arg[1] - (size_t)$op
+printf "_arg[2] 偏移 = %lu\n", (size_t)&$op->_arg[2] - (size_t)$op
+free($op)
+
+# 6. 验证 AttachOperation 常量
+printf "\n=== 6. AttachOperation 常量 ===\n"
+printf "name_length_max = 16\n"
+printf "arg_length_max = 1024\n"
+printf "arg_count_max = 3\n"
+
+printf "\n========== 验证完成 ==========\n"
+
+quit

@@ -1,0 +1,67 @@
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# 断在 initJvmFunctions 入口 — 此时 initOffsets 已完成
+b VMStructs::initJvmFunctions
+commands
+  printf "\n===== ALL OFFSETS AFTER initOffsets =====\n"
+  printf "KLASS: _klass_name=%d _symbol_len=%d _symbol_body=%d _oop_klass=%d\n", VMStructs::_klass_name_offset, VMStructs::_symbol_length_offset, VMStructs::_symbol_body_offset, VMStructs::_oop_klass_offset
+  printf "IKLASS: _cld=%d _cld_next=%d _methods=%d _jmethod_ids=%d\n", VMStructs::_class_loader_data_offset, VMStructs::_class_loader_data_next_offset, VMStructs::_methods_offset, VMStructs::_jmethod_ids_offset
+  printf "THREAD: _osthread=%d _anchor=%d _state=%d _vframe=%d _osthread_id=%d\n", VMStructs::_thread_osthread_offset, VMStructs::_thread_anchor_offset, VMStructs::_thread_state_offset, VMStructs::_thread_vframe_offset, VMStructs::_osthread_id_offset
+  printf "ANCHOR: sp=%d pc=%d fp=%d\n", VMStructs::_anchor_sp_offset, VMStructs::_anchor_pc_offset, VMStructs::_anchor_fp_offset
+  printf "COMPILER: env=%d task=%d method=%d\n", VMStructs::_comp_env_offset, VMStructs::_comp_task_offset, VMStructs::_comp_method_offset
+  printf "BLOB: _size=%d _frame_size=%d _frame_complete=%d _code=%d _data=%d _name=%d\n", VMStructs::_blob_size_offset, VMStructs::_frame_size_offset, VMStructs::_frame_complete_offset, VMStructs::_code_offset, VMStructs::_data_offset, VMStructs::_nmethod_name_offset
+  printf "NMETHOD: _method=%d _entry=%d _state=%d _level=%d _scopes_pcs=%d _scopes_data=%d\n", VMStructs::_nmethod_method_offset, VMStructs::_nmethod_entry_offset, VMStructs::_nmethod_state_offset, VMStructs::_nmethod_level_offset, VMStructs::_scopes_pcs_offset, VMStructs::_scopes_data_offset
+  printf "METHOD: _constmethod=%d _code=%d\n", VMStructs::_method_constmethod_offset, VMStructs::_method_code_offset
+  printf "CONSTMETHOD: _constants=%d _idnum=%d _size=%d _pool_holder=%d\n", VMStructs::_constmethod_constants_offset, VMStructs::_constmethod_idnum_offset, VMStructs::_constmethod_size, VMStructs::_pool_holder_offset
+  printf "CODEHEAP: addr=%p low_addr=%p high_addr=%p\n", VMStructs::_code_heap_addr, VMStructs::_code_heap_low_addr, VMStructs::_code_heap_high_addr
+  printf "CODEHEAP2: _memory=%d _segmap=%d _shift=%d _block_used=%d\n", VMStructs::_code_heap_memory_offset, VMStructs::_code_heap_segmap_offset, VMStructs::_code_heap_segment_shift, VMStructs::_heap_block_used_offset
+  printf "VS: _low_bound=%d _high_bound=%d _low=%d _high=%d\n", VMStructs::_vs_low_bound_offset, VMStructs::_vs_high_bound_offset, VMStructs::_vs_low_offset, VMStructs::_vs_high_offset
+  printf "FLAG: addr=%p count=%d size=%d name_off=%d addr_off=%d origin_off=%d\n", VMStructs::_flags_addr, VMStructs::_flag_count, VMStructs::_flag_size, VMStructs::_flag_name_offset, VMStructs::_flag_addr_offset, VMStructs::_flag_origin_offset
+  printf "FRAME: _call_wrapper_anchor=%d _entry_frame_call_wrapper=%d _stub_return_addr=%p\n", VMStructs::_call_wrapper_anchor_offset, VMStructs::_entry_frame_call_wrapper_offset, VMStructs::_call_stub_return_addr
+  printf "MISC: _narrow_klass_base_addr=%p _narrow_klass_shift_addr=%p _klass_offset_addr=%p\n", VMStructs::_narrow_klass_base_addr, VMStructs::_narrow_klass_shift_addr, VMStructs::_klass_offset_addr
+  printf "MISC2: _collected_heap_addr=%p _has_perm_gen=%d\n", VMStructs::_collected_heap_addr, VMStructs::_has_perm_gen
+  continue
+end
+
+# 统计 gHotSpotVMStructs 条目数
+b VM::init
+commands
+  set $count = 0
+  set $base = (unsigned long)gHotSpotVMStructs
+  set $s = (unsigned long)gHotSpotVMStructEntryArrayStride
+  while (*(char**)($base + $count * $s) != 0)
+    set $count = $count + 1
+  end
+  printf "\n===== gHotSpotVMStructs TOTAL ENTRIES = %d =====\n", $count
+
+  set $count2 = 0
+  set $base2 = (unsigned long)gHotSpotVMTypes
+  set $s2 = (unsigned long)gHotSpotVMTypeEntryArrayStride
+  while (*(char**)($base2 + $count2 * $s2) != 0)
+    set $count2 = $count2 + 1
+  end
+  printf "gHotSpotVMTypes TOTAL ENTRIES = %d\n", $count2
+
+  printf "\n===== SAMPLE: gHotSpotVMStructs[0..4] =====\n"
+  set $i = 0
+  while $i < 5
+    set $e = $base + $i * $s
+    printf "[%d] type=%-20s field=%-25s offset=%lu\n", $i, *(char**)($e + 0), *(char**)($e + 8), *(unsigned long*)($e + 32)
+    set $i = $i + 1
+  end
+  printf "\n===== SAMPLE: gHotSpotVMStructs 中 JavaThread 相关 =====\n"
+  set $i = 0
+  while (*(char**)($base + $i * $s) != 0)
+    set $e = $base + $i * $s
+    set $t = *(char**)($e + 0)
+    if ($t[0] == 'J' && $t[1] == 'a' && $t[2] == 'v' && $t[3] == 'a' && $t[4] == 'T')
+      printf "[%d] type=%-20s field=%-25s offset=%lu\n", $i, $t, *(char**)($e + 8), *(unsigned long*)($e + 32)
+    end
+    set $i = $i + 1
+  end
+  continue
+end
+
+run -XX:+UseG1GC -Xms8g -Xmx8g -Xint -agentpath:/data/workspace/async-profiler/build/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/profile.jfr -cp /data/workspace/demo/src com.wjcoder.Main

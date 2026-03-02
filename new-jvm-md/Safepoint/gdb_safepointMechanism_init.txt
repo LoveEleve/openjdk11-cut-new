@@ -1,0 +1,56 @@
+# SafepointMechanism::initialize() GDB 验证脚本
+#
+# 使用方法:
+#   cd /data/workspace/openjdk-cut-new
+#   gdb -x jvm-md/SafepointMechanism/gdb_safepointMechanism_init.txt \
+#       ./build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
+#
+# JVM 参数:
+#   -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+set pagination off
+set print pretty on
+
+# 在 SafepointMechanism::initialize() 设置断点
+break SafepointMechanism::initialize
+
+# 在 default_initialize() 设置断点
+break SafepointMechanism::default_initialize
+
+# 运行程序
+run -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main
+
+printf "\n========================================\n"
+printf "   SafepointMechanism::initialize() 断点命中   \n"
+printf "========================================\n\n"
+
+# 继续执行到 default_initialize 完成
+continue
+finish
+
+printf "\n========== default_initialize() 执行完成 ==========\n\n"
+
+# 打印 Polling 模式
+printf "========== Polling 模式 ==========\n"
+print SafepointMechanism::_polling_type
+
+# 打印 Polling 值
+printf "\n========== Polling 值 ==========\n"
+print SafepointMechanism::_poll_armed_value
+print SafepointMechanism::_poll_disarmed_value
+
+# 获取 polling page
+printf "\n========== Polling Page 地址 ==========\n"
+print os::get_polling_page()
+
+# 继续执行完 initialize
+finish
+
+printf "\n========== SafepointMechanism::initialize() 执行完成 ==========\n\n"
+
+printf "\n========================================\n"
+printf "         GDB 验证完成          \n"
+printf "========================================\n"
+
+# 继续运行
+continue
