@@ -2270,8 +2270,7 @@ void CompileBroker::invoke_compiler_on_method(CompileTask* task) {
       tty->print_cr("  entry_point=" PTR_FORMAT " (方法调用入口)",
           p2i(nm->entry_point()));
       tty->print_cr("  存放在CodeCache段=%s",
-          CodeCache::contains(nm->code_begin()) ?
-          CodeCache::get_code_heap(nm->code_begin())->name() : "unknown");
+          CodeCache::get_code_heap_name(CodeCache::get_code_blob_type(nm)));
     }
   }
   DirectivesStack::release(directive);

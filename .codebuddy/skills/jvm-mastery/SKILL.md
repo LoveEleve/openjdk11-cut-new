@@ -582,3 +582,193 @@ public class Main {
 - 严格使用 `-Xms8g -Xmx8g -XX:+UseG1GC`
 - 在 `G1CollectedHeap::initialize` 完成后验证常量
 - 所有内存计算基于 4MB Region / 8192 CardsPerRegion
+
+---
+
+## JVM 插桩安全规则 ⭐
+
+> **来源**：`MethodCounters::allocate()` 插桩时调用 `as_C_string()` 导致 `fatal error: memory leak: allocating without ResourceMark` crash 的教训。
+
+### 核心原则
+
+**在 JVM 源码中插入探针（`tty->print_cr()`）时，必须先判断探针代码是否需要 `ResourceMark`。**
+
+### 探针安全分类表
+
+| 探针类型 | 示例 | 是否需要 ResourceMark |
+|---------|------|----------------------|
+| 打印字符串字面量 | `tty->print_cr("[PROBE] init done")` | ❌ 不需要 |
+| 打印指针/整数 | `tty->print_cr("ptr=%p, size=%d", p, n)` | ❌ 不需要 |
+| 打印 Symbol（`as_C_string()`） | `sym->as_C_string()` | ✅ **必须加** |
+| 打印方法名 | `mh->name()->as_C_string()` | ✅ **必须加** |
+| 打印类名 | `klass->name()->as_C_string()` | ✅ **必须加** |
+| 打印方法签名 | `mh->signature()->as_C_string()` | ✅ **必须加** |
+| 打印方法全名 | `mh->name_and_sig_as_C_string()` | ✅ **必须加** |
+
+**根本原因**：`Symbol::as_C_string()` 内部调用 `ResourceArea::allocate_bytes()`，该函数要求调用栈上必须存在 `ResourceMark`，否则触发 `fatal error: memory leak: allocating without ResourceMark`。
+
+### 正确写法模板
+
+```cpp
+// ❌ 错误：没有 ResourceMark，会 crash
+if (mc != NULL) {
+    tty->print_cr("[PROBE] method=%s::%s",
+                  mh->method_holder()->name()->as_C_string(),  // 需要 ResourceMark！
+                  mh->name()->as_C_string());
+}
+
+// ✅ 正确：加 ResourceMark 保护
+if (mc != NULL) {
+    ResourceMark rm(THREAD);  // ← 必须在 as_C_string() 调用之前
+    tty->print_cr("[PROBE] method=%s::%s",
+                  mh->method_holder()->name()->as_C_string(),
+                  mh->name()->as_C_string());
+}
+```
+
+### 如何判断当前位置是否已有 ResourceMark？
+
+以下宏/入口会自动提供 `ResourceMark`，其内部的探针**不需要**额外添加：
+- `IRT_ENTRY` / `JRT_ENTRY` / `VM_ENTRY_MARK`：解释器/JIT 运行时入口
+- `THROW_MSG` 等异常抛出宏
+
+以下位置**不保证**有 `ResourceMark`，插桩时**必须**手动添加：
+- `Metaspace::allocate()` 及其调用链
+- `MethodCounters::allocate()`
+- `InstanceKlass::initialize()` 的早期阶段
+- 任何 `CHeapObj` 的构造函数
+- `vm_init_globals()` / `init_globals()` 的早期阶段
+
+### 增量编译工作流（正确姿势）
+
+**插桩后的编译流程**：
+
+```
+修改源码（插桩）→ 直接在 CLion 点 Build → 增量编译（只编修改的文件）→ 完成
+```
+
+❌ **禁止**：手动调用 `g++` 编译单个 `.cpp` 文件再替换 `.o`
+- 原因：手动编译缺少 `-fno-rtti` 等关键 flag，导致 `typeinfo` 符号不兼容，链接时报 `undefined reference to typeinfo for XXX`
+
+✅ **正确**：让构建系统（CLion / gmake）自动处理，它会用完整的编译参数增量编译
+
+### 插桩 Crash 排查流程
+
+当插桩后 JVM crash 时：
+
+```
+1. 看 crash 信息中的 "Internal Error" 位置
+   ↓
+2. 如果是 resourceArea.inline.hpp → ResourceMark 缺失
+   如果是 assert.hpp → 断言失败，检查插桩是否破坏了不变量
+   如果是其他 → 看 hs_err_pidXXX.log 中的调用栈
+   ↓
+3. 在 hs_err 日志中找 "Stack:"，定位到我们插桩的函数
+   ↓
+4. 在探针代码块前加 ResourceMark rm(THREAD) 修复
+```
+
+---
+
+## ResourceMark 作用域陷阱 ⭐（高频踩坑）
+
+> **来源**：`Method::build_method_counters()` 插桩 crash 的教训。
+> `IRT_ENTRY` 宏提供了 `ResourceMark`，但调用的静态函数不继承它，导致 crash。
+
+### 核心陷阱
+
+**`IRT_ENTRY` / `JRT_ENTRY` 宏的 `ResourceMark` 只在当前函数的栈帧内有效，不会传递给被调用的函数（尤其是静态函数）。**
+
+```
+InterpreterRuntime::build_method_counters()   ← IRT_ENTRY 宏，有 ResourceMark ✅
+  → Method::build_method_counters()           ← 静态函数，新栈帧，ResourceMark 不在这里！❌
+    → 探针：mh->name()->as_C_string()         ← CRASH：allocating without ResourceMark
+```
+
+### 错误认知 vs 正确认知
+
+| 错误认知 | 正确认知 |
+|---------|---------|
+| "调用者有 ResourceMark，被调用者也有" | ResourceMark 是栈对象，只在声明它的函数栈帧内有效 |
+| "IRT_ENTRY 函数里调用的函数都安全" | 被调用的静态函数必须自己声明 ResourceMark |
+| "函数签名有 `Thread* THREAD` 就有 ResourceMark" | 有 THREAD 参数只是能创建 ResourceMark，不代表已经有了 |
+
+### 判断规则：什么时候需要自己加 ResourceMark？
+
+**只要函数不是直接被 `IRT_ENTRY`/`JRT_ENTRY`/`VM_ENTRY_MARK` 宏展开的，就必须自己加。**
+
+```cpp
+// ✅ 安全：IRT_ENTRY 宏直接展开，ResourceMark 在本函数栈帧内
+IRT_ENTRY(void, InterpreterRuntime::build_method_counters(JavaThread* thread, Method* m))
+  // 这里可以直接用 as_C_string()
+IRT_END
+
+// ❌ 危险：静态函数，即使被 IRT_ENTRY 函数调用，也没有 ResourceMark
+MethodCounters* Method::build_method_counters(Method* m, TRAPS) {
+  // 这里用 as_C_string() 会 crash！必须自己加 ResourceMark
+  ResourceMark rm(THREAD);  // ← 必须手动加
+  tty->print_cr("method=%s", m->name()->as_C_string());
+}
+```
+
+### 作用域限定写法（推荐）
+
+当探针只在局部使用 `as_C_string()` 时，用大括号限定 ResourceMark 的作用域，避免影响后续代码：
+
+```cpp
+// 推荐：用大括号限定 ResourceMark 作用域
+{
+    ResourceMark rm(THREAD);
+    tty->print_cr("[PROBE] method=%s::%s, CAS=%s",
+                  mh->method_holder()->name()->as_C_string(),
+                  mh->name()->as_C_string(),
+                  cas_success ? "SUCCESS" : "FAILED");
+}
+// 大括号外 ResourceMark 已销毁，不影响后续代码
+```
+
+---
+
+## make 增量编译不触发问题 ⭐
+
+> **来源**：修复 `method.cpp` 后 Build，但 make 认为文件没变化，没有重新编译，导致 crash 依然存在。
+
+### 问题现象
+
+```
+修改了 method.cpp → CLion Build → Build 成功 → 运行还是 crash
+→ 检查 method.o 时间戳 → 发现 .o 比 .cpp 还新 → make 跳过了重编译
+```
+
+### 根本原因
+
+make 的增量编译依赖**文件时间戳**：如果 `.o` 文件比 `.cpp` 文件新，make 认为不需要重新编译。
+
+这种情况发生在：
+- 编辑器保存文件时没有更新 mtime（某些情况下）
+- 之前手动操作过 `.o` 文件
+- 构建系统缓存（ccache）命中了旧版本
+
+### 解决方案
+
+**强制 touch 源文件，让 make 重新编译：**
+
+```bash
+# 强制更新时间戳，触发重编译
+touch /data/workspace/openjdk-cut-new/src/hotspot/share/oops/method.cpp
+
+# 然后重新 Build（CLion 或 make 命令均可）
+make -f make/Main.gmk SPEC=.../spec.gmk split-hotspot-libs 2>&1 | tail -20
+```
+
+### 验证编译是否生效
+
+```bash
+# 检查 .o 文件时间戳，确认比 .cpp 新
+ls -la .../libjvm/objs/method.o
+
+# 检查 libjvm.so 是否也更新了
+ls -la .../support/modules_libs/java.base/server/libjvm.so
+```
+
+**判断标准**：Build 日志中出现 `Updating support/modules_libs/java.base/server/libjvm.so due to N file(s)` 才说明真正重新链接了。

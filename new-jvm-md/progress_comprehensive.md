@@ -4,6 +4,23 @@
 
 ---
 
+## 全局学习能力地图（从上往下依次推进）
+
+| 阶段 | 对应文档入口 | 学完能解决的问题 | 最小验证任务 |
+|------|--------------|------------------|--------------|
+| **Stage 1：入门建图** | `00-Getting-Started/JVM-Source-Analysis-Getting-Started.md` | 知道 JVM 源码该从哪读、如何定位关键文件、如何做第一次 GDB 断点验证 | 命中 `InterpreterRuntime::_new` 一次并输出 `bt` |
+| **Stage 2：对象与内存模型** | `ObjectModel/*` + `Integration/1-Object-Complete-Lifecycle.md` | 线上 OOM、对象分配慢、对象头状态不清等问题可做初步定位 | 跟踪 `new Object()` 到对象分配路径 |
+| **Stage 3：方法调用与执行** | `Integration/2-Method-Invocation-Full-Path.md` + `Interpreter/*` + `Compiler/*` | 方法调用慢、JIT 编译行为异常、反射调用开销问题可定位关键链路 | 追踪一次 `invokevirtual` 到解释器/编译执行路径 |
+| **Stage 4：并发与线程** | `Integration/4-Thread-Creation-JVM-OS-View.md` + `Synchronization/*` + `Safepoint/*` | 锁竞争、线程卡顿、死锁、Safepoint 停顿可建立排查骨架 | 断点观察一次 `ObjectMonitor::enter` 或 `Parker::park` |
+| **Stage 5：GC 与内存故障** | `G1GC/*` + `RealWorld-Cases/04-GC-Troubleshooting-Case-Study.md` | GC 频繁、Full GC、Humongous、Evacuation Failure 能形成闭环排查流程 | 对照 GC 日志定位一次 `GCCause` |
+| **Stage 6：实战诊断闭环** | `RealWorld-Cases/*` + `Arthas-new/*` + `AsyncProfiler/*` | CPU 100%、内存泄漏、锁争用、Native 内存异常可按工具链定位根因 | 完成一次“thread + profiler + 源码定位”组合排查 |
+
+## 分层阅读规则（L1/L2/L3）
+
+- **L1（必读）**：只看每个模块的入口文档与总览图，目标是建立全局骨架。
+- **L2（进阶）**：补齐每个模块的核心数据结构与关键流程文档，目标是能解释“为什么这样设计”。
+- **L3（深挖）**：进入 Deep-Dive 与 GDB 验证章节，目标是能独立完成源码级问题定位与文档产出。
+
 ## Integration 系列（跨模块全链路分析）
 
 | 编号 | 文档 | 状态 | 行数 | 核心内容 |

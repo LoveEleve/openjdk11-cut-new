@@ -2266,15 +2266,15 @@ new-jvm-md/Instrumentation/
 
 | 章节 | 核心验证问题 | 状态 | 关键结论 |
 |------|------------|------|---------| 
-| 第1章 JVM 启动 | mutex_init初始化了多少把锁？universe_init堆参数？compileBroker启动了几个JIT线程？各阶段耗时？ | ⬜ 待开始 | - |
-| 第2章 类加载 | 加载Main前已有多少个类？InstanceKlass大小？vtable内容？双亲委派链路？ | ⬜ 待开始 | - |
-| 第3章 对象分配 | TLAB大小？refill触发条件？Humongous阈值？分配几个Region？ | ⬜ 待开始 | - |
-| 第4章 G1 YoungGC | GC触发时Eden有多少Region？复制了多少对象？各子阶段耗时？ | ⬜ 待开始 | - |
+| 第1章 JVM 启动 | mutex_init初始化了多少把锁？universe_init堆参数？compileBroker启动了几个JIT线程？各阶段耗时？ | ✅ 已完成 | 02-JVM-Startup-Probe-Results.md |
+| 第2章 类加载 | 加载Main前已有多少个类？InstanceKlass大小？vtable内容？双亲委派链路？ | ✅ 已完成 | 02-JVM-Startup-Probe-Results.md（含类加载验证章节） |
+| 第3章 对象分配 | TLAB大小？refill触发条件？Humongous阈值？分配几个Region？ | ✅ 已完成 | 03-ObjectAlloc-Probe-Results.md |
+| 第4章 G1 YoungGC | GC触发时Eden有多少Region？复制了多少对象？各子阶段耗时？ | ✅ 已完成 | 04-YoungGC-Probe-Results.md |
 | 第4B章 G1 写屏障 | 写屏障触发多少次？跨Region比例？DirtyCardQueue长度？ | ✅ 已完成 | 04B-WriteBarrier-Probe-Results.md |
 | 第4C章 G1 并发标记 | 并发标记线程数？标记了多少对象？Remark STW耗时？ | ✅ 已完成 | 04C-ConcMark-Probe-Results.md |
 | 第4D章 G1 Mixed GC | Mixed GC触发条件？CSet包含多少Old Region？回收了多少MB？ | ✅ 已完成 | 04D-MixedGC-Probe-Results.md |
 | 第5章 JIT 编译 | C1触发阈值？C2触发阈值？编译耗时？代码大小？C1 vs C2代码大小对比？ | ✅ 已完成 | 05-JIT-Probe-Results.md |
-| 第5B章 OSR 栈上替换 | OSR触发的 backedge_count？OSR编译的 osr_bci？切换时机？ | ⬜ 待开始 | - |
+| 第5B章 OSR 栈上替换 | OSR触发的 backedge_count？OSR编译的 osr_bci？切换时机？ | ✅ 已完成 | 05B-OSR-Probe-Results.md |
 | 第5C章 去优化 | 去优化原因？重建了多少个栈帧？恢复到哪个bci？ | ⬜ 待开始 | - |
 | 第5D章 字节码解释执行 | dispatch table地址？handler数量？解释器代码大小？ | ⬜ 待开始 | - |
 | 第6章 Safepoint | TTT是多少ms？最慢线程在做什么？操作耗时 vs 恢复耗时？ | ⬜ 待开始 | - |
