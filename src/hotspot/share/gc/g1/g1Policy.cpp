@@ -1133,6 +1133,10 @@ bool G1Policy::next_gc_should_be_mixed(const char* true_action_str,
                                        const char* false_action_str) const {
   if (cset_chooser()->is_empty()) {
     log_debug(gc, ergo)("%s (candidate old regions not available)", false_action_str);
+    // [PROBE][4D.1] Mixed GC 触发判断 - 无候选 Region
+    tty->print_cr("[PROBE][MixedGC] next_gc_should_be_mixed 判断:");
+    tty->print_cr("  候选Old Region数=0 (CSet Chooser为空，并发标记未完成或无Old Region)");
+    tty->print_cr("  → 结论: 继续Young GC (无候选)");
     return false;
   }
 
@@ -1143,10 +1147,24 @@ bool G1Policy::next_gc_should_be_mixed(const char* true_action_str,
   if (reclaimable_percent <= threshold) {
     log_debug(gc, ergo)("%s (reclaimable percentage not over threshold). candidate old regions: %u reclaimable: " SIZE_FORMAT " (%1.2f) threshold: " UINTX_FORMAT,
                         false_action_str, cset_chooser()->remaining_regions(), reclaimable_bytes, reclaimable_percent, G1HeapWastePercent);
+    // [PROBE][4D.1] Mixed GC 触发判断 - 可回收空间不足
+    tty->print_cr("[PROBE][MixedGC] next_gc_should_be_mixed 判断:");
+    tty->print_cr("  候选Old Region数=%u, 可回收空间=%zuMB (%.1f%%)",
+        cset_chooser()->remaining_regions(), reclaimable_bytes / M, reclaimable_percent);
+    tty->print_cr("  G1HeapWastePercent=%u%% (阈值), 可回收空间不足", (uint)G1HeapWastePercent);
+    tty->print_cr("  → 结论: 继续Young GC (可回收空间 %.1f%% <= 阈值 %u%%)",
+        reclaimable_percent, (uint)G1HeapWastePercent);
     return false;
   }
   log_debug(gc, ergo)("%s (candidate old regions available). candidate old regions: %u reclaimable: " SIZE_FORMAT " (%1.2f) threshold: " UINTX_FORMAT,
                       true_action_str, cset_chooser()->remaining_regions(), reclaimable_bytes, reclaimable_percent, G1HeapWastePercent);
+  // [PROBE][4D.1] Mixed GC 触发判断 - 触发 Mixed GC
+  tty->print_cr("[PROBE][MixedGC] next_gc_should_be_mixed 判断:");
+  tty->print_cr("  候选Old Region数=%u, 可回收空间=%zuMB (%.1f%%)",
+      cset_chooser()->remaining_regions(), reclaimable_bytes / M, reclaimable_percent);
+  tty->print_cr("  G1HeapWastePercent=%u%% (阈值), 可回收空间充足", (uint)G1HeapWastePercent);
+  tty->print_cr("  → 结论: 触发Mixed GC (可回收空间 %.1f%% > 阈值 %u%%)",
+      reclaimable_percent, (uint)G1HeapWastePercent);
   return true;
 }
 

@@ -539,6 +539,24 @@ void G1CollectionSet::finalize_old_part(double time_remaining_ms) {
   phase_times()->record_non_young_cset_choice_time_ms((non_young_end_time_sec - non_young_start_time_sec) * 1000.0);
 
   QuickSort::sort(_collection_set_regions, _collection_set_cur_length, compare_region_idx, true);
+
+  // [PROBE][4D.2] CSet 选择完成 —— 打印 Young + Old Region 数量
+  if (collector_state()->in_mixed_phase()) {
+    uint young_len = young_region_length();
+    uint old_len   = old_region_length();
+    size_t young_mb = (size_t)young_len * HeapRegion::GrainBytes / M;
+    size_t old_mb   = (size_t)old_len   * HeapRegion::GrainBytes / M;
+    uint min_old = _policy->calc_min_old_cset_length();
+    uint max_old = _policy->calc_max_old_cset_length();
+    tty->print_cr("[PROBE][MixedGC] CSet选择完成 (Mixed GC):");
+    tty->print_cr("  Young Region数=%u (%zuMB)", young_len, young_mb);
+    tty->print_cr("  Old Region数=%u (%zuMB) [本次Mixed GC回收的Old Region]", old_len, old_mb);
+    tty->print_cr("  Old Region选择范围: min=%u, max=%u (G1MixedGCCountTarget=%u)",
+        min_old, max_old, (uint)G1MixedGCCountTarget);
+    tty->print_cr("  剩余候选Old Region数=%u (还需几轮Mixed GC才能清完)",
+        cset_chooser()->remaining_regions());
+    tty->print_cr("  预计Old Region回收耗时=%.2fms", predicted_old_time_ms);
+  }
 }
 
 #ifdef ASSERT
