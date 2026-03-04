@@ -869,6 +869,23 @@ void G1ConcurrentMark::post_initial_mark() {
   // when marking is on. So, it's also called at the end of the
   // initial-mark pause to update the heap end, if the heap expands
   // during it. No need to call it here.
+
+  // [PROBE][4C.1] Initial Mark 完成 —— 打印 SATB 激活状态和堆信息
+  {
+    SATBMarkQueueSet& satb_qs = G1BarrierSet::satb_mark_queue_set();
+    size_t used_bytes    = _g1h->used();
+    size_t capacity_bytes = _g1h->capacity();
+    double used_pct = capacity_bytes > 0 ? used_bytes * 100.0 / capacity_bytes : 0.0;
+    tty->print_cr("[PROBE][InitialMark] post_initial_mark 完成:");
+    tty->print_cr("  SATB写屏障已激活=%s (从此刻起所有引用修改都记录到SATB队列)",
+        satb_qs.is_active() ? "YES" : "NO");
+    tty->print_cr("  堆使用率=%.1f%% (used=%zuMB / capacity=%zuMB)",
+        used_pct, used_bytes / M, capacity_bytes / M);
+    tty->print_cr("  Old Region数=%u, Humongous Region数=%u",
+        _g1h->old_regions_count(), _g1h->humongous_regions_count());
+    tty->print_cr("  Root Region数=%u (需要并发扫描的Survivor Region)",
+        _root_regions.num_root_regions());
+  }
 }
 
 /*
@@ -1078,8 +1095,32 @@ void G1ConcurrentMark::mark_from_roots() {
   // Parallel task terminator is set in "set_concurrency_and_phase()"
   set_concurrency_and_phase(active_workers, true /* concurrent */);
 
+  // [PROBE][4C.2] 并发标记开始
+  jlong _probe_cm_start = os::javaTimeNanos();
+  {
+    SATBMarkQueueSet& satb_qs = G1BarrierSet::satb_mark_queue_set();
+    tty->print_cr("[PROBE][ConcMark] mark_from_roots 开始:");
+    tty->print_cr("  并发标记线程数=%u (总线程池=%u)",
+        active_workers, _concurrent_workers->total_workers());
+    tty->print_cr("  待标记Region数=%u (used=%u, free=%u)",
+        _g1h->num_used_regions(), _g1h->num_used_regions(), _g1h->num_free_regions());
+    tty->print_cr("  SATB写屏障激活=%s", satb_qs.is_active() ? "YES" : "NO");
+  }
+
   G1CMConcurrentMarkingTask marking_task(this);
   _concurrent_workers->run_task(&marking_task);
+
+  // [PROBE][4C.2] 并发标记结束
+  {
+    SATBMarkQueueSet& satb_qs = G1BarrierSet::satb_mark_queue_set();
+    jlong elapsed_ms = (os::javaTimeNanos() - _probe_cm_start) / 1000000;
+    tty->print_cr("[PROBE][ConcMark] mark_from_roots 完成:");
+    tty->print_cr("  并发标记耗时=%ldms (不STW，Java线程同时运行)", elapsed_ms);
+    tty->print_cr("  SATB队列已完成缓冲区数=%zu (并发期间积累的引用修改)",
+        satb_qs.completed_buffers_num());
+    tty->print_cr("  标记是否溢出=%s", has_overflown() ? "YES(需要重启)" : "NO");
+  }
+
   print_stats();
 }
 
@@ -1242,6 +1283,17 @@ void G1ConcurrentMark::remark() {
 
   double start = os::elapsedTime();
 
+  // [PROBE][4C.3] Remark 开始
+  {
+    SATBMarkQueueSet& satb_qs = G1BarrierSet::satb_mark_queue_set();
+    tty->print_cr("[PROBE][Remark] remark 开始 (STW):");
+    tty->print_cr("  SATB队列已完成缓冲区数=%zu (并发期间积累的引用修改待处理)",
+        satb_qs.completed_buffers_num());
+    tty->print_cr("  SATB写屏障激活=%s", satb_qs.is_active() ? "YES" : "NO");
+    tty->print_cr("  Old Region数=%u, Humongous Region数=%u",
+        _g1h->old_regions_count(), _g1h->humongous_regions_count());
+  }
+
   verify_during_pause(G1HeapVerifier::G1VerifyRemark, VerifyOption_G1UsePrevMarking, "Remark before");
 
   {
@@ -1322,6 +1374,23 @@ void G1ConcurrentMark::remark() {
   _remark_mark_times.add((mark_work_end - start) * 1000.0);
   _remark_weak_ref_times.add((now - mark_work_end) * 1000.0);
   _remark_times.add((now - start) * 1000.0);
+
+  // [PROBE][4C.3] Remark 完成
+  {
+    SATBMarkQueueSet& satb_qs = G1BarrierSet::satb_mark_queue_set();
+    double remark_ms = (now - start) * 1000.0;
+    double mark_ms   = (mark_work_end - start) * 1000.0;
+    double weakref_ms = (now - mark_work_end) * 1000.0;
+    tty->print_cr("[PROBE][Remark] remark 完成 (STW):");
+    tty->print_cr("  Remark总耗时=%.2fms (标记=%.2fms + 弱引用=%.2fms)",
+        remark_ms, mark_ms, weakref_ms);
+    tty->print_cr("  标记完成=%s (未溢出=%s)",
+        mark_finished ? "YES" : "NO(溢出重启)",
+        !has_overflown() ? "YES" : "NO");
+    tty->print_cr("  SATB写屏障已关闭=%s (Remark后不再需要SATB)",
+        !satb_qs.is_active() ? "YES" : "NO(异常)");
+    tty->print_cr("  SATB剩余缓冲区=%zu (应为0)", satb_qs.completed_buffers_num());
+  }
 
   g1p->record_concurrent_mark_remark_end();
 }
@@ -1485,6 +1554,25 @@ void G1ConcurrentMark::cleanup() {
   {
     GCTraceTime(Debug, gc, phases) debug("Finalize Concurrent Mark Cleanup", _gc_timer_cm);
     _g1h->g1_policy()->record_concurrent_mark_cleanup_end();
+  }
+
+  // [PROBE][4C.4] Cleanup 完成
+  {
+    double cleanup_ms = (os::elapsedTime() - start) * 1000.0;
+    G1Policy* policy = _g1h->g1_policy();
+    bool next_mixed = policy->next_gc_should_be_mixed("", "");
+    size_t free_regions = _g1h->num_free_regions();
+    size_t used_bytes   = _g1h->used();
+    size_t capacity_bytes = _g1h->capacity();
+    tty->print_cr("[PROBE][Cleanup] cleanup 完成 (STW):");
+    tty->print_cr("  Cleanup耗时=%.2fms", cleanup_ms);
+    tty->print_cr("  当前空闲Region数=%u (含Cleanup直接释放的完全死亡Region)", (uint)free_regions);
+    tty->print_cr("  堆使用率=%.1f%% (used=%zuMB / capacity=%zuMB)",
+        capacity_bytes > 0 ? used_bytes * 100.0 / capacity_bytes : 0.0,
+        used_bytes / M, capacity_bytes / M);
+    tty->print_cr("  下一次GC类型=%s", next_mixed ? "Mixed GC (有Old Region候选)" : "Young GC (无足够候选)");
+    tty->print_cr("  Old Region数=%u, Humongous Region数=%u",
+        _g1h->old_regions_count(), _g1h->humongous_regions_count());
   }
 }
 
