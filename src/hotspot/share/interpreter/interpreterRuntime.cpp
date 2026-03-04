@@ -1074,19 +1074,17 @@ IRT_ENTRY(nmethod*,
     tty->print_cr("  触发类型=%s (branch_bcp=%s)",
         is_osr_trigger ? "OSR(循环回边)" : "方法调用(invocation)",
         is_osr_trigger ? "非NULL" : "NULL");
-    tty->print_cr("  invocation_count=%d (raw=%d)",
-        method->invocation_count(),
-        method->invocation_counter()->raw_value());
-    tty->print_cr("  backedge_count=%d (raw=%d)",
-        method->backedge_count(),
-        method->backedge_counter()->raw_value());
+    tty->print_cr("  invocation_count=%d",
+        method->invocation_count());
+    tty->print_cr("  backedge_count=%d",
+        method->backedge_count());
     tty->print_cr("  当前编译级别=%d (%s)",
-        method->comp_level(),
-        method->comp_level() == 0 ? "解释执行" :
-        method->comp_level() == 1 ? "C1-简单" :
-        method->comp_level() == 2 ? "C1-有限profiling" :
-        method->comp_level() == 3 ? "C1-完整profiling" :
-        method->comp_level() == 4 ? "C2" : "未知");
+        method->highest_comp_level(),
+        method->highest_comp_level() == 0 ? "解释执行" :
+        method->highest_comp_level() == 1 ? "C1-简单" :
+        method->highest_comp_level() == 2 ? "C1-有限profiling" :
+        method->highest_comp_level() == 3 ? "C1-完整profiling" :
+        method->highest_comp_level() == 4 ? "C2" : "未知");
     if (is_osr_trigger) {
       tty->print_cr("  osr_bci=%d (循环回边字节码偏移量)", bci);
     }
@@ -1096,6 +1094,30 @@ IRT_ENTRY(nmethod*,
 
   nmethod* osr_nm = CompilationPolicy::policy()->event(method, method, branch_bci, bci, CompLevel_none, NULL, thread);
   assert(!HAS_PENDING_EXCEPTION, "Event handler should not throw any exceptions");
+
+  // [PROBE][OSR] 第5B章：OSR 编译请求被接受，即将进行栈上替换
+  if (osr_nm != NULL && branch_bcp != NULL) {
+    ResourceMark rm2;
+    tty->print_cr("[PROBE][OSR] OSR编译完成，准备栈上替换: method=%s",
+        method->name_and_sig_as_C_string());
+    tty->print_cr("  osr_bci=%d (循环回边字节码偏移量)", bci);
+    tty->print_cr("  branch_bci=%d (回边目标字节码偏移量)", branch_bci);
+    tty->print_cr("  invocation_count=%d (方法被调用次数)",
+        method->invocation_count());
+    tty->print_cr("  backedge_count=%d (循环回边累计次数)",
+        method->backedge_count());
+    tty->print_cr("  osr_nmethod编译级别=%d (%s)",
+        osr_nm->comp_level(),
+        osr_nm->comp_level() == 1 ? "C1-简单" :
+        osr_nm->comp_level() == 2 ? "C1-有限profiling" :
+        osr_nm->comp_level() == 3 ? "C1-完整profiling" :
+        osr_nm->comp_level() == 4 ? "C2" : "未知");
+    tty->print_cr("  osr_nmethod代码大小: total=%d bytes, insts=%d bytes",
+        osr_nm->size(), osr_nm->insts_size());
+    tty->print_cr("  osr_entry_point=" PTR_FORMAT " (OSR入口地址，从osr_bci处开始执行)",
+        p2i(osr_nm->osr_entry()));
+    tty->print_cr("  → 下一步: OSR_migration_begin() 将迁移解释器局部变量到编译栈帧");
+  }
 
   if (osr_nm != NULL) {
     // We may need to do on-stack replacement which requires that no

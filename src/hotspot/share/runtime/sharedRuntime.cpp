@@ -3048,6 +3048,29 @@ JRT_LEAF(intptr_t*, SharedRuntime::OSR_migration_begin( JavaThread *thread) )
   assert(fr.is_interpreted_frame(), "");
   assert(fr.interpreter_frame_expression_stack_size()==0, "only handle empty stacks");
 
+  // [PROBE][OSR] 第5B章：OSR 栈帧迁移开始
+  {
+    Method* probe_moop = fr.interpreter_frame_method();
+    int probe_max_locals = probe_moop->max_locals();
+    int probe_monitor_count = 0;
+    for (BasicObjectLock *kptr = fr.interpreter_frame_monitor_end();
+         kptr < fr.interpreter_frame_monitor_begin();
+         kptr = fr.next_monitor_in_interpreter_frame(kptr)) {
+      if (kptr->obj() != NULL) probe_monitor_count++;
+    }
+    int probe_buf_words = probe_max_locals + probe_monitor_count * BasicObjectLock::size();
+    tty->print_cr("[PROBE][OSR] OSR_migration_begin: 解释器栈帧 → 编译栈帧迁移");
+    tty->print_cr("  method=%s", probe_moop->name_and_sig_as_C_string());
+    tty->print_cr("  max_locals=%d (需要迁移的局部变量槽数)", probe_max_locals);
+    tty->print_cr("  active_monitors=%d (需要迁移的锁对象数)", probe_monitor_count);
+    tty->print_cr("  迁移缓冲区大小=%d words (%d bytes)",
+        probe_buf_words, probe_buf_words * (int)sizeof(intptr_t));
+    tty->print_cr("  操作数栈深度=%d (OSR前提：必须为0，循环回边处栈为空)",
+        (int)fr.interpreter_frame_expression_stack_size());
+    tty->print_cr("  解释器栈帧地址=" PTR_FORMAT, p2i(fr.sp()));
+    tty->print_cr("  → 迁移完成后，编译代码从 osr_entry 处接管执行");
+  }
+
   // Figure out how many monitors are active.
   int active_monitor_count = 0;
   for (BasicObjectLock *kptr = fr.interpreter_frame_monitor_end();
