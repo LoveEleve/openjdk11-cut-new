@@ -2250,6 +2250,29 @@ void CompileBroker::invoke_compiler_on_method(CompileTask* task) {
   nmethod* nm = task->code();
   if (nm != NULL) {
     nm->maybe_print_nmethod(directive);
+    // [PROBE][JIT] 第5章：编译完成插桩
+    {
+      ResourceMark rm;
+      methodHandle mh(thread, task->method());
+      tty->print_cr("[PROBE][JIT] 编译完成: method=%s",
+          mh->name_and_sig_as_C_string());
+      tty->print_cr("  编译级别=Tier%d (%s)",
+          task_level,
+          task_level <= 1 ? "C1-简单" :
+          task_level <= 3 ? "C1-profiling" : "C2");
+      tty->print_cr("  是否OSR=%s (osr_bci=%d)",
+          is_osr ? "YES" : "NO", osr_bci);
+      tty->print_cr("  编译耗时=%ldms", (long)time.milliseconds());
+      tty->print_cr("  代码大小: total=%d bytes, insts=%d bytes",
+          nm->total_size(), nm->insts_size());
+      tty->print_cr("  代码地址=[" PTR_FORMAT ", " PTR_FORMAT ")",
+          p2i(nm->code_begin()), p2i(nm->code_end()));
+      tty->print_cr("  entry_point=" PTR_FORMAT " (方法调用入口)",
+          p2i(nm->entry_point()));
+      tty->print_cr("  存放在CodeCache段=%s",
+          CodeCache::contains(nm->code_begin()) ?
+          CodeCache::get_code_heap(nm->code_begin())->name() : "unknown");
+    }
   }
   DirectivesStack::release(directive);
 
