@@ -350,3 +350,16 @@ JavaMain
 | 序号 | 文档 | 状态 |
 |------|------|------|
 | Day 42+ | libjsig.so / libjli.so / libattach.so | 📝 计划中 |
+
+---
+
+## 插桩系列（Instrumentation，持续进行中）
+
+### 已完成
+
+| 序号 | 文档 | 状态 |
+|------|------|------|
+| 第1章 | [**JVM 启动探针结果**](./Instrumentation/02-JVM-Startup-Probe-Results.md) | ✅ 完成（Threads::create_vm 11个阶段全覆盖） |
+| 第2章 | [**对象分配探针结果**](./Instrumentation/03-ObjectAlloc-Probe-Results.md) | ✅ 完成（TLAB/Humongous 分配路径验证） |
+| 第4章 | [**G1 YoungGC 探针结果**](./Instrumentation/04-YoungGC-Probe-Results.md) | ✅ 完成（2次YoungGC完整数据：触发条件/CSet/复制字节数/Region守恒验证。关键修复：探针必须在note_gc_start()之前读Eden，在set_bytes_copied()之后读evacuation_info） |
+| 第4B章 | [**G1 写屏障漏斗分析**](./Instrumentation/04B-WriteBarrier-Probe-Results.md) | ✅ 完成（汇编快路径全路径插桩：431万次触发漏斗分析。关键发现：最大过滤是Young Card(88.1%)而非同Region(8%)；真正入队仅0.0009%；校验和误差<15符合多线程非原子计数器预期。修正总纲"95%同Region"的错误预期） |
