@@ -3877,6 +3877,7 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     extern void JDK_Version_init();
     // Preinitialize version info.
     VM_Version::early_initialize();
+    // NOTE: tty 在 ostream_init() 之前不可用，所以第一条 PROBE 放在 ostream_init 之后
 
     // Check version
     if (!is_supported_jni_version(args->version)) return JNI_EVERSION;
@@ -3888,6 +3889,10 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     // Initialize the output stream module
     // forcus:初始化流
     ostream_init();
+    tty->print_cr("[PROBE][Startup] ============================================");
+    tty->print_cr("[PROBE][Startup] Threads::create_vm() START");
+    tty->print_cr("[PROBE][Startup] ============================================");
+    tty->print_cr("[PROBE][Startup] [Phase-1] ostream_init() DONE -- tty 就绪");
 
     // Process java launcher properties.
     // forcus:处理java启动器属性
@@ -3895,7 +3900,9 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
 
     // Initialize the os module
     // forcus : os(linux)相关的系统环境初始化
+    tty->print_cr("[PROBE][Startup] [Phase-2] os::init() START -- 初始化OS模块");
     os::init();
+    tty->print_cr("[PROBE][Startup] [Phase-2] os::init() DONE");
 
     MACOS_AARCH64_ONLY(os::current_thread_enable_wx(WXWrite));
 
@@ -3920,8 +3927,10 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     // Parse arguments
     // Note: this internally calls os::init_container_support()
     // forcus 解析参数
+    tty->print_cr("[PROBE][Startup] [Phase-3] Arguments::parse() START -- 解析JVM参数");
     jint parse_result = Arguments::parse(args);
     if (parse_result != JNI_OK) return parse_result;
+    tty->print_cr("[PROBE][Startup] [Phase-3] Arguments::parse() DONE");
     // forcus 它是自动调优的前置准备工作 {主要作用: 初始化活跃CPU核心数 / 大页支持 / 线程栈保护页大小}
     os::init_before_ergo();
     // forcus 自动调优相关设置
@@ -3999,7 +4008,9 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
 
     // Initialize global data structures and create system classes in heap
     // forcus 初始化 "vm全局数据结构"
+    tty->print_cr("[PROBE][Startup] [Phase-4] vm_init_globals() START -- 初始化全局数据结构");
     vm_init_globals();
+    tty->print_cr("[PROBE][Startup] [Phase-4] vm_init_globals() DONE");
 
 #if INCLUDE_JVMCI
     if (JVMCICounterSize > 0) {
@@ -4015,6 +4026,7 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     /**
      *  注意:执行这里的Thread::createvm()方法是子线程(由init线程通过pthread_create(...,&JavaMain,...))创建的一个线程
      */
+    tty->print_cr("[PROBE][Startup] [Phase-5] Creating main JavaThread -- 创建Java主线程对象");
     JavaThread *main_thread = new JavaThread(); /* 创建JavaThread对象(这是一个C++类,虽然有'Java',有'Thread'，但是他不是Java对象,也不是线程,内部对属性进行了null初始化)*/
     main_thread->set_thread_state(_thread_in_vm); /* 设置线程状态 - 此时正在执行Thread::create_vm(),所以是thread_in_vm*/
     main_thread->initialize_thread_current(); /* 绑定到当前"OS线程" - 这里的OS线程是真正跑在linux内核中的线程实体 {到这里,每个线程通过Thread::current()都能获取到其所对应的JavaThread对象} */
@@ -4054,15 +4066,18 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     // forcus 初始化Java同步子系统的性能监控计数器 (存储在前面创建的PerfMemory共享内存中,可以被jcmd/...查看)
     ObjectMonitor::Initialize();
 
+    tty->print_cr("[PROBE][Startup] [Phase-5] main JavaThread created, tid=%ld", os::current_thread_id());
     // Initialize global modules
     // forcus forcus 核心方法,初始化jvm的核心模块
     /* --- 这个是超级核心的方法 --- */
+    tty->print_cr("[PROBE][Startup] [Phase-6] init_globals() START -- 初始化所有全局模块");
     jint status = init_globals();
     if (status != JNI_OK) {
         main_thread->smr_delete();
         *canTryAgain = false; // don't let caller call JNI_CreateJavaVM again
         return status;
     }
+    tty->print_cr("[PROBE][Startup] [Phase-6] init_globals() DONE");
 
     JFR_ONLY(Jfr::on_create_vm_1();)
 
@@ -4083,9 +4098,10 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     // Create the VMThread
     {
         TraceTime timer("Start VMThread", TRACETIME_LOG(Info, startuptime));
-
+        tty->print_cr("[PROBE][Startup] [Phase-7] VMThread::create() START -- 创建VMThread");
         VMThread::create();
         Thread * vmthread = VMThread::vm_thread();
+        tty->print_cr("[PROBE][Startup] [Phase-7] VMThread created, starting OS thread");
 
         if (!os::create_thread(vmthread, os::vm_thread)) {
             vm_exit_during_initialization("Cannot create VM thread. "
@@ -4101,6 +4117,7 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
                 Notify_lock->wait();
             }
         }
+        tty->print_cr("[PROBE][Startup] [Phase-7] VMThread ready");
     }
 
     assert(Universe::is_fully_initialized(), "not initialized");
@@ -4127,7 +4144,9 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     // Notify JVMTI agents that VM has started (JNI is up) - nop if no agents.
     JvmtiExport::post_early_vm_start();
 
+    tty->print_cr("[PROBE][Startup] [Phase-8] initialize_java_lang_classes() START -- 加载Object/String/Class等核心类");
     initialize_java_lang_classes(main_thread, CHECK_JNI_ERR);
+    tty->print_cr("[PROBE][Startup] [Phase-8] initialize_java_lang_classes() DONE");
 
     quicken_jni_functions();
 
@@ -4137,6 +4156,7 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     // Set flag that basic initialization has completed. Used by exceptions and various
     // debug stuff, that does not work until all basic classes have been initialized.
     set_init_completed();
+    tty->print_cr("[PROBE][Startup] [Phase-9] set_init_completed() -- JVM基础初始化完毕");
 
     LogConfiguration::post_initialize();
     Metaspace::post_initialize();
@@ -4152,10 +4172,12 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     os::initialize_jdk_signal_support(CHECK_JNI_ERR);
 
     // Start Attach Listener if +StartAttachListener or it can't be started lazily
+    tty->print_cr("[PROBE][Startup] [Phase-10] AttachListener::vm_start() -- 启动Attach监听");
     if (!DisableAttachMechanism) {
         AttachListener::vm_start();
         if (StartAttachListener || AttachListener::init_at_startup()) {
             AttachListener::init();
+            tty->print_cr("[PROBE][Startup] [Phase-10] AttachListener::init() DONE -- Attach已就绪");
         }
     }
 
@@ -4173,7 +4195,9 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     // Start the service thread
     // The service thread enqueues JVMTI deferred events and does various hashtable
     // and other cleanups.  Needs to start before the compilers start posting events.
+    tty->print_cr("[PROBE][Startup] [Phase-11] ServiceThread::initialize() START");
     ServiceThread::initialize();
+    tty->print_cr("[PROBE][Startup] [Phase-11] ServiceThread::initialize() DONE");
 
     // initialize compiler(s)
 #if defined(COMPILER1) || COMPILER2_OR_JVMCI

@@ -153,12 +153,40 @@ void G1BarrierSet::write_ref_array_pre(narrowOop* dst, size_t count, bool dest_u
   }
 }
 
+// [PROBE][WriteBarrier] 统计计数器（volatile 保证多线程可见）
+volatile int wb_slow_total = 0;         // 进入慢路径总次数（Old Region 的卡）
+volatile int wb_enqueued_total = 0;     // 真正入队的次数（卡从 clean→dirty）
+volatile int g1_post_barrier_total = 0;   // [汇编快路径] POST 屏障总触发次数（所有过滤前）
+volatile int g1_post_enqueued_fast = 0;   // [汇编快路径] 快路径入队次数（queue_index > 0）
+volatile int g1_post_filter_same_region = 0; // [过滤1] 同 Region 被过滤（xor+shr==0）
+volatile int g1_post_filter_null_val = 0;    // [过滤2] new_val==NULL 被过滤
+volatile int g1_post_filter_young_card = 0;  // [过滤3] card==young_card 被过滤
+volatile int g1_post_filter_dirty_card = 0;  // [过滤4] card==dirty 被过滤（已入队）
+
 void G1BarrierSet::write_ref_field_post_slow(volatile jbyte* byte) {
   // In the slow path, we know a card is not young
   assert(*byte != G1CardTable::g1_young_card_val(), "slow path invoked without filtering");
   OrderAccess::storeload();
+
+  // [PROBE][WriteBarrier] 统计慢路径调用次数
+  int slow_cnt = Atomic::add(1, &wb_slow_total);
+
   if (*byte != G1CardTable::dirty_card_val()) {
     *byte = G1CardTable::dirty_card_val();
+
+    // [PROBE][WriteBarrier] 统计真正入队次数（卡从 clean→dirty）
+    int enq_cnt = Atomic::add(1, &wb_enqueued_total);
+
+    // 每 5000 次入队打印一次统计
+    if (enq_cnt % 5000 == 0) {
+      tty->print_cr("[PROBE][WriteBarrier] 累计统计:");
+      tty->print_cr("  慢路径调用(Old卡)=%d, 真正入队(clean→dirty)=%d (%.1f%%)",
+          wb_slow_total, wb_enqueued_total,
+          wb_slow_total > 0 ? wb_enqueued_total * 100.0 / wb_slow_total : 0.0);
+      tty->print_cr("  全局DirtyCardQueue已完成buffer数=%zu",
+          _dirty_card_queue_set.completed_buffers_num());
+    }
+
     Thread* thr = Thread::current();
     if (thr->is_Java_thread()) {
       G1ThreadLocalData::dirty_card_queue(thr).enqueue(byte);

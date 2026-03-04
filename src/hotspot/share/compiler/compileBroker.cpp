@@ -247,6 +247,14 @@ bool compileBroker_init() {
     DirectivesStack::print(tty);
   }
 
+  // ===== [PROBE][compileBroker_init] 深度验证 =====
+  // 注意：此时编译线程还未启动，_c1_count/_c2_count在init_compiler_threads()中设置
+  // 这里只验证compileBroker_init本身的工作
+  tty->print_cr("[PROBE][compileBroker_init] 完成:");
+  tty->print_cr("  DirectivesStack已初始化 (编译指令栈，用于JIT编译控制)");
+  tty->print_cr("  注意: C1/C2线程在后续init_compiler_threads()中启动");
+  // ===== [PROBE][compileBroker_init] END =====
+
   return true;
 }
 
@@ -613,6 +621,18 @@ void CompileBroker::compilation_init_phase1(TRAPS) {
   // Set the interface to the current compiler(s).
   _c1_count = CompilationPolicy::policy()->compiler_count(CompLevel_simple);
   _c2_count = CompilationPolicy::policy()->compiler_count(CompLevel_full_optimization);
+
+  // ===== [PROBE][init_compiler_threads] 深度验证 =====
+  tty->print_cr("[PROBE][init_compiler_threads] 编译线程数量计算:");
+  tty->print_cr("  CPU核数=%d (os::active_processor_count())", os::active_processor_count());
+  tty->print_cr("  C1线程数=%d (CompLevel_simple)", _c1_count);
+  tty->print_cr("  C2线程数=%d (CompLevel_full_optimization)", _c2_count);
+  tty->print_cr("  CICompilerCount=%d (总编译线程数，默认=max(2, CPU核数/2))", (int)CICompilerCount);
+  tty->print_cr("  计算公式: C2=max(1, CICompilerCount-1), C1=CICompilerCount-C2");
+  tty->print_cr("  → 结论: %d核CPU → CICompilerCount=%d → C1=%d个 + C2=%d个",
+      os::active_processor_count(), (int)CICompilerCount, _c1_count, _c2_count);
+  tty->print_cr("  → 结论: C2线程比C1多，因为C2编译耗时更长，需要更多并发");
+  // ===== [PROBE][init_compiler_threads] END =====
 
 #if INCLUDE_JVMCI
   if (EnableJVMCI) {

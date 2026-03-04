@@ -634,6 +634,21 @@ Klass* SystemDictionary::resolve_instance_class_or_null(Symbol* name,
                                                         TRAPS) {
   assert(name != NULL && !FieldType::is_array(name) &&
          !FieldType::is_obj(name), "invalid class name");
+  // [PROBE][ClassLoad] 类加载总入口（包含快速路径和慢速路径）
+  {
+    ResourceMark rm;
+    static volatile int _probe_resolve_count = 0;
+    int cnt = Atomic::add(1, &_probe_resolve_count);
+    const char* loader_name = class_loader.is_null() ? "BootstrapClassLoader"
+                              : class_loader()->klass()->external_name();
+    if (cnt <= 10 || strcmp(name->as_C_string(), "com/wjcoder/Main") == 0) {
+      tty->print_cr("[PROBE][ClassLoad] #%d resolve: name=%s, loader=%s",
+          cnt, name->as_C_string(), loader_name);
+    }
+    if (cnt == 10) {
+      tty->print_cr("[PROBE][ClassLoad] (后续不再逐条打印，只打印com/wjcoder/Main)");
+    }
+  }
 
   EventClassLoad class_load_start_event;
 
@@ -1401,6 +1416,21 @@ void SystemDictionary::clear_invoke_method_table() {
 #endif // INCLUDE_CDS
 
 InstanceKlass* SystemDictionary::load_instance_class(Symbol* class_name, Handle class_loader, TRAPS) {
+  // [PROBE][ClassLoad-Real] 真正从磁盘加载（字典中未找到）
+  {
+    ResourceMark rm;
+    static volatile int _probe_real_count = 0;
+    int cnt = Atomic::add(1, &_probe_real_count);
+    const char* loader_name = class_loader.is_null() ? "BootstrapClassLoader"
+                              : class_loader->klass()->external_name();
+    if (cnt <= 10 || strcmp(class_name->as_C_string(), "com/wjcoder/Main") == 0) {
+      tty->print_cr("[PROBE][ClassLoad-Real] #%d 从磁盘加载: name=%s, loader=%s",
+          cnt, class_name->as_C_string(), loader_name);
+    }
+    if (cnt == 10) {
+      tty->print_cr("[PROBE][ClassLoad-Real] (后续不再逐条打印，只打印com/wjcoder/Main)");
+    }
+  }
 
   if (class_loader.is_null()) {
     ResourceMark rm;

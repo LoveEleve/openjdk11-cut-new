@@ -5589,6 +5589,30 @@ InstanceKlass* ClassFileParser::create_instance_klass(bool changed_by_loadhook, 
     }
   }
 
+  // [PROBE][ClassFileParser] 解析完成插桩
+  {
+    ResourceMark rm;
+    const char* class_name_str = ik->external_name();
+    static volatile int _probe_cfp_count = 0;
+    int cnt = Atomic::add(1, &_probe_cfp_count);
+    bool is_main = (strcmp(ik->name()->as_C_string(), "com/wjcoder/Main") == 0);
+    if (cnt <= 3 || is_main) {
+      tty->print_cr("[PROBE][ClassFileParser] #%d 解析完成: %s", cnt, class_name_str);
+      tty->print_cr("  .class文件大小=%d bytes", _stream->length());
+      tty->print_cr("  常量池项数=%d", ik->constants()->length());
+      tty->print_cr("  方法数=%d (含<init>/<clinit>)", ik->methods()->length());
+      tty->print_cr("  字段数=%d", ik->fields()->length() / FieldInfo::field_slots);
+      tty->print_cr("  接口数=%d", ik->local_interfaces()->length());
+      tty->print_cr("  父类=%s", ik->super() != NULL ? ik->super()->external_name() : "none");
+      tty->print_cr("  InstanceKlass大小=%zu bytes", (size_t)ik->size() * wordSize);
+      tty->print_cr("  vtable大小=%d slots", ik->vtable_length());
+      tty->print_cr("  itable大小=%d slots", ik->itable_length());
+    }
+    if (cnt == 3) {
+      tty->print_cr("[PROBE][ClassFileParser] (后续类不再逐条打印，只打印com/wjcoder/Main)");
+    }
+  }
+
   return ik;
 }
 

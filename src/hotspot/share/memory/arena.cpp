@@ -154,6 +154,20 @@ ChunkPool* ChunkPool::_tiny_pool   = NULL;
 
 void chunkpool_init() {
   ChunkPool::initialize();
+  // ===== [PROBE][chunkpool_init] 深度验证 =====
+  // slack=20 (sizeof(Chunk)内部头部开销)
+  // tiny_size  = 256  - 20 = 236
+  // init_size  = 1K   - 20 = 1004
+  // medium_size= 10K  - 20 = 10220
+  // size       = 32K  - 20 = 32748
+  tty->print_cr("[PROBE][chunkpool_init] ChunkPool 4级内存池初始化完成:");
+  tty->print_cr("  pool[tiny]   chunk_size=%zu bytes (tiny,  用于小型Arena如符号解析)", (size_t)Chunk::tiny_size);
+  tty->print_cr("  pool[small]  chunk_size=%zu bytes (small, 用于初始Arena)", (size_t)Chunk::init_size);
+  tty->print_cr("  pool[medium] chunk_size=%zu bytes (medium,用于中型Arena如类解析)", (size_t)Chunk::medium_size);
+  tty->print_cr("  pool[large]  chunk_size=%zu bytes (large, 用于大型Arena如编译器)", (size_t)Chunk::size);
+  tty->print_cr("  → 结论: JVM用4级ChunkPool管理Arena内存(类比Netty tiny/small/normal/huge)");
+  tty->print_cr("  → 结论: slack=%d bytes = sizeof(Chunk)头部开销, 实际可用=标称值-slack", 20);
+  // ===== [PROBE][chunkpool_init] END =====
 }
 
 void

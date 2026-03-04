@@ -464,11 +464,15 @@ MethodCounters* Method::build_method_counters(Method* m, TRAPS) {
   }
   bool cas_success = mh->init_method_counters(counters);
   // [LOG] 验证 CAS 安装机制：只有一个线程能成功安装，其余释放
-  tty->print_cr("[build_method_counters] method=%s::%s, CAS install %s (counters=%p)",
-                mh->method_holder()->name()->as_C_string(),
-                mh->name()->as_C_string(),
-                cas_success ? "SUCCESS" : "FAILED(concurrent, freed)",
-                counters);
+  // as_C_string() 需要 ResourceMark，此函数不在 IRT_ENTRY scope 内，必须手动加
+  {
+    ResourceMark rm(THREAD);
+    tty->print_cr("[build_method_counters] method=%s::%s, CAS install %s (counters=%p)",
+                  mh->method_holder()->name()->as_C_string(),
+                  mh->name()->as_C_string(),
+                  cas_success ? "SUCCESS" : "FAILED(concurrent, freed)",
+                  counters);
+  }
   if (!cas_success) {
     MetadataFactory::free_metadata(mh->method_holder()->class_loader_data(), counters);
   }

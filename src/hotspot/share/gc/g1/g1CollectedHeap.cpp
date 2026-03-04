@@ -329,6 +329,23 @@ HeapWord *G1CollectedHeap::humongous_obj_allocate(size_t word_size) {
 
     _verifier->verify_region_sets_optional();
 
+    // [PROBE][Humongous] 大对象分配入口
+    {
+      static volatile int _hum_count = 0;
+      int cnt = Atomic::add(1, &_hum_count);
+      size_t obj_bytes = word_size * HeapWordSize;
+      uint obj_regs = (uint) humongous_obj_size_in_regions(word_size);
+      size_t threshold = _humongous_object_threshold_in_words * HeapWordSize;
+      tty->print_cr("[PROBE][Humongous] #%d 大对象分配: size=%zu bytes (%.1fMB)",
+          cnt, obj_bytes, (double)obj_bytes / (1024*1024));
+      tty->print_cr("  Humongous阈值=%zu bytes (%.1fMB) = region_size/2",
+          threshold, (double)threshold / (1024*1024));
+      tty->print_cr("  需要Region数=%u (ceil(%zuMB / %zuMB))",
+          obj_regs, obj_bytes / (1024*1024), HeapRegion::GrainBytes / (1024*1024));
+      tty->print_cr("  分配前free_region_count=%u", _hrm.num_free_regions());
+      tty->print_cr("  → 结论: 超过阈值的对象直接占用整个Region，绕过TLAB");
+    }
+
     uint first = G1_NO_HRM_INDEX;
     uint obj_regions = (uint) humongous_obj_size_in_regions(word_size);
 
@@ -387,6 +404,16 @@ HeapWord *G1CollectedHeap::humongous_obj_allocate(size_t word_size) {
         // information of the old generation so we need to recalculate the
         // sizes and update the jstat counters here.
         g1mm()->update_sizes();
+
+        // [PROBE][Humongous] 分配成功，打印结果
+        tty->print_cr("[PROBE][Humongous] 分配成功: result=" PTR_FORMAT,
+            p2i(result));
+        tty->print_cr("  starts_humongous Region index=%u", first);
+        tty->print_cr("  占用Region数=%u (starts=1 + continues=%u)",
+            obj_regions, obj_regions - 1);
+        tty->print_cr("  分配后free_region_count=%u (减少了%u个)",
+            _hrm.num_free_regions(), obj_regions);
+        tty->print_cr("  → 结论: Humongous对象直接占用%u个完整Region，不参与TLAB分配", obj_regions);
     }
 
     _verifier->verify_region_sets_optional();
@@ -3555,6 +3582,64 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
     SvcGCMarker sgcm(SvcGCMarker::MINOR);
     ResourceMark rm;
 
+    // [PROBE][YoungGC] GC触发时的堆状态（必须在note_gc_start()之前，否则Eden被移入CSet后_eden.length()=0）
+    {
+        static volatile int _gc_probe_count = 0;
+        int gc_cnt = Atomic::add(1, &_gc_probe_count);
+        tty->print_cr("[PROBE][YoungGC] #%d GC触发:", gc_cnt);
+        tty->print_cr("  触发原因=%s", GCCause::to_string(gc_cause()));
+        tty->print_cr("  Eden: %u个Region (%zuMB)",
+            _eden.length(), (size_t)_eden.length() * HeapRegion::GrainBytes / M);
+        tty->print_cr("  Survivor: %u个Region (%zuMB)",
+            _survivor.length(), (size_t)_survivor.length() * HeapRegion::GrainBytes / M);
+        tty->print_cr("  Old: %u个Region (%zuMB)",
+            _old_set.length(), (size_t)_old_set.length() * HeapRegion::GrainBytes / M);
+        tty->print_cr("  Free: %u个Region (%zuMB)",
+            num_free_regions(), (size_t)num_free_regions() * HeapRegion::GrainBytes / M);
+        tty->print_cr("  堆已用=%zuMB / 总容量=%zuMB (%.1f%%)",
+            used() / M, capacity() / M, used() * 100.0 / capacity());
+        tty->print_cr("  GC类型=%s",
+            collector_state()->in_initial_mark_gc() ? "YoungGC+InitialMark" :
+            collector_state()->in_young_only_phase() ? "YoungGC(Normal)" : "MixedGC");
+
+        // [PROBE][WriteBarrier] 打印 GC 前的写屏障累计统计
+        extern volatile int wb_slow_total;
+        extern volatile int wb_enqueued_total;
+        extern volatile int g1_post_barrier_total;
+        extern volatile int g1_post_enqueued_fast;
+        extern volatile int g1_post_filter_same_region;
+        extern volatile int g1_post_filter_null_val;
+        extern volatile int g1_post_filter_young_card;
+        extern volatile int g1_post_filter_dirty_card;
+        int total = g1_post_barrier_total;
+        tty->print_cr("  [写屏障] GC前累计统计（漏斗分析）:");
+        tty->print_cr("    POST屏障总触发(汇编入口)  = %d", total);
+        tty->print_cr("    ├─ 过滤1:同Region        = %d (%.1f%%)",
+            g1_post_filter_same_region,
+            total > 0 ? g1_post_filter_same_region * 100.0 / total : 0.0);
+        tty->print_cr("    ├─ 过滤2:new_val==NULL   = %d (%.1f%%)",
+            g1_post_filter_null_val,
+            total > 0 ? g1_post_filter_null_val * 100.0 / total : 0.0);
+        tty->print_cr("    ├─ 过滤3:card==young     = %d (%.1f%%)",
+            g1_post_filter_young_card,
+            total > 0 ? g1_post_filter_young_card * 100.0 / total : 0.0);
+        tty->print_cr("    ├─ 过滤4:card==dirty     = %d (%.1f%%)",
+            g1_post_filter_dirty_card,
+            total > 0 ? g1_post_filter_dirty_card * 100.0 / total : 0.0);
+        tty->print_cr("    ├─ 快路径入队(queue>0)   = %d (%.1f%%)",
+            g1_post_enqueued_fast,
+            total > 0 ? g1_post_enqueued_fast * 100.0 / total : 0.0);
+        tty->print_cr("    └─ 慢路径入队(queue=0)   = %d (%.1f%%)",
+            wb_enqueued_total,
+            total > 0 ? wb_enqueued_total * 100.0 / total : 0.0);
+        tty->print_cr("    [校验] 各项之和=%d (应≈总触发=%d)",
+            g1_post_filter_same_region + g1_post_filter_null_val +
+            g1_post_filter_young_card + g1_post_filter_dirty_card +
+            g1_post_enqueued_fast + wb_enqueued_total, total);
+        tty->print_cr("  [写屏障] 全局DirtyCardQueue已完成buffer数=%zu",
+            G1BarrierSet::dirty_card_queue_set().completed_buffers_num());
+    }
+
     g1_policy()->note_gc_start();
 
     wait_for_root_region_scanning();
@@ -3726,6 +3811,11 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
                 post_evacuate_collection_set(evacuation_info, &per_thread_states);
 
                 const size_t *surviving_young_words = per_thread_states.surviving_young_words();
+
+                // [PROBE][YoungGC] CSet Region数（free_collection_set之前读取，此时值有效）
+                tty->print_cr("[PROBE][YoungGC] CSet Region数=%u (被回收的Eden+Survivor Region)",
+                    evacuation_info.collectionset_regions());
+
                 free_collection_set(&_collection_set, evacuation_info, surviving_young_words);
 
                 eagerly_reclaim_humongous_regions();
@@ -3797,6 +3887,23 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
 
                 evacuation_info.set_collectionset_used_before(collection_set()->bytes_used_before());
                 evacuation_info.set_bytes_copied(g1_policy()->bytes_copied_during_gc());
+
+                // [PROBE][YoungGC] GC完成统计（在set_collectionset_used_before/set_bytes_copied之后）
+                tty->print_cr("[PROBE][YoungGC] GC完成统计(最终):");
+                tty->print_cr("  CSet使用前=%zuMB (GC前Eden占用)",
+                    evacuation_info.collectionset_used_before() / M);
+                tty->print_cr("  CSet使用后=%zuMB (GC后残留)",
+                    evacuation_info.collectionset_used_after() / M);
+                tty->print_cr("  复制字节数=%zuMB (存活对象移动量)",
+                    evacuation_info.bytes_copied() / M);
+                tty->print_cr("  释放Region数=%u", evacuation_info.regions_freed());
+                tty->print_cr("  新Survivor: %u个Region (%zuMB)",
+                    _survivor.length(), (size_t)_survivor.length() * HeapRegion::GrainBytes / M);
+                tty->print_cr("  新Old: %u个Region (%zuMB)",
+                    _old_set.length(), (size_t)_old_set.length() * HeapRegion::GrainBytes / M);
+                tty->print_cr("  GC后Free: %u个Region (%zuMB)",
+                    num_free_regions(), (size_t)num_free_regions() * HeapRegion::GrainBytes / M);
+                tty->print_cr("  疏散失败=%s", evacuation_failed() ? "YES(退化)" : "NO");
 
                 if (VerifyRememberedSets) {
                     log_info(gc, verify)("[Verifying RemSets after GC]");

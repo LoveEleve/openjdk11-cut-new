@@ -97,6 +97,21 @@ void compilationPolicy_init() {
    *  - 设置内联阈值(x86: InlineSmallCode = 2000)
    */
   CompilationPolicy::policy()->initialize();
+  // ===== [PROBE][compilationPolicy_init] 深度验证 =====
+  tty->print_cr("[PROBE][compilationPolicy_init] 编译策略初始化完成:");
+  tty->print_cr("  CompilationPolicyChoice=%d", (int)CompilationPolicyChoice);
+  tty->print_cr("  TieredCompilation=%s", TieredCompilation ? "true" : "false");
+  tty->print_cr("  DelayCompilationDuringStartup=%s (启动期延迟JIT)", DelayCompilationDuringStartup ? "true" : "false");
+  tty->print_cr("  CompileThreshold=%d (非分层模式下的触发阈值)", (int)CompileThreshold);
+  tty->print_cr("  Tier3InvocationThreshold=%d (C1触发: 方法调用N次)", (int)Tier3InvocationThreshold);
+  tty->print_cr("  Tier4InvocationThreshold=%d (C2触发: 方法调用N次)", (int)Tier4InvocationThreshold);
+  tty->print_cr("  Tier3BackEdgeThreshold=%d (C1 OSR触发: 循环回边N次)", (int)Tier3BackEdgeThreshold);
+  tty->print_cr("  Tier4BackEdgeThreshold=%d (C2 OSR触发: 循环回边N次)", (int)Tier4BackEdgeThreshold);
+  tty->print_cr("  Tier3MinInvocationThreshold=%d (C1最低调用次数)", (int)Tier3MinInvocationThreshold);
+  tty->print_cr("  → 结论: C1触发比C2早%dx, 先快速编译再深度优化",
+      (int)Tier4InvocationThreshold / ((int)Tier3InvocationThreshold > 0 ? (int)Tier3InvocationThreshold : 1));
+  tty->print_cr("  → 结论: -Xint模式下这些阈值无效, 所有方法永远解释执行");
+  // ===== [PROBE][compilationPolicy_init] END =====
 }
 
 void CompilationPolicy::completed_vm_startup() {

@@ -832,6 +832,38 @@ bool InstanceKlass::link_class_impl(bool throw_verifyerror, TRAPS) {
       }
 #endif
       set_init_state(linked);
+      // [PROBE][ClassLink] 链接完成插桩
+      {
+        ResourceMark rm(THREAD);
+        bool is_main = (strcmp(name()->as_C_string(), "com/wjcoder/Main") == 0);
+        static volatile int _probe_link_count = 0;
+        int cnt = Atomic::add(1, &_probe_link_count);
+        if (cnt <= 3 || is_main) {
+          tty->print_cr("[PROBE][ClassLink] #%d %s 链接完成:", cnt, external_name());
+          tty->print_cr("  verify+rewrite+vtable 全部完成");
+          tty->print_cr("  vtable大小=%d slots", vtable_length());
+          tty->print_cr("  itable大小=%d slots", itable_length());
+          tty->print_cr("  has_clinit=%s", class_initializer() != NULL ? "YES" : "NO");
+          // 打印 vtable 内容（只打印 Main 类）
+          if (is_main) {
+            tty->print_cr("  vtable内容:");
+            klassVtable vt = vtable();
+            for (int i = 0; i < vt.length(); i++) {
+              Method* m = vt.method_at(i);
+              if (m != NULL) {
+                tty->print_cr("    vtable[%d] = %s.%s%s",
+                    i,
+                    m->method_holder()->external_name(),
+                    m->name()->as_C_string(),
+                    m->signature()->as_C_string());
+              }
+            }
+          }
+        }
+        if (cnt == 3) {
+          tty->print_cr("[PROBE][ClassLink] (后续类不再逐条打印，只打印com/wjcoder/Main)");
+        }
+      }
       if (JvmtiExport::should_post_class_prepare()) {
         Thread *thread = THREAD;
         assert(thread->is_Java_thread(), "thread->is_Java_thread()");

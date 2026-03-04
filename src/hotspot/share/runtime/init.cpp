@@ -88,13 +88,25 @@ void perfMemory_exit();
 void ostream_exit();
 
 void vm_init_globals() {
+  tty->print_cr("[PROBE][Startup] >>> vm_init_globals() START");
   check_ThreadShadow();// 忽略
+  tty->print_cr("[PROBE][Startup]   basic_types_init() START");
   basic_types_init(); // forcus 类型大小设置(比如开启了指针压缩,那么对象引用就用4字节来表示)
+  tty->print_cr("[PROBE][Startup]   basic_types_init() DONE");
+  tty->print_cr("[PROBE][Startup]   eventlog_init() START");
   eventlog_init(); // forcus 事件初始化
+  tty->print_cr("[PROBE][Startup]   eventlog_init() DONE");
+  tty->print_cr("[PROBE][Startup]   mutex_init() START");
   mutex_init(); // forcus 初始化互斥锁(jvm运行时所需的60+全局锁)
+  tty->print_cr("[PROBE][Startup]   mutex_init() DONE");
+  tty->print_cr("[PROBE][Startup]   chunkpool_init() START");
   chunkpool_init(); // forcus 初始化chunk池(和netty很类似)
+  tty->print_cr("[PROBE][Startup]   chunkpool_init() DONE");
+  tty->print_cr("[PROBE][Startup]   perfMemory_init() START");
   perfMemory_init(); // forcus 性能数据初始化
+  tty->print_cr("[PROBE][Startup]   perfMemory_init() DONE");
   SuspendibleThreadSet_init();
+  tty->print_cr("[PROBE][Startup] <<< vm_init_globals() DONE");
 }
 
 // forcus forcus forcus core core core
@@ -103,54 +115,121 @@ void vm_init_globals() {
  */
 jint init_globals() {
   HandleMark hm;
+  tty->print_cr("[PROBE][Startup] >>> init_globals() START");
   /*i
         =========================================
         基础设施
         =========================================
    */
+  tty->print_cr("[PROBE][Startup]   [01] management_init() START");
   management_init(); // forcus 初始化 JMX(Java Management Extensions)管理接口
+  tty->print_cr("[PROBE][Startup]   [01] management_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [02] bytecodes_init() START");
   bytecodes_init(); // forcus 初始化字节码表
+  tty->print_cr("[PROBE][Startup]   [02] bytecodes_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [03] classLoader_init1() START");
   classLoader_init1(); // forcus 类加载初始化-1 (在当前情况下,该方法相当于是一个空方法)
+  tty->print_cr("[PROBE][Startup]   [03] classLoader_init1() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [04] compilationPolicy_init() START");
   compilationPolicy_init(); // forcus 初始化编译策略(决定何时以及如何将热点代码从解释执行切换到JIT编译执行)
+  tty->print_cr("[PROBE][Startup]   [04] compilationPolicy_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [05] codeCache_init() START");
   codeCache_init(); // forcus 初始化代码缓存(codeCache)
+  tty->print_cr("[PROBE][Startup]   [05] codeCache_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [06] VM_Version_init() START");
   VM_Version_init(); // forcus 检测CPU特性
+  tty->print_cr("[PROBE][Startup]   [06] VM_Version_init() DONE");
+
   os_init_globals(); // 空方法
+
+  tty->print_cr("[PROBE][Startup]   [07] stubRoutines_init1() START  -- 生成第一批汇编桩代码");
   stubRoutines_init1(); // forcus 负责生成 JVM 运行时需要的第一批汇编桩代码（Stub Routines）
+  tty->print_cr("[PROBE][Startup]   [07] stubRoutines_init1() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [08] universe_init() START  -- 创建Java堆/元空间/符号表");
   jint status = universe_init();  // dependent on codeCache_init and forcus 最重要的初始化方法之一,负责创建 "宇宙" - 包括 Java堆,元空间,符号表等核心数据结构
                                   // stubRoutines_init1 and metaspace_init.
   if (status != JNI_OK)
     return status;
+  tty->print_cr("[PROBE][Startup]   [08] universe_init() DONE");
 
+  tty->print_cr("[PROBE][Startup]   [09] gc_barrier_stubs_init() START");
   gc_barrier_stubs_init();   // depends on universe_init, must be before interpreter_init forcus g1实现为null
+  tty->print_cr("[PROBE][Startup]   [09] gc_barrier_stubs_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [10] interpreter_init() START  -- 生成解释器汇编代码");
   interpreter_init();        // before any methods loaded forcus 解释器初始化
+  tty->print_cr("[PROBE][Startup]   [10] interpreter_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [11] invocationCounter_init() START");
   invocationCounter_init();  // before any methods loaded
+  tty->print_cr("[PROBE][Startup]   [11] invocationCounter_init() DONE");
+
   accessFlags_init();
+
+  tty->print_cr("[PROBE][Startup]   [12] templateTable_init() START  -- 生成字节码处理器");
   templateTable_init();
+  tty->print_cr("[PROBE][Startup]   [12] templateTable_init() DONE");
+
   InterfaceSupport_init();
   VMRegImpl::set_regName();  // need this before generate_stubs (for printing oop maps).
+
+  tty->print_cr("[PROBE][Startup]   [13] SharedRuntime::generate_stubs() START");
   SharedRuntime::generate_stubs();
+  tty->print_cr("[PROBE][Startup]   [13] SharedRuntime::generate_stubs() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [14] universe2_init() START  -- 加载原始类(Object/String等)");
   universe2_init();  // dependent on codeCache_init and stubRoutines_init1
+  tty->print_cr("[PROBE][Startup]   [14] universe2_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [15] javaClasses_init() START  -- 初始化vtable");
   javaClasses_init();// must happen after vtable initialization, before referenceProcessor_init
+  tty->print_cr("[PROBE][Startup]   [15] javaClasses_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [16] referenceProcessor_init() START");
   referenceProcessor_init();
+  tty->print_cr("[PROBE][Startup]   [16] referenceProcessor_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [17] jni_handles_init() START");
   jni_handles_init();
+  tty->print_cr("[PROBE][Startup]   [17] jni_handles_init() DONE");
+
 #if INCLUDE_VM_STRUCTS
   vmStructs_init();
 #endif // INCLUDE_VM_STRUCTS
 
+  tty->print_cr("[PROBE][Startup]   [18] vtableStubs_init() START");
   vtableStubs_init();
+  tty->print_cr("[PROBE][Startup]   [18] vtableStubs_init() DONE");
+
   InlineCacheBuffer_init();
   compilerOracle_init();
   dependencyContext_init();
 
+  tty->print_cr("[PROBE][Startup]   [19] compileBroker_init() START  -- 启动JIT编译线程");
   if (!compileBroker_init()) {
     return JNI_EINVAL;
   }
+  tty->print_cr("[PROBE][Startup]   [19] compileBroker_init() DONE");
 
+  tty->print_cr("[PROBE][Startup]   [20] universe_post_init() START  -- 加载核心类/初始化异常");
   if (!universe_post_init()) {
     return JNI_ERR;
   }
+  tty->print_cr("[PROBE][Startup]   [20] universe_post_init() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [21] stubRoutines_init2() START  -- 生成第二批汇编桩代码");
   stubRoutines_init2(); // note: StubRoutines need 2-phase init
+  tty->print_cr("[PROBE][Startup]   [21] stubRoutines_init2() DONE");
+
+  tty->print_cr("[PROBE][Startup]   [22] MethodHandles::generate_adapters() START");
   MethodHandles::generate_adapters();
+  tty->print_cr("[PROBE][Startup]   [22] MethodHandles::generate_adapters() DONE");
 
 #if INCLUDE_NMT
   // Solaris stack is walkable only after stubRoutines are set up.
@@ -164,6 +243,7 @@ jint init_globals() {
     JVMFlag::printFlags(tty, false, PrintFlagsRanges);
   }
 
+  tty->print_cr("[PROBE][Startup] <<< init_globals() DONE -- 所有全局模块初始化完毕");
   return JNI_OK;
 }
 

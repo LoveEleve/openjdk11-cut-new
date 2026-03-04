@@ -41,6 +41,14 @@
 
 #define __ masm->
 
+
+// [PROBE][WriteBarrier] 引用 g1BarrierSet.cpp 中定义的全局计数器
+extern volatile int g1_post_barrier_total;      // POST 屏障总触发次数（所有过滤之前）
+extern volatile int g1_post_enqueued_fast;      // 快路径入队次数（queue_index > 0）
+extern volatile int g1_post_filter_same_region; // 过滤1：同 Region 被过滤
+extern volatile int g1_post_filter_null_val;    // 过滤2：new_val==NULL 被过滤
+extern volatile int g1_post_filter_young_card;  // 过滤3：card==young_card 被过滤
+extern volatile int g1_post_filter_dirty_card;  // 过滤4：card==dirty 被过滤（已入队）
 void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm, DecoratorSet decorators,
                                                             Register addr, Register count) {
   bool dest_uninitialized = (decorators & IS_DEST_UNINITIALIZED) != 0;
@@ -277,18 +285,26 @@ void G1BarrierSetAssembler::g1_write_barrier_post(MacroAssembler* masm,
 
   Label done;
   Label runtime;
+  // [PROBE] 四个过滤点的计数 Label
+  Label filter1_same_region, filter2_null_val, filter3_young_card, filter4_dirty_card;
+
+  // [PROBE][WriteBarrier] 统计 POST 屏障总触发次数（所有过滤之前）
+  // 注意：incrementl 不是原子操作，轻微计数误差可接受（统计目的）
+  __ incrementl(ExternalAddress((address)&g1_post_barrier_total));
 
   // Does store cross heap regions?
 
   __ movptr(tmp, store_addr);
   __ xorptr(tmp, new_val);
   __ shrptr(tmp, HeapRegion::LogOfHRGrainBytes);
-  __ jcc(Assembler::equal, done);
+  // [PROBE][过滤1] 同 Region 被过滤（xor+shr==0，store_addr 和 new_val 在同一 Region）
+  __ jcc(Assembler::equal, filter1_same_region);
 
   // crosses regions, storing NULL?
 
   __ cmpptr(new_val, (int32_t) NULL_WORD);
-  __ jcc(Assembler::equal, done);
+  // [PROBE][过滤2] new_val==NULL 被过滤
+  __ jcc(Assembler::equal, filter2_null_val);
 
   // storing region crossing non-NULL, is card already dirty?
 
@@ -303,11 +319,13 @@ void G1BarrierSetAssembler::g1_write_barrier_post(MacroAssembler* masm,
   __ addptr(card_addr, cardtable);
 
   __ cmpb(Address(card_addr, 0), (int)G1CardTable::g1_young_card_val());
-  __ jcc(Assembler::equal, done);
+  // [PROBE][过滤3] card==young_card 被过滤（Young Region 的卡，不需要记录）
+  __ jcc(Assembler::equal, filter3_young_card);
 
   __ membar(Assembler::Membar_mask_bits(Assembler::StoreLoad));
   __ cmpb(Address(card_addr, 0), (int)G1CardTable::dirty_card_val());
-  __ jcc(Assembler::equal, done);
+  // [PROBE][过滤4] card==dirty 被过滤（已经入队，不需要重复记录）
+  __ jcc(Assembler::equal, filter4_dirty_card);
 
 
   // storing a region crossing, non-NULL oop, card is clean.
@@ -327,6 +345,8 @@ void G1BarrierSetAssembler::g1_write_barrier_post(MacroAssembler* masm,
   __ addl(tmp2, queue_index);
   __ movl(Address(tmp2, 0), card_addr);
 #endif
+  // [PROBE][WriteBarrier] 统计快路径入队次数（queue_index > 0，直接写入线程本地 buffer）
+  __ incrementl(ExternalAddress((address)&g1_post_enqueued_fast));
   __ jmp(done);
 
   __ bind(runtime);
@@ -342,6 +362,23 @@ void G1BarrierSetAssembler::g1_write_barrier_post(MacroAssembler* masm,
 #endif
   __ pop(new_val);
   __ pop(store_addr);
+  __ jmp(done);  // ★ 慢路径执行完后跳到 done，不能落入下面的过滤点计数器
+
+  // [PROBE] 四个过滤点的计数 Label（每个递增对应计数器后跳到 done）
+  __ bind(filter1_same_region);
+  __ incrementl(ExternalAddress((address)&g1_post_filter_same_region));
+  __ jmp(done);
+
+  __ bind(filter2_null_val);
+  __ incrementl(ExternalAddress((address)&g1_post_filter_null_val));
+  __ jmp(done);
+
+  __ bind(filter3_young_card);
+  __ incrementl(ExternalAddress((address)&g1_post_filter_young_card));
+  __ jmp(done);
+
+  __ bind(filter4_dirty_card);
+  __ incrementl(ExternalAddress((address)&g1_post_filter_dirty_card));
 
   __ bind(done);
 }

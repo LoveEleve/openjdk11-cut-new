@@ -31,7 +31,9 @@ MethodCounters* MethodCounters::allocate(const methodHandle& mh, TRAPS) {
   ClassLoaderData* loader_data = mh->method_holder()->class_loader_data();
   MethodCounters* mc = new(loader_data, method_counters_size(), MetaspaceObj::MethodCountersType, THREAD) MethodCounters(mh);
   // [LOG] 验证 MethodCounters 分配位置（Metaspace）和 per-method 阈值
+  // as_C_string() 内部调用 ResourceArea::allocate_bytes，必须有 ResourceMark
   if (mc != NULL && !HAS_PENDING_EXCEPTION) {
+    ResourceMark rm(THREAD);
     tty->print_cr("[MethodCounters::allocate] method=%s::%s, mc=%p (Metaspace)",
                   mh->method_holder()->name()->as_C_string(),
                   mh->name()->as_C_string(),

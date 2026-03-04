@@ -177,30 +177,39 @@ void InvocationCounter::reinitialize(bool delay_overflow) {
          "profile threshold should be less than the compilation threshold "
          "and non-negative");
 
-  // [LOG] 验证 reinitialize() 阈值计算结果
-  tty->print_cr("[InvocationCounter::reinitialize] ===========================================");
-  tty->print_cr("[InvocationCounter::reinitialize] delay_overflow=%s", delay_overflow ? "true" : "false");
-  tty->print_cr("[InvocationCounter::reinitialize] CompileThreshold=%d", (int)CompileThreshold);
-  tty->print_cr("[InvocationCounter::reinitialize] number_of_noncount_bits=%d (= count_shift)", (int)number_of_noncount_bits);
-  tty->print_cr("[InvocationCounter::reinitialize] InterpreterInvocationLimit=%d (raw), actual_count=%d",
-                InterpreterInvocationLimit, InterpreterInvocationLimit >> number_of_noncount_bits);
-  tty->print_cr("[InvocationCounter::reinitialize] InterpreterProfileLimit=%d (raw), actual_count=%d",
-                InterpreterProfileLimit, InterpreterProfileLimit >> number_of_noncount_bits);
-  tty->print_cr("[InvocationCounter::reinitialize] InterpreterBackwardBranchLimit=%d (ProfileInterpreter=%s)",
+  // ===== [PROBE][invocationCounter_init] 深度验证 =====
+  tty->print_cr("[PROBE][InvocationCounter] 阈值计算完成:");
+  tty->print_cr("  CompileThreshold=%d (触发JIT编译的调用次数)", (int)CompileThreshold);
+  tty->print_cr("  number_of_noncount_bits=%d (低%d位存状态，不是计数)",
+                (int)number_of_noncount_bits, (int)number_of_noncount_bits);
+  tty->print_cr("  InterpreterInvocationLimit(raw)=%d = CompileThreshold<<%d = %d<<%d",
+                InterpreterInvocationLimit, (int)number_of_noncount_bits,
+                (int)CompileThreshold, (int)number_of_noncount_bits);
+  tty->print_cr("  InterpreterInvocationLimit(actual)=%d (raw>>%d)",
+                InterpreterInvocationLimit >> number_of_noncount_bits, (int)number_of_noncount_bits);
+  tty->print_cr("  → 结论1: raw值 != actual值！低%d位是状态位(carry/state)，不参与计数",
+                (int)number_of_noncount_bits);
+  tty->print_cr("  InterpreterProfileLimit(raw)=%d, actual=%d (CompileThreshold*%d%%)",
+                InterpreterProfileLimit, InterpreterProfileLimit >> number_of_noncount_bits,
+                (int)InterpreterProfilePercentage);
+  tty->print_cr("  InterpreterBackwardBranchLimit=%d (ProfileInterpreter=%s)",
                 InterpreterBackwardBranchLimit, ProfileInterpreter ? "true" : "false");
-  tty->print_cr("[InvocationCounter::reinitialize] sizeof(InvocationCounter)=%zu, sizeof(MethodCounters)=%zu",
-                sizeof(InvocationCounter), sizeof(MethodCounters));
-  tty->print_cr("[InvocationCounter::reinitialize] count_increment=%d, carry_mask=0x%x, count_mask_value=0x%x",
-                (int)count_increment, (int)carry_mask, (int)count_mask_value);
-  tty->print_cr("[InvocationCounter::reinitialize] state_machine: wait_for_compile action=%s",
-                delay_overflow ? "do_decay" : "dummy_invocation_counter_overflow");
-  tty->print_cr("[InvocationCounter::reinitialize] ===========================================");
+  tty->print_cr("  → 结论2: ProfileInterpreter=true时BackwardBranchLimit不左移，因为比较的是MethodData计数器");
+  tty->print_cr("  sizeof(InvocationCounter)=%zu bytes (就是一个int，4字节)", sizeof(InvocationCounter));
+  tty->print_cr("  count_increment=%d (每次调用计数器增加的raw值，= 1<<%d)",
+                (int)count_increment, (int)number_of_noncount_bits);
+  tty->print_cr("  carry_mask=0x%x, count_mask_value=0x%x",
+                (int)carry_mask, (int)count_mask_value);
+  tty->print_cr("  delay_overflow=%s → 状态机action=%s",
+                delay_overflow ? "true" : "false",
+                delay_overflow ? "do_decay(启动期衰减，避免立即编译)" : "dummy_invocation_counter_overflow(正常溢出触发编译)");
+  tty->print_cr("  → 结论3: JVM启动期间delay_overflow=true，计数器溢出时衰减而非触发编译，避免启动时大量编译");
+  // ===== [PROBE][invocationCounter_init] END =====
 }
 
 void invocationCounter_init() {
-  // [LOG] 验证 invocationCounter_init() 入口
-  tty->print_cr("[invocationCounter_init] called, DelayCompilationDuringStartup=%s",
+  tty->print_cr("[PROBE][invocationCounter_init] 开始: DelayCompilationDuringStartup=%s",
                 DelayCompilationDuringStartup ? "true" : "false");
   InvocationCounter::reinitialize(DelayCompilationDuringStartup);
-  tty->print_cr("[invocationCounter_init] done.");
+  // reinitialize()内部已打印详细结论
 }

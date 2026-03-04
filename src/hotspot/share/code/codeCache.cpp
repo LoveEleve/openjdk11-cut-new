@@ -1129,6 +1129,23 @@ void codeCache_init() {
   CodeCache::initialize(); // forcus
   // Load AOT libraries and add AOT code heaps.
   AOTLoader::initialize(); // 默认不开启
+  // ===== [PROBE][codeCache_init] 深度验证 =====
+  tty->print_cr("[PROBE][codeCache_init] CodeCache 初始化完成:");
+  tty->print_cr("  SegmentedCodeCache=%s", SegmentedCodeCache ? "true(分段模式)" : "false(单段模式)");
+  tty->print_cr("  ReservedCodeCacheSize=%zuMB (总保留空间)", ReservedCodeCacheSize / (1024*1024));
+  tty->print_cr("  NonNMethodCodeHeapSize=%zuMB (非方法代码: 解释器stub/vtable stub/适配器)",
+      NonNMethodCodeHeapSize / (1024*1024));
+  tty->print_cr("  ProfiledCodeHeapSize=%zuMB (C1编译代码: 带profiling, 可被替换)",
+      ProfiledCodeHeapSize / (1024*1024));
+  tty->print_cr("  NonProfiledCodeHeapSize=%zuMB (C2编译代码: 最终优化版本)",
+      NonProfiledCodeHeapSize / (1024*1024));
+  tty->print_cr("  CodeCacheExpansionSize=%zuKB (每次扩展步长)", CodeCacheExpansionSize / 1024);
+  tty->print_cr("  unallocated_capacity=%zuKB (当前剩余可用)", CodeCache::unallocated_capacity() / 1024);
+  tty->print_cr("  → 结论: C1/C2代码隔离存放, NonNMethod段虽小(%zuMB)但最关键(解释器本身在此)",
+      NonNMethodCodeHeapSize / (1024*1024));
+  tty->print_cr("  → 结论: 初始已用=%zuKB (仅解释器stub等基础设施)",
+      (ReservedCodeCacheSize - CodeCache::unallocated_capacity()) / 1024);
+  // ===== [PROBE][codeCache_init] END =====
 }
 
 //------------------------------------------------------------------------------------------------

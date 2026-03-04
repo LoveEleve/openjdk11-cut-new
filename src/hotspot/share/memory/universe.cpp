@@ -32,6 +32,7 @@
 #include "classfile/vmSymbols.hpp"
 #include "code/codeCache.hpp"
 #include "code/dependencies.hpp"
+#include "gc/g1/g1CollectedHeap.hpp"
 #include "gc/shared/collectedHeap.inline.hpp"
 #include "gc/shared/gcArguments.hpp"
 #include "gc/shared/gcConfig.hpp"
@@ -870,6 +871,36 @@ jint universe_init() {
    */
   ResolvedMethodTable::create_table();
 
+  // ===== [PROBE][universe_init] 深度验证 =====
+  {
+    CollectedHeap* heap = Universe::heap();
+    tty->print_cr("[PROBE][universe_init] 宇宙初始化完成:");
+    tty->print_cr("  堆类型=%s", heap->name());
+    tty->print_cr("  heap_capacity=%zuMB (%zu bytes)",
+        heap->capacity() / (1024*1024), heap->capacity());
+    tty->print_cr("  heap_max_capacity=%zuMB (%zu bytes)",
+        heap->max_capacity() / (1024*1024), heap->max_capacity());
+    if (UseG1GC) {
+      G1CollectedHeap* g1h = G1CollectedHeap::heap();
+      tty->print_cr("  [G1] region_size=%zuMB (%zu bytes)",
+          HeapRegion::GrainBytes / (1024*1024), HeapRegion::GrainBytes);
+      tty->print_cr("  [G1] total_region_count=%u",
+          g1h->num_regions());
+      tty->print_cr("  [G1] free_region_count=%u",
+          g1h->num_free_regions());
+      tty->print_cr("  [G1] reserved_bytes=%zuMB",
+          g1h->g1_reserved().byte_size() / (1024*1024));
+      tty->print_cr("  → 结论: -Xms8g -Xmx8g时堆完全预提交，free_region=total_region");
+    }
+    tty->print_cr("  Metaspace已初始化: MetaspaceSize=%zuMB, MaxMetaspaceSize=%zuMB",
+        MetaspaceSize / (1024*1024),
+        MaxMetaspaceSize == (size_t)-1 ? 0 : MaxMetaspaceSize / (1024*1024));
+    tty->print_cr("  SymbolTable已创建 (桶数=%d)", SymbolTable::the_table()->table_size());
+    tty->print_cr("  StringTable已创建 (桶数=%zu)", StringTable::the_table()->table_size());
+    tty->print_cr("  → 结论: universe_init完成后堆/元空间/符号表全部就绪，但Java类还未加载");
+  }
+  // ===== [PROBE][universe_init] END =====
+
   return JNI_OK;
 }
 
@@ -1316,6 +1347,40 @@ bool universe_post_init() {
 #if INCLUDE_CDS
   MetaspaceShared::post_initialize(CHECK_false);
 #endif
+
+  // ===== [PROBE][universe_post_init] 深度验证 =====
+  {
+    ResourceMark rm;
+    tty->print_cr("[PROBE][universe_post_init] 核心类和预分配对象完成:");
+    // 打印核心类的klass地址
+    tty->print_cr("  Object_klass=" PTR_FORMAT " (%s)",
+        p2i(SystemDictionary::Object_klass()),
+        SystemDictionary::Object_klass()->external_name());
+    tty->print_cr("  String_klass=" PTR_FORMAT " (%s)",
+        p2i(SystemDictionary::String_klass()),
+        SystemDictionary::String_klass()->external_name());
+    tty->print_cr("  Class_klass=" PTR_FORMAT " (%s)",
+        p2i(SystemDictionary::Class_klass()),
+        SystemDictionary::Class_klass()->external_name());
+    // 打印预分配的OOM异常对象
+    tty->print_cr("  预分配OOM对象(Java heap space)=" PTR_FORMAT,
+        p2i(Universe::_out_of_memory_error_java_heap));
+    tty->print_cr("  预分配OOM对象(Metaspace)=" PTR_FORMAT,
+        p2i(Universe::_out_of_memory_error_metaspace));
+    tty->print_cr("  预分配NPE对象=" PTR_FORMAT,
+        p2i(Universe::_null_ptr_exception_instance));
+    tty->print_cr("  预分配ArithmeticException对象=" PTR_FORMAT,
+        p2i(Universe::_arithmetic_exception_instance));
+    tty->print_cr("  → 结论1: OOM/NPE/ArithmeticException在JVM启动时就预分配好了");
+    tty->print_cr("  → 结论2: 预分配是为了避免抛出异常时再分配对象(此时可能已经OOM)");
+    tty->print_cr("  → 结论3: Object/String/Class的klass地址在Metaspace中，不在堆里");
+    // 打印vtable大小
+    tty->print_cr("  Object vtable大小=%d (Object有%d个虚方法)",
+        SystemDictionary::Object_klass()->vtable_length() / vtableEntry::size(),
+        SystemDictionary::Object_klass()->vtable_length() / vtableEntry::size());
+  }
+  // ===== [PROBE][universe_post_init] END =====
+
   return true;
 }
 

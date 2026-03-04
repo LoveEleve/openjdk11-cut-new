@@ -184,6 +184,22 @@ void ThreadLocalAllocBuffer::fill(HeapWord* start,
   print_stats("fill");
   assert(top <= start + new_size - alignment_reserve(), "size too small");
 
+  // [PROBE][TLAB] 每次 refill 时打印 TLAB 状态（每50次打印一次，防止刷屏）
+  if (_number_of_refills == 1 || _number_of_refills % 50 == 0) {
+    size_t used_bytes  = pointer_delta(top, start) * HeapWordSize;
+    size_t total_bytes = new_size * HeapWordSize;
+    tty->print_cr("[PROBE][TLAB] refill #%d: tid=%ld",
+        _number_of_refills, os::current_thread_id());
+    tty->print_cr("  新TLAB: start=" PTR_FORMAT " size=%zuKB (%zu bytes)",
+        p2i(start), total_bytes / 1024, total_bytes);
+    tty->print_cr("  已用(top-start)=%zu bytes, 可用=%zuKB",
+        used_bytes, (total_bytes - used_bytes) / 1024);
+    tty->print_cr("  desired_size=%zuKB, refill_waste_limit=%zuB",
+        desired_size() * HeapWordSize / 1024,
+        refill_waste_limit() * HeapWordSize);
+    tty->print_cr("  → 结论: TLAB大小=%zuKB, 每次refill分配新块", total_bytes / 1024);
+  }
+
   initialize(start, top, start + new_size - alignment_reserve());
 
   // Reset amount of internal fragmentation
@@ -330,6 +346,21 @@ void ThreadLocalAllocBuffer::startup_initialization() {
 
   log_develop_trace(gc, tlab)("TLAB min: " SIZE_FORMAT " initial: " SIZE_FORMAT " max: " SIZE_FORMAT,
                                min_size(), Thread::current()->tlab().initial_desired_size(), max_size());
+
+  // [PROBE][TLAB] 打印 TLAB 初始化参数
+  {
+    size_t init_sz = Thread::current()->tlab().initial_desired_size();
+    size_t heap_cap = Universe::heap()->tlab_capacity(Thread::current());
+    tty->print_cr("[PROBE][TLAB] startup_initialization 完成:");
+    tty->print_cr("  target_refills=%u (每次GC期间预期refill次数)", _target_refills);
+    tty->print_cr("  min_size=%zuKB (%zu words)", min_size() * HeapWordSize / 1024, min_size());
+    tty->print_cr("  max_size=%zuKB (%zu words)", max_size() * HeapWordSize / 1024, max_size());
+    tty->print_cr("  initial_desired_size=%zuKB (%zu words)", init_sz * HeapWordSize / 1024, init_sz);
+    tty->print_cr("  tlab_capacity(heap)=%zuMB", heap_cap / (1024*1024));
+    tty->print_cr("  计算公式: initial = tlab_capacity / (nof_threads * target_refills)");
+    tty->print_cr("  → 结论: TLAB初始大小=%zuKB, 每次GC期间预期refill %u次",
+        init_sz * HeapWordSize / 1024, _target_refills);
+  }
 }
 
 size_t ThreadLocalAllocBuffer::initial_desired_size() {

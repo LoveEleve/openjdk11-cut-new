@@ -127,6 +127,13 @@ void G1ConcurrentRefineThread::run_service() {
                           G1BarrierSet::dirty_card_queue_set().completed_buffers_num(),
                           buffers_processed);
 
+    // [PROBE][Refine] 打印 Refine 线程每次激活的处理统计
+    if (buffers_processed > 0) {
+      tty->print_cr("[PROBE][Refine] worker#%d 完成一轮处理: 处理buffer数=%zu, 剩余buffer数=%zu",
+          _worker_id, buffers_processed,
+          G1BarrierSet::dirty_card_queue_set().completed_buffers_num());
+    }
+
     if (os::supports_vtime()) {
       _vtime_accum = (os::elapsedVTime() - _vtime_start);
     } else {
