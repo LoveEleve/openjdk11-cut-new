@@ -653,7 +653,23 @@ Klass* SystemDictionary::resolve_instance_class_or_null(Symbol* name,
   // to allow returning the Klass* and add it to the pd_set if it is valid
   {
     Klass* probe = dictionary->find(d_hash, name, protection_domain);
-    if (probe != NULL) return probe;
+    if (probe != NULL) {
+      // [PROBE] 缓存命中，直接返回
+      static volatile int _resolve_hit_count = 0;
+      if (Atomic::add(1, &_resolve_hit_count) <= 20) {
+        tty->print_cr("[ClassLoad::resolve] HIT class=%s loader=%s",
+                      name->as_C_string(),
+                      class_loader.is_null() ? "Bootstrap" : class_loader->klass()->external_name());
+      }
+      return probe;
+    }
+  }
+  // [PROBE] 缓存未命中，需要实际加载
+  static volatile int _resolve_miss_count = 0;
+  if (Atomic::add(1, &_resolve_miss_count) <= 200) {
+    tty->print_cr("[ClassLoad::resolve] MISS class=%s loader=%s",
+                  name->as_C_string(),
+                  class_loader.is_null() ? "Bootstrap" : class_loader->klass()->external_name());
   }
 
   // Non-bootstrap class loaders will call out to class loader and
@@ -1401,6 +1417,14 @@ void SystemDictionary::clear_invoke_method_table() {
 #endif // INCLUDE_CDS
 
 InstanceKlass* SystemDictionary::load_instance_class(Symbol* class_name, Handle class_loader, TRAPS) {
+
+  // [PROBE] 实际加载分发：Bootstrap vs 用户 ClassLoader
+  static volatile int _load_count = 0;
+  if (Atomic::add(1, &_load_count) <= 200) {
+    tty->print_cr("[ClassLoad::load_instance] class=%s loader=%s",
+                  class_name->as_C_string(),
+                  class_loader.is_null() ? "Bootstrap" : class_loader->klass()->external_name());
+  }
 
   if (class_loader.is_null()) {
     ResourceMark rm;

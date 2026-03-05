@@ -1440,6 +1440,13 @@ InstanceKlass* ClassLoader::load_class(Symbol* name, bool search_append_only, TR
 
   const char* const class_name = name->as_C_string();
 
+  // [PROBE] Bootstrap ClassLoader 搜索类文件
+  static volatile int _boot_load_count = 0;
+  if (Atomic::add(1, &_boot_load_count) <= 200) {
+    tty->print_cr("[ClassLoad::boot_load] class=%s search_append_only=%s",
+                  class_name, search_append_only ? "true(append)" : "false(jimage/patch)");
+  }
+
   EventMark m("loading class %s", class_name);
 
   const char* const file_name = file_name_for_class_name(class_name,

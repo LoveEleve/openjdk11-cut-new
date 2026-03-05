@@ -5576,6 +5576,18 @@ InstanceKlass* ClassFileParser::create_instance_klass(bool changed_by_loadhook, 
 
   assert(_klass == ik, "invariant");
 
+  // [PROBE] InstanceKlass 创建完成，打印类名和关键统计
+  static volatile int _create_count = 0;
+  if (Atomic::add(1, &_create_count) <= 200) {
+    ResourceMark rm(THREAD);
+    tty->print_cr("[ClassLoad::create_klass] class=%s methods=%d fields=%d sizeof_ik=%zu loader=%s",
+                  ik->external_name(),
+                  ik->methods()->length(),
+                  ik->java_fields_count(),
+                  sizeof(InstanceKlass),
+                  ik->class_loader() == NULL ? "Bootstrap" : ik->class_loader()->klass()->external_name());
+  }
+
   ik->set_has_passed_fingerprint_check(false);
   if (UseAOT && ik->supers_have_passed_fingerprint_checks()) {
     uint64_t aot_fp = AOTLoader::get_saved_fingerprint(ik);
