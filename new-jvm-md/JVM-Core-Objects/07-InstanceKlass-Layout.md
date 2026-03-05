@@ -568,6 +568,81 @@ Klass** adr_implementor() const {
 3. **嵌入区域从 +472 开始**，vtable 紧跟在 InstanceKlass 末尾，无任何间隙
 4. **`_init_state` 在 +394**，`_init_thread` 在 +320，两者相距 74 字节，不在同一缓存行
 
+#### 3.3.5 IKProbe 插桩验证结果（实际运行数据）
+
+插桩位置：`classFileParser.cpp` `fill_instance_klass` 末尾 + `instanceKlass.cpp` `set_initialization_state_and_notify`
+
+运行命令：`java -Xms8g -Xmx8g -XX:+UseG1GC -Xint -cp /data/workspace/demo/src com.wjcoder.Main`
+
+**整体统计：**
+
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| 加载类总数（fill 次数） | **1546** | 含 JDK 内部类、用户类 |
+| 有 OopMapBlock 的类 | **567** | 约 37%，其余为接口或无 oop 字段的类 |
+| 经历 `being_initialized→fully_initialized` 的类 | **858** | 有 `<clinit>` 或需要初始化的类 |
+
+**vtable_len 最大的类（Top 5）：**
+
+```
+java.nio.HeapByteBuffer    vtable_len=78  itable_len=5   oop_map_count=1
+java.nio.DirectByteBuffer  vtable_len=78  itable_len=10  oop_map_count=1
+java.nio.MappedByteBuffer  vtable_len=74  itable_len=5   oop_map_count=1
+java.nio.ByteBuffer        vtable_len=74  itable_len=5   oop_map_count=1
+ConcurrentHashMap          vtable_len=67  itable_len=54  oop_map_count=2
+```
+
+**典型类的嵌入区域数据：**
+
+```
+# java.lang.Object（所有类的根）
+vtable_len=5  itable_len=2  oop_map_count=0  methods=14  fields=0
+
+# java.lang.String（1 个 oop 字段：char[] value）
+vtable_len=5  itable_len=13  oop_map_count=1  methods=109  fields=9
+  OopMapBlock[0]: offset=12 count=1
+
+# java.lang.Class（17 个连续 oop 字段）
+vtable_len=5  itable_len=20  oop_map_count=1  methods=139  fields=23
+  OopMapBlock[0]: offset=12 count=17
+
+# java.lang.ClassLoader（14 个连续 oop 字段）
+vtable_len=34  itable_len=2  oop_map_count=1  methods=94  fields=22
+  OopMapBlock[0]: offset=12 count=14
+
+# java.security.SecureClassLoader（oop 字段不连续，2 个 OopMapBlock）
+vtable_len=35  itable_len=2  oop_map_count=2  methods=9  fields=2
+  OopMapBlock[0]: offset=12 count=14   ← 继承自 ClassLoader 的 oop 字段
+  OopMapBlock[1]: offset=88 count=1    ← SecureClassLoader 自己新增的 oop 字段
+
+# java.lang.reflect.Method（3 个 OopMapBlock，oop 字段分散在继承链中）
+vtable_len=55  itable_len=23  oop_map_count=3  methods=47  fields=14
+
+# 接口类（无 itable，vtable_len 固定为 5）
+java.io.Serializable  vtable_len=5  itable_len=0  oop_map_count=0  is_interface=true
+java.lang.Comparable  vtable_len=5  itable_len=0  oop_map_count=0  is_interface=true
+```
+
+**`_init_state` 变化验证：**
+
+```
+[IKProbe::state] class=java.lang.Object  being_initialized -> fully_initialized
+[IKProbe::state] class=java.lang.String  being_initialized -> fully_initialized
+[IKProbe::state] class=java.lang.Class   being_initialized -> fully_initialized
+[IKProbe::state] class=jdk.internal.misc.Unsafe  being_initialized -> fully_initialized
+```
+
+> **注意**：`set_initialization_state_and_notify` 只在状态变为 `fully_initialized`（或 `initialization_error`）时调用，
+> `linked → being_initialized` 的转换是在 `initialize_impl()` 中直接设置 `_init_state`，不经过此函数，
+> 因此插桩只能捕获到 `being_initialized → fully_initialized` 这一步。
+
+**关键验证结论：**
+
+1. ✅ **OopMapBlock 的 offset=12 规律**：绝大多数类的第一个 OopMapBlock 从 offset=12 开始，这是因为对象头占 12 字节（mark word 8 + klass ptr 4，压缩指针），oop 字段紧跟其后
+2. ✅ **多 OopMapBlock 的原因**：当子类新增的 oop 字段与父类 oop 字段不连续时（中间有非 oop 字段），会产生多个 OopMapBlock（如 `SecureClassLoader` 的 offset=88 处新增了 1 个 oop）
+3. ✅ **接口类的 vtable_len=5**：所有接口类的 vtable_len 固定为 5（继承自 Object 的 5 个虚方法），itable_len=0（接口自身不需要 itable）
+4. ✅ **vtable_len 随继承深度增长**：`ByteBuffer(74) → MappedByteBuffer(74) → HeapByteBuffer(78)`，子类 vtable 包含父类所有条目加上新增虚方法
+
 ---
 
 ## 第 4 部分：数据结构关系图
