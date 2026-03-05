@@ -272,12 +272,20 @@ void ObjectMonitor::enter(TRAPS) {
     // Either ASSERT _recursions == 0 or explicitly set _recursions = 0.
     assert(_recursions == 0, "invariant");
     assert(_owner == Self, "invariant");
+    // [PROBE] 路径1: 首次CAS成功，直接获锁
+    tty->print_cr("[ObjectMonitor::enter] PATH=CAS_SUCCESS monitor=%p thread=" INTPTR_FORMAT
+                  " _recursions=%ld _cxq=%p _EntryList=%p",
+                  this, p2i(Self), _recursions, _cxq, _EntryList);
     return;
   }
 
   if (cur == Self) {
     // TODO-FIXME: check for integer overflow!  BUGID 6557169.
     _recursions++;
+    // [PROBE] 路径2: 重入，recursions++
+    tty->print_cr("[ObjectMonitor::enter] PATH=REENTRANT monitor=%p thread=" INTPTR_FORMAT
+                  " _recursions=%ld",
+                  this, p2i(Self), _recursions);
     return;
   }
 
@@ -287,12 +295,20 @@ void ObjectMonitor::enter(TRAPS) {
     // Commute owner from a thread-specific on-stack BasicLockObject address to
     // a full-fledged "Thread *".
     _owner = Self;
+    // [PROBE] 路径3: BasicLock升级为ObjectMonitor，recursions=1
+    tty->print_cr("[ObjectMonitor::enter] PATH=BASICLOCK_UPGRADE monitor=%p thread=" INTPTR_FORMAT
+                  " _recursions=%ld _owner=%p",
+                  this, p2i(Self), _recursions, _owner);
     return;
   }
 
   // We've encountered genuine contention.
   assert(Self->_Stalled == 0, "invariant");
   Self->_Stalled = intptr_t(this);
+  // [PROBE] 路径4: 真实竞争，进入 EnterI 排队
+  tty->print_cr("[ObjectMonitor::enter] PATH=CONTENDED monitor=%p thread=" INTPTR_FORMAT
+                " _owner=%p _cxq=%p _EntryList=%p _count=%d",
+                this, p2i(Self), _owner, _cxq, _EntryList, _count);
 
   // Try one round of spinning *before* enqueueing Self
   // and before going through the awkward and expensive state
@@ -932,6 +948,10 @@ void ObjectMonitor::exit(bool not_suspended, TRAPS) {
   if (_recursions != 0) {
     _recursions--;        // this is simple recursive enter
     TEVENT(Inflated exit - recursive);
+    // [PROBE] exit 递归退出，recursions--
+    tty->print_cr("[ObjectMonitor::exit] PATH=RECURSIVE monitor=%p thread=" INTPTR_FORMAT
+                  " _recursions=%ld (after--)",
+                  this, p2i(THREAD), _recursions);
     return;
   }
 
@@ -1473,6 +1493,10 @@ void ObjectMonitor::wait(jlong millis, bool interruptible, TRAPS) {
   Thread::SpinAcquire(&_WaitSetLock, "WaitSet - add");
   AddWaiter(&node);
   Thread::SpinRelease(&_WaitSetLock);
+  // [PROBE] wait: 节点已加入 _WaitSet，即将释放锁并 park
+  tty->print_cr("[ObjectMonitor::wait] ENTER_WAIT monitor=%p thread=" INTPTR_FORMAT
+                " _waiters=%d _WaitSet=%p _recursions=%ld millis=%ld",
+                this, p2i(Self), _waiters, _WaitSet, _recursions, millis);
 
   if ((SyncFlags & 4) == 0) {
     _Responsible = NULL;
@@ -1655,6 +1679,10 @@ void ObjectMonitor::INotify(Thread * Self) {
     TEVENT(Notify1 - Transfer);
     guarantee(iterator->TState == ObjectWaiter::TS_WAIT, "invariant");
     guarantee(iterator->_notified == 0, "invariant");
+    // [PROBE] notify: 从 _WaitSet 移出一个节点，转移到 EntryList/_cxq
+    tty->print_cr("[ObjectMonitor::INotify] DEQUEUE monitor=%p notifier=" INTPTR_FORMAT
+                  " waiter_thread=" INTPTR_FORMAT " _WaitSet=%p _waiters=%d _EntryList=%p _cxq=%p",
+                  this, p2i(Self), p2i(iterator->_thread), _WaitSet, _waiters, _EntryList, _cxq);
     // Disposition - what might we do with iterator ?
     // a.  add it directly to the EntryList - either tail (policy == 1)
     //     or head (policy == 0).
@@ -2368,6 +2396,8 @@ void ObjectMonitor::DeferredInitialize() {
   if (Knob_Verbose) {
     sanity_checks();
   }
+  // [PROBE] 无条件调用 sanity_checks，打印所有字段偏移量
+  sanity_checks();
 
   if (os::is_MP()) {
     BackOffMask = (1 << Knob_SpinBackOff) - 1;
@@ -2414,6 +2444,30 @@ void ObjectMonitor::sanity_checks() {
 
   uint offset_owner = (uint)(addr_owner - addr_begin);
   if (verbose) tty->print_cr("INFO: offset(_owner)=%u", offset_owner);
+
+  // [PROBE] 补充所有关键字段偏移量（无条件打印，启动时即可看到）
+  {
+    tty->print_cr("[PROBE] ===== ObjectMonitor 字段偏移量 =====");
+    tty->print_cr("[PROBE] sizeof(ObjectMonitor)       = " SIZE_FORMAT, sizeof(ObjectMonitor));
+    tty->print_cr("[PROBE] sizeof(PaddedEnd<ObjectMonitor>) = " SIZE_FORMAT, sizeof(PaddedEnd<ObjectMonitor>));
+    tty->print_cr("[PROBE] offset(_header)             = %u", (uint)((u_char*)&dummy._header       - addr_begin));
+    tty->print_cr("[PROBE] offset(_object)             = %u", (uint)((u_char*)&dummy._object       - addr_begin));
+    tty->print_cr("[PROBE] offset(FreeNext)            = %u", (uint)((u_char*)&dummy.FreeNext      - addr_begin));
+    tty->print_cr("[PROBE] offset(_owner)              = %u", (uint)((u_char*)&dummy._owner        - addr_begin));
+    tty->print_cr("[PROBE] offset(_previous_owner_tid) = %u", (uint)((u_char*)&dummy._previous_owner_tid - addr_begin));
+    tty->print_cr("[PROBE] offset(_recursions)         = %u", (uint)((u_char*)&dummy._recursions   - addr_begin));
+    tty->print_cr("[PROBE] offset(_EntryList)          = %u", (uint)((u_char*)&dummy._EntryList    - addr_begin));
+    tty->print_cr("[PROBE] offset(_cxq)                = %u", (uint)((u_char*)&dummy._cxq          - addr_begin));
+    tty->print_cr("[PROBE] offset(_succ)               = %u", (uint)((u_char*)&dummy._succ         - addr_begin));
+    tty->print_cr("[PROBE] offset(_Responsible)        = %u", (uint)((u_char*)&dummy._Responsible  - addr_begin));
+    tty->print_cr("[PROBE] offset(_Spinner)            = %u", (uint)((u_char*)&dummy._Spinner      - addr_begin));
+    tty->print_cr("[PROBE] offset(_SpinDuration)       = %u", (uint)((u_char*)&dummy._SpinDuration - addr_begin));
+    tty->print_cr("[PROBE] offset(_count)              = %u", (uint)((u_char*)&dummy._count        - addr_begin));
+    tty->print_cr("[PROBE] offset(_WaitSet)            = %u", (uint)((u_char*)&dummy._WaitSet      - addr_begin));
+    tty->print_cr("[PROBE] offset(_waiters)            = %u", (uint)((u_char*)&dummy._waiters      - addr_begin));
+    tty->print_cr("[PROBE] offset(_WaitSetLock)        = %u", (uint)((u_char*)&dummy._WaitSetLock  - addr_begin));
+    tty->print_cr("[PROBE] =========================================");
+  }
 
   if ((uint)(addr_header - addr_begin) != 0) {
     tty->print_cr("ERROR: offset(_header) must be zero (0).");

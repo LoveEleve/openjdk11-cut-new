@@ -1119,6 +1119,10 @@ ObjectMonitor* ObjectSynchronizer::omAlloc(Thread * Self) {
       Self->omFreeCount--;
       // CONSIDER: set m->FreeNext = BAD -- diagnostic hygiene
       guarantee(m->object() == NULL, "invariant");
+      // [PROBE] 分配来源1: 线程本地 omFreeList
+      tty->print_cr("[omAlloc] SOURCE=THREAD_LOCAL thread=" INTPTR_FORMAT
+                    " monitor=%p omFreeCount=%d omInUseCount=%d",
+                    p2i(Self), m, Self->omFreeCount, Self->omInUseCount);
       if (MonitorInUseLists) {
         m->FreeNext = Self->omInUseList;
         Self->omInUseList = m;
@@ -1141,6 +1145,10 @@ ObjectMonitor* ObjectSynchronizer::omAlloc(Thread * Self) {
       // Reprovision the thread's omFreeList.
       // Use bulk transfers to reduce the allocation rate and heat
       // on various locks.
+      // [PROBE] 分配来源2: 从全局 gFreeList 批量补充到线程本地
+      tty->print_cr("[omAlloc] SOURCE=GLOBAL_FREELIST thread=" INTPTR_FORMAT
+                    " gMonitorFreeCount=%d gMonitorPopulation=%d omFreeProvision=%d",
+                    p2i(Self), gMonitorFreeCount, gMonitorPopulation, Self->omFreeProvision);
       Thread::muxAcquire(&gListLock, "omAlloc");
       for (int i = Self->omFreeProvision; --i >= 0 && gFreeList != NULL;) {
         gMonitorFreeCount--;
@@ -1219,6 +1227,10 @@ ObjectMonitor* ObjectSynchronizer::omAlloc(Thread * Self) {
     Thread::muxAcquire(&gListLock, "omAlloc [2]");
     gMonitorPopulation += _BLOCKSIZE-1;
     gMonitorFreeCount += _BLOCKSIZE-1;
+    // [PROBE] 分配来源3: malloc 新分配一批 ObjectMonitor
+    tty->print_cr("[omAlloc] SOURCE=MALLOC_NEW thread=" INTPTR_FORMAT
+                  " _BLOCKSIZE=%d gMonitorPopulation=%d gMonitorFreeCount=%d",
+                  p2i(Self), _BLOCKSIZE, gMonitorPopulation, gMonitorFreeCount);
 
     // Add the new block to the list of extant blocks (gBlockList).
     // The very first objectMonitor in a block is reserved and dedicated.
