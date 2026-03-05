@@ -1039,6 +1039,17 @@ void InstanceKlass::initialize_impl(TRAPS) {
 
 
 void InstanceKlass::set_initialization_state_and_notify(ClassState state, TRAPS) {
+  // [IKProbe::state] 插桩：打印 _init_state 状态变化
+  {
+    ResourceMark rm(THREAD);
+    static const char* state_names[] = {
+      "allocated", "loaded", "linked", "being_initialized", "fully_initialized", "initialization_error"
+    };
+    const char* old_name = (init_state() <= initialization_error) ? state_names[init_state()] : "unknown";
+    const char* new_name = (state <= initialization_error)        ? state_names[state]        : "unknown";
+    tty->print_cr("[IKProbe::state] class=%s  %s -> %s",
+                  external_name(), old_name, new_name);
+  }
   Handle h_init_lock(THREAD, init_lock());
   if (h_init_lock() != NULL) {
     ObjectLocker ol(h_init_lock, THREAD);

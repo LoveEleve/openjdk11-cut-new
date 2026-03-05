@@ -5814,6 +5814,33 @@ void ClassFileParser::fill_instance_klass(InstanceKlass* ik, bool changed_by_loa
   // it's official
   set_klass(ik);
 
+  // [IKProbe::fill] 插桩：打印 InstanceKlass 嵌入区域实际数据
+  {
+    ResourceMark rm(THREAD);
+    const char* klass_name = ik->external_name();
+    int vtable_len  = ik->vtable_length();
+    int itable_len  = ik->itable_length();
+    int oop_map_cnt = ik->nonstatic_oop_map_count();
+    int methods_cnt = ik->methods()->length();
+    int fields_cnt  = ik->java_fields_count();
+    bool is_iface   = ik->is_interface();
+
+    tty->print_cr("[IKProbe::fill] class=%s vtable_len=%d itable_len=%d"
+                  " oop_map_count=%d methods=%d fields=%d is_interface=%s",
+                  klass_name, vtable_len, itable_len,
+                  oop_map_cnt, methods_cnt, fields_cnt,
+                  is_iface ? "true" : "false");
+
+    // 打印每个 OopMapBlock 的 offset 和 count
+    if (oop_map_cnt > 0) {
+      OopMapBlock* ombs = ik->start_of_nonstatic_oop_maps();
+      for (int i = 0; i < oop_map_cnt; i++) {
+        tty->print_cr("[IKProbe::fill]   OopMapBlock[%d]: offset=%d count=%d",
+                      i, ombs[i].offset(), ombs[i].count());
+      }
+    }
+  }
+
   debug_only(ik->verify();)
 }
 
