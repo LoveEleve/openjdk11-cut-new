@@ -25,6 +25,46 @@
 
 ---
 
+## 0.5 分层学习路径（从上往下）
+
+> 先完成 L1，再进入 L2，最后进入 L3；不要跳层。
+
+| 层级 | 目标 | 本章建议阅读范围 | 预计耗时 | 完成标准 |
+|------|------|------------------|----------|----------|
+| **L1（必读）** | 建立 JVM 源码分析最小认知框架 | `1.1`、`1.2`、`1.4`、`1.7`、`1.12` | 2-3 小时 | 能说清 JVM 在系统中的位置，能定位 hotspot 关键目录，能复述“先数据结构后算法” |
+| **L2（进阶）** | 形成可操作的调试能力 | 在 L1 基础上增加 `1.3`、`1.5`、`1.8` | 4-6 小时 | 能独立跑通一次 `InterpreterRuntime::_new` 断点调试并解释调用栈 |
+| **L3（深挖）** | 建立可迁移的分析能力 | 全文 + 关联文档（`ObjectModel`、`ClassLoading`、`G1GC`） | 1-2 天 | 能把一个 JVM 问题拆成“问题→数据结构→算法→验证”四步并产出分析笔记 |
+
+## 0.6 本章最小验证任务（15 分钟）
+
+> 目标：降低入门挫败感，确保“看完就能动手”。
+
+### Task-A：源码定位
+
+```bash
+find /data/workspace/openjdk-cut-new/src/hotspot/share -name "markWord.hpp"
+find /data/workspace/openjdk-cut-new/src/hotspot/share -name "objectMonitor.cpp"
+```
+
+**通过标准**：能准确指出对象头定义文件与 `synchronized` 核心实现文件。
+
+### Task-B：运行时断点验证
+
+```bash
+/data/workspace/openjdk-cut-new/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java -version
+```
+
+然后使用 GDB 在 `InterpreterRuntime::_new` 下断点并运行任意 `new Object()` 示例。
+
+**通过标准**：断点命中一次，并能看到调用栈（`bt`）。
+
+## 0.7 本章 Checkpoint（完成即打勾）
+
+- [ ] 我能在 1 分钟内说出 JVM 源码主目录定位路径
+- [ ] 我能解释为什么 JVM 学习要“先数据结构后算法”
+- [ ] 我已完成一次 `_new` 断点命中并看过调用栈
+- [ ] 我知道下一步应进入 `ObjectModel` 模块而不是随机跳读
+
 
 ## 1.1 JVM 是什么？为什么要读源码？
 
