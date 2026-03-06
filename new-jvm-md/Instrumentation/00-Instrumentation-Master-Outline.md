@@ -2275,7 +2275,7 @@ new-jvm-md/Instrumentation/
 | 第4D章 G1 Mixed GC | Mixed GC触发条件？CSet包含多少Old Region？回收了多少MB？ | ✅ 已完成 | 04D-MixedGC-Probe-Results.md |
 | 第5章 JIT 编译 | C1触发阈值？C2触发阈值？编译耗时？代码大小？C1 vs C2代码大小对比？ | ✅ 已完成 | 05-JIT-Probe-Results.md |
 | 第5B章 OSR 栈上替换 | OSR触发的 backedge_count？OSR编译的 osr_bci？切换时机？ | ✅ 已完成 | 05B-OSR-Probe-Results.md |
-| 第5C章 去优化 | 去优化原因？重建了多少个栈帧？恢复到哪个bci？ | ⬜ 待开始 | - |
+| 第5C章 去优化 | 去优化原因？重建了多少个栈帧？恢复到哪个bci？ | ✅ 已完成 | 05C-Deoptimization-Probe-Results.md |
 | 第5D章 字节码解释执行 | dispatch table地址？handler数量？解释器代码大小？ | ⬜ 待开始 | - |
 | 第6章 Safepoint | TTT是多少ms？最慢线程在做什么？操作耗时 vs 恢复耗时？ | ⬜ 待开始 | - |
 | 第7章 同步机制 | 膨胀前后Mark Word变化？ObjectMonitor的_EntryList长度？膨胀原因？ | ⬜ 待开始 | - |
