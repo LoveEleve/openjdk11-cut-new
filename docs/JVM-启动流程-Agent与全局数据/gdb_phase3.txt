@@ -1,0 +1,61 @@
+# GDB 脚本 - Phase 3: Agent 与全局数据结构验证
+# 使用方法: gdb -x gdb_phase3.txt --args java -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+set pagination off
+set print pretty on
+
+# 在 vm_init_globals 入口处打断点
+b vm_init_globals
+
+# 也在 create_vm_init_agents 入口处打断点
+b Threads::create_vm_init_agents
+
+# 运行
+run
+
+# 当命中 create_vm_init_agents 时
+printf "\n========== Phase 3.1: Agent 初始化 ==========\n"
+
+# 打印 AgentLibrary 结构信息
+printf "\n----- AgentLibrary 结构大小 -----\n"
+p sizeof(AgentLibrary)
+
+# 打印 Arguments::agents() 链表
+printf "\n----- Agent 链表 -----\n"
+p Arguments::agents()
+
+# 打印 main_vm 结构
+printf "\n----- JavaVM 结构 -----\n"
+p &main_vm
+p sizeof(main_vm)
+
+# 继续到 vm_init_globals
+c
+
+printf "\n========== Phase 3.2: vm_init_globals ==========\n"
+
+# 打印关键全局变量
+printf "\n----- Threads 状态变量 -----\n"
+p Threads::_thread_list
+p Threads::_number_of_threads
+p Threads::_number_of_non_daemon_threads
+
+# 打印关键数据结构大小
+printf "\n----- 核心数据结构大小 -----\n"
+p sizeof(Thread)
+p sizeof(JavaThread)
+p sizeof(OSThread)
+
+printf "\n----- Mutex 相关 -----\n"
+p sizeof(Mutex)
+p sizeof(Monitor)
+
+printf "\n----- ChunkPool 相关 -----\n"
+p sizeof(Chunk)
+p sizeof(Arena)
+
+printf "\n----- PerfMemory 相关 -----\n"
+p sizeof(PerfDataEntry)
+
+printf "\n========== 验证完成 ==========\n"
+quit

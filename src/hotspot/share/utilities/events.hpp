@@ -77,12 +77,12 @@ template <class T> class EventLogBase : public EventLog {
   };
 
  protected:
-  Mutex           _mutex;
-  const char*     _name;
-  int             _length;
-  int             _index;
-  int             _count;
-  EventRecord<T>* _records;
+  Mutex           _mutex;  // 保护环形缓冲区的锁
+  const char*     _name;   // = "GC Heap History"
+  int             _length; // 缓冲区容量 = LogEventsBufferEntries（默认 20）
+  int             _index;  // 当前写入位置（循环）
+  int             _count;  // 已记录的事件数
+  EventRecord<T>* _records; // 环形数组，每个槽位存一条 GCMessage
 
  public:
   EventLogBase<T>(const char* name, int length = LogEventsBufferEntries):

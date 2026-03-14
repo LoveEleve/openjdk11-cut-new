@@ -15,14 +15,14 @@ description: JVM 源码精通技能。当用户要求深入学习 JVM 源码、�
 - 不得在其他目录进行 JVM 源码相关的分析操作
 
 ### 2. 输出文件存放约束
-- **所有生成的临时文件、分析文档、GDB 脚本必须存放在 `jvm-md/{topic}/` 目录下**
+- **所有生成的临时文件、分析文档、GDB 脚本必须存放在 `docs/{topic}/` 目录下**
 - `{topic}` 为当前分析的主题名称，例如：
-  - 分析 HeapRegion → `jvm-md/HeapRegion/`
-  - 分析 interpreter_init → `jvm-md/Interpreter/`
-  - 分析 universe_init → `jvm-md/Universe/`
+  - 分析 HeapRegion → `docs/HeapRegion/`
+  - 分析 interpreter_init → `docs/Interpreter/`
+  - 分析 universe_init → `docs/Universe/`
 - 目录结构示例：
   ```
-  jvm-md/
+  docs/
   ├── {topic}/                    # 按主题组织
   │   ├── {topic}.md              # 主分析文档
   │   ├── {topic}_outline.md      # 大纲/概览（如果需要）
@@ -193,7 +193,7 @@ ClassName (总大小: XXX bytes)
 
 #### 3.1 自动生成 GDB 脚本
 
-根据分析目标，自动生成完整的 GDB 调试脚本，保存到 `jvm-md/tmp-file/{topic}/gdb_xxx.txt`
+根据分析目标，自动生成完整的 GDB 调试脚本，保存到 `docs/tmp-file/{topic}/gdb_xxx.txt`
 
 脚本模板：
 ```gdb
@@ -383,11 +383,11 @@ Level 6: 高级主题
 
 ### 当前进度追踪
 
-在 `jvm-md/` 目录下维护学习进度：
-- `jvm-md/progress.md`：已学习的主题
-- `jvm-md/G1-GC/`：G1 相关笔记
-- `jvm-md/ClassLoading/`：类加载相关笔记
-- `jvm-md/Runtime/`：运行时相关笔记
+在 `docs/` 目录下维护学习进度：
+- `docs/progress.md`：已学习的主题
+- `docs/G1-GC/`：G1 相关笔记
+- `docs/ClassLoading/`：类加载相关笔记
+- `docs/Runtime/`：运行时相关笔记
 
 ---
 
@@ -398,7 +398,7 @@ Level 6: 高级主题
 **⚠️ 强制规则**：所有分析文档必须输出到 `jvm-md/{topic}/` 对应目录：
 
 ```
-jvm-md/
+docs/
 ├── Universe/                    # Universe 相关主题
 │   ├── universe_init.md
 │   ├── universe2_init.md

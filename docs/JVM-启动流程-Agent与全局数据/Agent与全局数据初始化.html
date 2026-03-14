@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JVM 启动流程 - Agent 与全局数据初始化</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+        
+        /* 核心原理卡片 */
+        .principle-section {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            color: white;
+        }
+        .principle-section h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+            padding-bottom: 8px;
+        }
+        .principle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .principle-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .principle-card h3 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #ffd700;
+        }
+        .principle-card p {
+            font-size: 12px;
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+        
+        /* 树形结构样式 */
+        .tree { font-size: 13px; line-height: 1.6; margin-top: 20px; }
+        .node {
+            margin-left: 24px;
+            position: relative;
+        }
+        .node-content {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .node-content:hover { background: #f0f0f0; }
+        .node::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            background: #d9d9d9;
+        }
+        .node:last-child::before { height: 14px; }
+        .node-content::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            width: 10px;
+            height: 1px;
+            background: #d9d9d9;
+        }
+        .root > .node-content::before, .root::before { display: none; }
+        .toggle {
+            width: 14px; height: 14px;
+            border-radius: 2px;
+            border: 1px solid #999;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 6px;
+            font-size: 10px;
+            color: #666;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle:hover { border-color: #666; }
+        .toggle.leaf { border: none; background: transparent; }
+        .toggle.leaf::after {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #bbb;
+        }
+        .icon {
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            margin-right: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            flex-shrink: 0;
+        }
+        .icon.root { background: #52c41a; color: white; }
+        .icon.phase { background: #1890ff; color: white; }
+        .icon.core { background: #722ed1; color: white; }
+        .icon.module { background: #13c2c2; color: white; }
+        .icon.func { background: #fa8c16; color: white; }
+        .icon.detail { background: #bfbfbf; color: white; }
+        .icon.agent { background: #eb2f96; color: white; }
+        .icon.thread { background: #52c41a; color: white; }
+        .icon.data { background: #f5222d; color: white; }
+        
+        .label {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #333;
+            font-size: 13px;
+            flex: 1;
+        }
+        .label .func-name {
+            color: #0969da;
+            font-weight: 500;
+        }
+        .label .func-name:hover {
+            text-decoration: underline;
+        }
+        .label .comment {
+            color: #52c41a;
+            font-size: 12px;
+            margin-left: 8px;
+            font-family: -apple-system, sans-serif;
+        }
+        .label .file {
+            color: #999;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        .label .highlight {
+            background: #fff7e6;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #d46b08;
+        }
+        
+        .children {
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .children.collapsed { max-height: 0; opacity: 0; }
+        .children.expanded { max-height: 50000px; opacity: 1; }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 6px 14px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            background: white;
+            color: #333;
+            transition: all 0.15s;
+        }
+        .btn:hover { border-color: #1890ff; color: #1890ff; }
+        .btn-primary { background: #1890ff; color: white; border-color: #1890ff; }
+        .btn-primary:hover { background: #40a9ff; border-color: #40a9ff; }
+        
+        .legend {
+            margin-top: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 16px;
+            margin-bottom: 4px;
+        }
+        .legend-icon { width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
+        
+        .search-box {
+            padding: 6px 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 200px;
+        }
+        .search-box:focus { outline: none; border-color: #1890ff; }
+        
+        /* 表格样式 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #e8e8e8;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .data-table th {
+            background: #fafafa;
+            font-weight: 600;
+        }
+        .data-table tr:hover { background: #f5f5f5; }
+        
+        /* 高亮 */
+        .highlight-line { background: #fff7e6 !important; border-left: 3px solid #ffa940; }
+        
+        /* 阶段标题 */
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin: 20px 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #1890ff;
+            display: inline-block;
+        }
+        
+        /* 关键要点 */
+        .key-points {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .key-points h4 {
+            color: #0969da;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .key-points ul {
+            margin-left: 20px;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+        
+        /* GDB 验证框 */
+        .gdb-box {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+        }
+        .gdb-box .title {
+            color: #52c41a;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        /* Agent 状态机 */
+        .state-machine {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f0f5ff;
+            border-radius: 6px;
+        }
+        .state-box {
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .state-onload { background: #eb2f96; color: white; }
+        .state-primordial { background: #1890ff; color: white; }
+        .state-arrow {
+            font-size: 20px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JVM 启动流程 - Agent 与全局数据初始化</h1>
+        <p class="subtitle">Phase 3 深度解析 | thread.cpp:3980-4065 | OpenJDK 11</p>
+        
+        <!-- 核心原理卡片 -->
+        <div class="principle-section">
+            <h2>🎯 核心原理</h2>
+            <div class="principle-grid">
+                <div class="principle-card">
+                    <h3>本质是什么？</h3>
+                    <p>Phase 3 是 <strong>Agent 加载与全局基础设施准备阶段</strong>，完成两件事：加载 JVMTI Agent + 初始化 VM 级全局数据结构。</p>
+                </div>
+                <div class="principle-card">
+                    <h3>为什么需要？</h3>
+                    <p>Agent 需要在 Java 代码执行前开始工作；全局状态（线程列表、锁、内存池）必须在创建第一个 JavaThread 前准备好。</p>
+                </div>
+                <div class="principle-card">
+                    <h3>怎么解决？</h3>
+                    <p>1. Agent 状态机：OnLoad → Primordial 阶段转换<br>2. AgentLibrary 链表管理多个 Agent<br>3. vm_init_globals() 一站式初始化</p>
+                </div>
+                <div class="principle-card">
+                    <h3>为什么这样设计？</h3>
+                    <p>Agent 的 Agent_OnLoad 可能需要访问全局数据；集中初始化确保依赖顺序正确。</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="expandAll()">展开全部</button>
+            <button class="btn" onclick="collapseAll()">折叠全部</button>
+            <button class="btn" onclick="expandToLevel(2)">展开到第2层</button>
+            <button class="btn" onclick="expandToLevel(3)">展开到第3层</button>
+            <input type="text" class="search-box" id="searchInput" placeholder="搜索函数或关键词..." onkeyup="search()">
+        </div>
+        
+        <!-- Agent 状态机 -->
+        <div class="section-title">🔄 JVMTI Agent 状态机</div>
+        <div class="state-machine">
+            <div class="state-box state-onload">OnLoad 阶段</div>
+            <div class="state-arrow">→</div>
+            <div class="state-box state-primordial">Primordial 阶段</div>
+        </div>
+        <div style="font-size: 12px; color: #666; text-align: center; margin-bottom: 20px;">
+            调用 Agent_OnLoad() 前进入 OnLoad 阶段，完成后进入 Primordial 阶段
+        </div>
+        
+        <!-- Phase 3 流程树 -->
+        <div class="section-title">📋 Phase 3 初始化流程</div>
+        <div class="tree" id="tree">
+            <!-- Root Node -->
+            <div class="node root">
+                <div class="node-content" onclick="toggle(this)">
+                    <span class="toggle">−</span>
+                    <span class="icon root">R</span>
+                    <span class="label"><span class="func-name">Threads::create_vm()</span><span class="file">thread.cpp:3980+</span><span class="comment">Phase 3 开始</span></span>
+                </div>
+                <div class="children expanded">
+                    
+                    <!-- 3.1 Agent 初始化 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon agent">A</span>
+                            <span class="label"><span class="func-name">create_vm_init_agents()</span><span class="file">thread.cpp:4427</span><span class="comment">★ 加载 JVMTI Agent</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">JvmtiExport::enter_onload_phase()</span><span class="comment">进入 OnLoad 阶段</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="highlight">遍历 AgentLibrary 链表</span><span class="comment">for (agent = Arguments::agents(); ...)</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon func">f</span>
+                                            <span class="label"><span class="func-name">lookup_agent_on_load(agent)</span><span class="comment">dlopen + dlsym 查找 Agent_OnLoad</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon func">f</span>
+                                            <span class="label"><span class="func-name">(*on_load_entry)(&main_vm, agent->options(), NULL)</span><span class="comment">★ 调用 Agent_OnLoad()</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">JvmtiExport::enter_primordial_phase()</span><span class="comment">进入 Primordial 阶段</span></span>
+                                </div>
+                            </div>
+                            <div class="key-points" style="margin: 10px 0 10px 24px;">
+                                <h4>常见 Agent 示例</h4>
+                                <ul>
+                                    <li><code>-agentlib:jdwp=...</code> - Java 调试器</li>
+                                    <li><code>-agentpath:/path/to/libasyncProfiler.so</code> - 性能分析器</li>
+                                    <li><code>-javaagent:myagent.jar</code> - Instrumentation Agent</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 3.2 线程状态初始化 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon thread">T</span>
+                            <span class="label"><span class="highlight">线程状态变量初始化</span><span class="comment">建立线程管理初始状态</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon data">D</span>
+                                    <span class="label"><span class="highlight">_thread_list = NULL</span><span class="comment">线程链表头（空链表）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon data">D</span>
+                                    <span class="label"><span class="highlight">_number_of_threads = 0</span><span class="comment">线程总数</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon data">D</span>
+                                    <span class="label"><span class="highlight">_number_of_non_daemon_threads = 0</span><span class="comment">非守护线程数</span></span>
+                                </div>
+                            </div>
+                            <div class="gdb-box" style="margin: 10px 0 10px 24px;">
+                                <div class="title">【GDB 验证】初始化前值</div>
+                                Threads::_thread_list = 0x0 (NULL)<br>
+                                Threads::_number_of_threads = 0<br>
+                                Threads::_number_of_non_daemon_threads = 0
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 3.3 vm_init_globals -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon core">⚙</span>
+                            <span class="label"><span class="func-name">vm_init_globals()</span><span class="file">init.cpp:90</span><span class="comment">★ VM 全局数据初始化</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">check_ThreadShadow()</span><span class="comment">检查 Thread 类布局</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">basic_types_init()</span><span class="comment">基本类型大小（考虑压缩指针）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">eventlog_init()</span><span class="comment">事件日志系统</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-name">mutex_init()</span><span class="comment">★ 初始化 60+ 全局互斥锁</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon data">D</span>
+                                            <span class="label"><span class="highlight">sizeof(Mutex) = 152 字节</span><span class="comment">GDB 验证</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon data">D</span>
+                                            <span class="label"><span class="highlight">sizeof(Monitor) = 152 字节</span><span class="comment">继承 Mutex</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">chunkpool_init()</span><span class="comment">初始化 Chunk 内存池</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon data">D</span>
+                                            <span class="label"><span class="highlight">sizeof(Chunk) = 24 字节</span><span class="comment">GDB 验证</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon data">D</span>
+                                            <span class="label"><span class="highlight">sizeof(Arena) = 56 字节</span><span class="comment">GDB 验证</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">perfMemory_init()</span><span class="comment">性能数据共享内存（供 jcmd 读取）</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 3.4 主线程创建 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon thread">T</span>
+                            <span class="label"><span class="func-name">主线程创建流程</span><span class="file">thread.cpp:4018</span><span class="comment">★ 创建第一个 JavaThread</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">new JavaThread()</span><span class="comment">创建 JavaThread 对象（C++ 对象）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon data">D</span>
+                                    <span class="label"><span class="highlight">sizeof(JavaThread) = 1888 字节</span><span class="comment">GDB 验证（比 Thread 大 1032 字节）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">main_thread->set_thread_state(_thread_in_vm)</span><span class="comment">设置线程状态：正在执行 VM 代码</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-name">main_thread->initialize_thread_current()</span><span class="comment">★ 绑定到当前 OS 线程</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="highlight">ThreadLocalStorage::set_thread(this)</span><span class="comment">存入 TLS，后续可通过 Thread::current() 获取</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">main_thread->record_stack_base_and_size()</span><span class="comment">记录栈基址和大小</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">main_thread->register_thread_stack_with_NMT()</span><span class="comment">注册到 Native Memory Tracking</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-name">main_thread->set_as_starting_thread()</span><span class="comment">★ 设置为起始线程</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon func">f</span>
+                                            <span class="label"><span class="func-name">new OSThread(NULL, NULL)</span><span class="comment">创建 OSThread（232 字节）</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon func">f</span>
+                                            <span class="label"><span class="func-name">os::set_priority(this, NormalPriority)</span><span class="comment">设置线程优先级</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon func">f</span>
+                                            <span class="label"><span class="func-name">os::create_main_thread()</span><span class="comment">设置信号掩码</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">main_thread->create_stack_guard_pages()</span><span class="comment">创建栈保护页（StackOverflowError）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">ObjectMonitor::Initialize()</span><span class="comment">初始化同步子系统性能监控</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- 数据结构清单 -->
+        <div class="section-title">📊 核心数据结构（含 GDB 验证）</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>结构/变量</th>
+                    <th>大小/类型</th>
+                    <th>核心作用</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AgentLibrary</code></td>
+                    <td>48 字节</td>
+                    <td>Agent 信息节点（名称、选项、动态库句柄、链表指针）</td>
+                </tr>
+                <tr>
+                    <td><code>Thread</code></td>
+                    <td>856 字节</td>
+                    <td>基础线程结构（TLAB 等）</td>
+                </tr>
+                <tr>
+                    <td><code>JavaThread</code></td>
+                    <td>1888 字节</td>
+                    <td>Java 线程结构（+1032 字节，含 _threadObj、_osthread 等）</td>
+                </tr>
+                <tr>
+                    <td><code>OSThread</code></td>
+                    <td>232 字节</td>
+                    <td>OS 线程封装（pthread_id、优先级等）</td>
+                </tr>
+                <tr>
+                    <td><code>Mutex</code></td>
+                    <td>152 字节</td>
+                    <td>互斥锁（JVM 60+ 全局锁的基础）</td>
+                </tr>
+                <tr>
+                    <td><code>Monitor</code></td>
+                    <td>152 字节</td>
+                    <td>监视器锁（继承 Mutex）</td>
+                </tr>
+                <tr>
+                    <td><code>Chunk</code></td>
+                    <td>24 字节</td>
+                    <td>Arena 内存池的块单元</td>
+                </tr>
+                <tr>
+                    <td><code>Arena</code></td>
+                    <td>56 字节</td>
+                    <td>内存分配 Arena（管理 Chunk 链表）</td>
+                </tr>
+                <tr>
+                    <td><code>_thread_list</code></td>
+                    <td>JavaThread*</td>
+                    <td>所有 JavaThread 的链表头</td>
+                </tr>
+                <tr>
+                    <td><code>_number_of_threads</code></td>
+                    <td>int</td>
+                    <td>线程总数（含守护线程）</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- 关键要点 -->
+        <div class="key-points">
+            <h4>🎯 Phase 3 核心要点</h4>
+            <ul>
+                <li><strong>Agent 是外部扩展</strong>：JVMTI 让外部工具能在 JVM 启动早期介入（调试器、Profiler）</li>
+                <li><strong>状态机管理</strong>：OnLoad → Primordial 阶段转换是 JVMTI 规范要求</li>
+                <li><strong>主线程是原型</strong>：第一个 JavaThread 的创建流程是后续线程创建的模板</li>
+                <li><strong>基础设施先行</strong>：Mutex、ChunkPool 等必须在任何 Java 代码执行前就绪</li>
+            </ul>
+        </div>
+        
+        <div class="legend">
+            <strong>图例说明：</strong>
+            <div class="legend-item"><span class="legend-icon" style="background:#52c41a"></span>根节点</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#1890ff"></span>阶段</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#722ed1"></span>核心函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#fa8c16"></span>普通函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#eb2f96;color:white;font-size:8px">A</span>Agent</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#52c41a;color:white;font-size:8px">T</span>线程</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#f5222d;color:white;font-size:8px">D</span>数据</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#bfbfbf"></span>细节</div>
+        </div>
+    </div>
+
+    <script>
+        function toggle(element) {
+            const node = element.parentElement;
+            const children = node.querySelector(':scope > .children');
+            const toggleBtn = element.querySelector(':scope > .toggle');
+            if (!children || !toggleBtn || toggleBtn.classList.contains('leaf')) return;
+            if (children.classList.contains('collapsed')) {
+                children.classList.remove('collapsed');
+                children.classList.add('expanded');
+                toggleBtn.textContent = '−';
+            } else {
+                children.classList.remove('expanded');
+                children.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+            }
+        }
+        function expandAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('collapsed');
+                el.classList.add('expanded');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '−';
+            });
+        }
+        function collapseAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('expanded');
+                el.classList.add('collapsed');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '+';
+            });
+            document.querySelector('.root > .children').classList.remove('collapsed');
+            document.querySelector('.root > .children').classList.add('expanded');
+            document.querySelector('.root > .node-content > .toggle').textContent = '−';
+        }
+        function expandToLevel(level) {
+            collapseAll();
+            let selector = '.root';
+            for (let i = 0; i < level; i++) {
+                const nodes = document.querySelectorAll(selector + ' > .children > .node');
+                nodes.forEach(node => {
+                    const children = node.querySelector(':scope > .children');
+                    const toggle = node.querySelector(':scope > .node-content > .toggle');
+                    if (children && toggle && !toggle.classList.contains('leaf')) {
+                        children.classList.remove('collapsed');
+                        children.classList.add('expanded');
+                        toggle.textContent = '−';
+                    }
+                });
+                selector += ' > .children > .node';
+            }
+        }
+        function search() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.node-content').forEach(el => {
+                el.classList.remove('highlight-line');
+            });
+            if (query.length < 2) return;
+            document.querySelectorAll('.node-content').forEach(el => {
+                const text = el.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    el.classList.add('highlight-line');
+                    let parent = el.parentElement;
+                    while (parent) {
+                        if (parent.classList.contains('node')) {
+                            const children = parent.querySelector(':scope > .children');
+                            const toggle = parent.querySelector(':scope > .node-content > .toggle');
+                            if (children && toggle && !toggle.classList.contains('leaf')) {
+                                children.classList.remove('collapsed');
+                                children.classList.add('expanded');
+                                toggle.textContent = '−';
+                            }
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+            });
+        }
+        expandToLevel(2);
+    </script>
+</body>
+</html>

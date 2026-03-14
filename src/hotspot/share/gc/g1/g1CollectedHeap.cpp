@@ -1585,7 +1585,7 @@ jint G1CollectedHeap::initialize_young_gen_sampling_thread() {
 
 // forcus 核心操作,G1堆初始化
 jint G1CollectedHeap::initialize() {
-    os::enable_vtime();
+    os::enable_vtime(); // 默认返回false
 
     // Necessary to satisfy locking discipline assertions.
 
@@ -1598,9 +1598,9 @@ jint G1CollectedHeap::initialize() {
     // HeapWordSize).
     guarantee(HeapWordSize == wordSize, "HeapWordSize must equal wordSize");
     // forcus 获取堆大小参数
-    size_t init_byte_size = collector_policy()->initial_heap_byte_size(); // -Xms(默认值为物理内存的1/64)
-    size_t max_byte_size = collector_policy()->max_heap_byte_size(); // -Xmx(默认为物理内存的1/4) 这两个通常是相等的(-Xms = -Xmx)
-    size_t heap_alignment = collector_policy()->heap_alignment(); // 堆对齐大小
+    size_t init_byte_size = collector_policy()->initial_heap_byte_size(); // -Xms(默认值为物理内存的1/64) - 8GB
+    size_t max_byte_size = collector_policy()->max_heap_byte_size(); // -Xmx(默认为物理内存的1/4) 这两个通常是相等的(-Xms = -Xmx) - 8GB
+    size_t heap_alignment = collector_policy()->heap_alignment(); // 堆对齐大小 - 4MB
 
     // Ensure that the sizes are properly aligned.
     Universe::check_alignment(init_byte_size, HeapRegion::GrainBytes, "g1 heap");

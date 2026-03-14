@@ -59,17 +59,17 @@ class ThreadClosure;
 class VirtualSpaceSummary;
 class WorkGang;
 class nmethod;
-
+// forcus   继承 FormatBuffer<1024>：1024 字节的字符串缓冲区
 class GCMessage : public FormatBuffer<1024> {
  public:
-  bool is_before;
+  bool is_before;  // true = GC 前的堆状态，false = GC 后的堆状态
 
  public:
   GCMessage() {}
 };
 
 class CollectedHeap;
-
+// forcus 继承自 EventLogBase，内部是一个环形缓冲区
 class GCHeapLog : public EventLogBase<GCMessage> {
  private:
   void log_heap(CollectedHeap* heap, bool before);

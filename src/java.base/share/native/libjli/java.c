@@ -125,9 +125,9 @@ static const char* DEBUG_INJECTED_ARGS[] = {
     /* ===== 在这里添加你的参数 ===== */
     
     // GC 配置
-//    "-Xms8g",
-//    "-Xmx8g",
-//    "-XX:+UseG1GC",
+    "-Xms8g",
+    "-Xmx8g",
+    "-XX:+UseG1GC",
     
     // GC 日志 (按需启用/注释)
     // "-Xlog:gc*=info",
@@ -145,8 +145,8 @@ static const char* DEBUG_INJECTED_ARGS[] = {
     // "-XX:+UnlockDiagnosticVMOptions",
     
     // Classpath 和主类 (如果需要完全在代码中配置)
-//     "-cp", "/data/workspace/demo/src",
-//     "com.wjcoder.Main",
+     "-cp", "/data/workspace/demo/src",
+     "com.wjcoder.Main",
     
     /* ===== 参数添加到这里 ===== */
 };

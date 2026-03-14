@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PerfDataManager::create_string_variable 可视化分析</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .section h2 {
+            color: #ffd700;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            padding-bottom: 10px;
+        }
+        .section h3 {
+            color: #00d4ff;
+            margin: 20px 0 15px 0;
+            font-size: 1.2em;
+        }
+        .code-block {
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            border: 1px solid #30363d;
+            margin: 15px 0;
+        }
+        .code-block .comment {
+            color: #8b949e;
+        }
+        .code-block .keyword {
+            color: #ff7b72;
+        }
+        .code-block .type {
+            color: #ffa657;
+        }
+        .code-block .function {
+            color: #d2a8ff;
+        }
+        .code-block .string {
+            color: #a5d6ff;
+        }
+        .code-block .number {
+            color: #79c0ff;
+        }
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(255, 215, 0, 0.1));
+            border-left: 4px solid #00d4ff;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .highlight-box.warning {
+            border-left-color: #ffd700;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 100, 100, 0.1));
+        }
+        .step-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .step {
+            display: flex;
+            align-items: stretch;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .step-number {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            color: #000;
+            font-weight: bold;
+            font-size: 1.5em;
+            width: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .step-content {
+            flex: 1;
+            padding: 15px 20px;
+        }
+        .step-title {
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        .step-desc {
+            color: #aaa;
+            font-size: 0.9em;
+        }
+        .mermaid {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        .struct-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 0.9em;
+        }
+        .struct-table th {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+        }
+        .struct-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .struct-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .field-name {
+            color: #ffa657;
+            font-family: monospace;
+        }
+        .field-type {
+            color: #79c0ff;
+            font-family: monospace;
+        }
+        .inheritance-chain {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .inheritance-item {
+            background: linear-gradient(135deg, #2a2a4a, #1a1a2e);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 12px 20px;
+            text-align: center;
+        }
+        .inheritance-item.current {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            color: #000;
+            font-weight: bold;
+        }
+        .inheritance-arrow {
+            color: #ffd700;
+            font-size: 1.5em;
+        }
+        .memory-layout {
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: monospace;
+            margin: 15px 0;
+        }
+        .memory-row {
+            display: flex;
+            border-bottom: 1px solid #30363d;
+        }
+        .memory-row:last-child {
+            border-bottom: none;
+        }
+        .memory-offset {
+            width: 80px;
+            color: #ffd700;
+            padding: 8px;
+            border-right: 2px solid #30363d;
+        }
+        .memory-content {
+            flex: 1;
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .memory-field {
+            color: #ffa657;
+        }
+        .memory-type {
+            color: #79c0ff;
+        }
+        .memory-size {
+            color: #8b949e;
+        }
+        .call-chain {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        .call-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+        .call-depth {
+            width: 30px;
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .call-arrow {
+            color: #00d4ff;
+            margin: 0 10px;
+        }
+        .call-function {
+            color: #d2a8ff;
+            font-family: monospace;
+        }
+        .call-location {
+            color: #8b949e;
+            font-size: 0.85em;
+            margin-left: auto;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PerfDataManager::create_string_variable 可视化分析</h1>
+        <p class="subtitle">基于 OpenJDK 11 源码 | 文件: src/hotspot/share/runtime/perfData.cpp:422</p>
+
+        <!-- 第一部分：函数源码 -->
+        <div class="section">
+            <h2>一、目标函数源码</h2>
+            <div class="highlight-box">
+                <strong>功能：</strong>创建一个可变的字符串性能计数器，存储在 PerfMemory 共享内存区域，供外部工具（如 jstat）读取。
+            </div>
+            <div class="code-block">
+<span class="comment">// perfData.cpp:422-443</span>
+<span class="type">PerfStringVariable</span>* <span class="function">PerfDataManager::create_string_variable</span>(
+    <span class="type">CounterNS</span> ns,           <span class="comment">// 命名空间枚举（如 SUN_GC）</span>
+    <span class="keyword">const</span> <span class="keyword">char</span>* name,       <span class="comment">// 计数器名称（如 "cause"）</span>
+    <span class="keyword">int</span> max_length,         <span class="comment">// 最大长度（如 80，实际分配 max_length+1）</span>
+    <span class="keyword">const</span> <span class="keyword">char</span>* s,          <span class="comment">// 初始值（如 "No GC"）</span>
+    <span class="type">TRAPS</span>                   <span class="comment">// 异常处理宏</span>
+) {
+    <span class="comment">// Step 1: 处理默认长度</span>
+    <span class="keyword">if</span> (max_length == 0 && s != <span class="keyword">NULL</span>) max_length = (<span class="keyword">int</span>)strlen(s);
+    assert(max_length != 0, <span class="string">"PerfStringVariable with length 0"</span>);
+
+    <span class="comment">// Step 2: 创建对象（触发5层构造函数链）</span>
+    <span class="type">PerfStringVariable</span>* p = <span class="keyword">new</span> <span class="type">PerfStringVariable</span>(ns, name, max_length, s);
+    
+    <span class="comment">// Step 3: 验证分配是否成功</span>
+    <span class="keyword">if</span> (!p-><span class="function">is_valid</span>()) {
+        <span class="keyword">delete</span> p;
+        <span class="function">THROW_0</span>(vmSymbols::java_lang_OutOfMemoryError());
+    }
+    
+    <span class="comment">// Step 4: 注册到全局列表</span>
+    <span class="function">add_item</span>(p, <span class="keyword">false</span>);  <span class="comment">// false = 不需要 StatSampler 定期采样</span>
+    
+    <span class="keyword">return</span> p;
+}
+            </div>
+        </div>
+
+        <!-- 第二部分：执行流程 -->
+        <div class="section">
+            <h2>二、执行流程详解</h2>
+            <div class="step-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">处理默认长度</div>
+                        <div class="step-desc">
+                            如果 max_length 为 0 且提供了初始字符串，则根据字符串长度自动计算。<br>
+                            后续分配时会 <strong>+1</strong> 用于存储 '\0' 终止符。
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">创建 PerfStringVariable 对象</div>
+                        <div class="step-desc">
+                            触发 <strong>5层构造函数链</strong>，从基类到子类依次初始化，
+                            最终在 PerfMemory 共享内存中分配存储空间。
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">验证分配结果</div>
+                        <div class="step-desc">
+                            检查 <code>_valuep != NULL</code> 确认 PerfMemory 分配成功。<br>
+                            失败则删除对象并抛出 OutOfMemoryError。
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">注册到管理列表</div>
+                        <div class="step-desc">
+                            将对象添加到 PerfDataManager 的全局列表 <code>_all</code> 中。<br>
+                            如果是常量类型，还会添加到 <code>_constants</code> 列表。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第三部分：5层构造函数链 -->
+        <div class="section">
+            <h2>三、5层构造函数链</h2>
+            <div class="highlight-box">
+                new PerfStringVariable() 会依次调用以下构造函数，从基类到子类逐层初始化。
+            </div>
+            
+            <div class="call-chain">
+                <div class="call-item">
+                    <span class="call-depth">1</span>
+                    <span class="call-arrow">→</span>
+                    <span class="call-function">CHeapObj&lt;mtInternal&gt;::CHeapObj()</span>
+                    <span class="call-location">allocation.hpp</span>
+                </div>
+                <div class="call-item">
+                    <span class="call-depth">2</span>
+                    <span class="call-arrow">→</span>
+                    <span class="call-function">PerfData::PerfData(ns, name, U_String, V_Variable)</span>
+                    <span class="call-location">perfData.cpp:82</span>
+                </div>
+                <div class="call-item">
+                    <span class="call-depth">3</span>
+                    <span class="call-arrow">→</span>
+                    <span class="call-function">PerfByteArray::PerfByteArray(ns, name, U_String, V_Variable, length)</span>
+                    <span class="call-location">perfData.cpp:222</span>
+                </div>
+                <div class="call-item">
+                    <span class="call-depth">4</span>
+                    <span class="call-arrow">→</span>
+                    <span class="call-function">PerfString::PerfString(ns, name, V_Variable, max_length+1, initial_value)</span>
+                    <span class="call-location">perfData.hpp:516</span>
+                </div>
+                <div class="call-item">
+                    <span class="call-depth">5</span>
+                    <span class="call-arrow">→</span>
+                    <span class="call-function">PerfStringVariable::PerfStringVariable(ns, name, max_length, initial_value)</span>
+                    <span class="call-location">perfData.hpp:568</span>
+                </div>
+            </div>
+
+            <h3>每层构造函数详解</h3>
+            
+            <div class="code-block">
+<span class="comment">// Layer 1: CHeapObj - 内存分配标记（空实现，仅作类型标记）</span>
+<span class="keyword">template</span>&lt;<span class="type">MEMFLAGS</span> F&gt; <span class="keyword">class</span> <span class="type">CHeapObj</span> {
+<span class="keyword">public</span>:
+    <span class="function">CHeapObj</span>() {}  <span class="comment">// 标记此类对象从 C Heap 分配</span>
+};
+
+<span class="comment">// Layer 2: PerfData - 基类初始化（分配对象名称）</span>
+<span class="type">PerfData</span>::<span class="function">PerfData</span>(<span class="type">CounterNS</span> ns, <span class="keyword">const</span> <span class="keyword">char</span>* name, <span class="type">Units</span> u, <span class="type">Variability</span> v)
+    : _name(<span class="keyword">NULL</span>), _u(u), _v(v), _valuep(<span class="keyword">NULL</span>), _on_c_heap(<span class="keyword">false</span>) 
+{
+    <span class="comment">// 构造完整名称：如 "sun.gc.cause"</span>
+    <span class="keyword">const</span> <span class="keyword">char</span>* prefix = <span class="type">PerfDataManager</span>::<span class="function">ns_to_string</span>(ns);
+    _name = <span class="function">NEW_C_HEAP_ARRAY</span>(<span class="keyword">char</span>, strlen(name) + strlen(prefix) + 2, mtInternal);
+    sprintf(_name, <span class="string">"%s.%s"</span>, prefix, name);
+    <span class="comment">// 设置 F_Supported 标志（基于命名空间）</span>
+}
+
+<span class="comment">// Layer 3: PerfByteArray - 设置长度，创建 PerfMemory 条目</span>
+<span class="type">PerfByteArray</span>::<span class="function">PerfByteArray</span>(<span class="type">CounterNS</span> ns, <span class="keyword">const</span> <span class="keyword">char</span>* namep, <span class="type">Units</span> u,
+                                 <span class="type">Variability</span> v, <span class="type">jint</span> length)
+    : <span class="type">PerfData</span>(ns, namep, u, v), _length(length) 
+{
+    <span class="function">create_entry</span>(T_BYTE, <span class="keyword">sizeof</span>(<span class="type">jbyte</span>), (<span class="keyword">size_t</span>)_length);  <span class="comment">// ★关键：分配共享内存</span>
+}
+
+<span class="comment">// Layer 4: PerfString - 设置初始字符串值</span>
+<span class="type">PerfString</span>::<span class="function">PerfString</span>(<span class="type">CounterNS</span> ns, <span class="keyword">const</span> <span class="keyword">char</span>* namep, <span class="type">Variability</span> v, 
+                         <span class="type">jint</span> length, <span class="keyword">const</span> <span class="keyword">char</span>* initial_value)
+    : <span class="type">PerfByteArray</span>(ns, namep, U_String, v, length) 
+{
+    <span class="keyword">if</span> (<span class="function">is_valid</span>()) <span class="function">set_string</span>(initial_value);  <span class="comment">// 复制字符串到共享内存</span>
+}
+
+<span class="comment">// Layer 5: PerfStringVariable - 仅调用父类（Variable 类型标记）</span>
+<span class="type">PerfStringVariable</span>::<span class="function">PerfStringVariable</span>(<span class="type">CounterNS</span> ns, <span class="keyword">const</span> <span class="keyword">char</span>* namep, 
+                                         <span class="type">jint</span> max_length, <span class="keyword">const</span> <span class="keyword">char</span>* initial_value)
+    : <span class="type">PerfString</span>(ns, namep, V_Variable, max_length+1, initial_value) {}  <span class="comment">// +1 for '\0'</span>
+            </div>
+        </div>
+
+        <!-- 第四部分：核心算法 create_entry -->
+        <div class="section">
+            <h2>四、核心算法：create_entry</h2>
+            <div class="highlight-box warning">
+                <strong>关键函数：</strong>在 PerfMemory 共享内存中分配条目，这是 PerfData 系统的核心。
+            </div>
+            
+            <div class="code-block">
+<span class="keyword">void</span> <span class="type">PerfData</span>::<span class="function">create_entry</span>(<span class="type">BasicType</span> dtype, <span class="keyword">size_t</span> dsize, <span class="keyword">size_t</span> vlen) {
+    <span class="comment">// 1. 计算数据长度（向量长度默认为1）</span>
+    <span class="keyword">size_t</span> dlen = vlen==0 ? 1 : vlen;
+    
+    <span class="comment">// 2. 计算总大小 = 条目头 + 名称 + 填充 + 数据</span>
+    <span class="keyword">size_t</span> namelen = strlen(name()) + 1;  <span class="comment">// 包含 '\0'</span>
+    <span class="keyword">size_t</span> size = <span class="keyword">sizeof</span>(<span class="type">PerfDataEntry</span>) + namelen;
+    <span class="keyword">size_t</span> pad_length = ((size % dsize) == 0) ? 0 : dsize - (size % dsize);
+    size += pad_length;
+    <span class="keyword">size_t</span> data_start = size;  <span class="comment">// 数据区起始偏移</span>
+    size += (dsize * dlen);      <span class="comment">// 数据区大小</span>
+    
+    <span class="comment">// 3. 8字节对齐</span>
+    <span class="keyword">int</span> align = <span class="keyword">sizeof</span>(<span class="type">jlong</span>) - 1;
+    size = ((size + align) & ~align);
+    
+    <span class="comment">// 4. 从 PerfMemory 分配（失败则回退到 C Heap）</span>
+    <span class="keyword">char</span>* psmp = <span class="type">PerfMemory</span>::<span class="function">alloc</span>(size);
+    <span class="keyword">if</span> (psmp == <span class="keyword">NULL</span>) {
+        psmp = <span class="function">NEW_C_HEAP_ARRAY</span>(<span class="keyword">char</span>, size, mtInternal);
+        _on_c_heap = <span class="keyword">true</span>;  <span class="comment">// 标记为 C Heap 分配</span>
+    }
+    
+    <span class="comment">// 5. 计算各字段地址</span>
+    <span class="keyword">char</span>* cname = psmp + <span class="keyword">sizeof</span>(<span class="type">PerfDataEntry</span>);  <span class="comment">// 名称地址</span>
+    <span class="keyword">void</span>* valuep = (<span class="keyword">void</span>*)(psmp + data_start);      <span class="comment">// 数据地址</span>
+    
+    <span class="comment">// 6. 复制名称到共享内存</span>
+    strcpy(cname, name());
+    
+    <span class="comment">// 7. 填充 PerfDataEntry 头</span>
+    <span class="type">PerfDataEntry</span>* pdep = (<span class="type">PerfDataEntry</span>*)psmp;
+    pdep->entry_length = (<span class="type">jint</span>)size;
+    pdep->name_offset = (<span class="type">jint</span>)((<span class="keyword">uintptr_t</span>)cname - (<span class="keyword">uintptr_t</span>)psmp);
+    pdep->vector_length = (<span class="type">jint</span>)vlen;
+    pdep->data_type = (<span class="type">jbyte</span>)type2char(dtype);
+    pdep->data_units = units();
+    pdep->data_variability = variability();
+    pdep->flags = (<span class="type">jbyte</span>)flags();
+    pdep->data_offset = (<span class="type">jint</span>)data_start;
+    
+    <span class="comment">// 8. 记录到对象</span>
+    _pdep = pdep;
+    _valuep = valuep;  <span class="comment">// ★ 指向共享内存中的数据区</span>
+    
+    <span class="comment">// 9. 标记 PerfMemory 已更新</span>
+    <span class="type">PerfMemory</span>::<span class="function">mark_updated</span>();
+}
+            </div>
+
+            <h3>内存布局计算示例</h3>
+            <div class="highlight-box">
+                假设：名称 = "sun.gc.cause" (12字节), max_length = 80 (实际分配81字节)
+            </div>
+            
+            <div class="memory-layout">
+                <div class="memory-row">
+                    <div class="memory-offset">0x00</div>
+                    <div class="memory-content">
+                        <span class="memory-field">PerfDataEntry 头</span>
+                        <span class="memory-type">(32 bytes)</span>
+                        <span class="memory-size">size=32</span>
+                    </div>
+                </div>
+                <div class="memory-row">
+                    <div class="memory-offset">0x20</div>
+                    <div class="memory-content">
+                        <span class="memory-field">name</span>
+                        <span class="memory-type">char[13]</span>
+                        <span class="memory-size">"sun.gc.cause\0"</span>
+                    </div>
+                </div>
+                <div class="memory-row">
+                    <div class="memory-offset">0x2D</div>
+                    <div class="memory-content">
+                        <span class="memory-field">padding</span>
+                        <span class="memory-type">3 bytes</span>
+                        <span class="memory-size">对齐到4字节</span>
+                    </div>
+                </div>
+                <div class="memory-row">
+                    <div class="memory-offset">0x30</div>
+                    <div class="memory-content">
+                        <span class="memory-field">data</span>
+                        <span class="memory-type">char[81]</span>
+                        <span class="memory-size">字符串数据区</span>
+                    </div>
+                </div>
+                <div class="memory-row">
+                    <div class="memory-offset">0x81</div>
+                    <div class="memory-content">
+                        <span class="memory-field">padding</span>
+                        <span class="memory-type">7 bytes</span>
+                        <span class="memory-size">8字节对齐</span>
+                    </div>
+                </div>
+                <div class="memory-row">
+                    <div class="memory-offset">Total</div>
+                    <div class="memory-content">
+                        <span class="memory-field">128 bytes</span>
+                        <span class="memory-type">(0x80)</span>
+                        <span class="memory-size">8字节对齐后总大小</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第五部分：数据结构 -->
+        <div class="section">
+            <h2>五、核心数据结构</h2>
+            
+            <h3>5.1 类继承层次</h3>
+            <div class="mermaid">
+classDiagram
+    CHeapObj~mtInternal~ <|-- PerfData
+    PerfData <|-- PerfLong
+    PerfData <|-- PerfByteArray
+    PerfLong <|-- PerfLongConstant
+    PerfLong <|-- PerfLongVariant
+    PerfLongVariant <|-- PerfLongVariable
+    PerfLongVariant <|-- PerfLongCounter
+    PerfByteArray <|-- PerfString
+    PerfString <|-- PerfStringConstant
+    PerfString <|-- PerfStringVariable
+    
+    class PerfData {
+        +char* _name
+        +Variability _v
+        +Units _u
+        +bool _on_c_heap
+        +void* _valuep
+        +create_entry()
+        +is_valid()
+    }
+    
+    class PerfByteArray {
+        +jint _length
+    }
+    
+    class PerfString {
+        +set_string()
+    }
+    
+    class PerfStringVariable {
+        +set_value()
+    }
+            </div>
+
+            <h3>5.2 PerfData 字段详解</h3>
+            <table class="struct-table">
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>大小</th>
+                    <th>说明</th>
+                </tr>
+                <tr>
+                    <td class="field-name">_vftable</td>
+                    <td class="field-type">void**</td>
+                    <td>8 bytes</td>
+                    <td>虚函数表指针（C++ 对象头）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_name</td>
+                    <td class="field-type">char*</td>
+                    <td>8 bytes</td>
+                    <td>完整计数器名称（C Heap 分配）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_v</td>
+                    <td class="field-type">Variability</td>
+                    <td>4 bytes</td>
+                    <td>可变性：Constant/Monotonic/Variable</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_u</td>
+                    <td class="field-type">Units</td>
+                    <td>4 bytes</td>
+                    <td>单位：Bytes/Ticks/Events/String/Hertz</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_on_c_heap</td>
+                    <td class="field-type">bool</td>
+                    <td>1 byte</td>
+                    <td>是否从 C Heap 分配（失败回退）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_flags</td>
+                    <td class="field-type">Flags</td>
+                    <td>1 byte</td>
+                    <td>标志：F_Supported（接口稳定性）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_pdep</td>
+                    <td class="field-type">PerfDataEntry*</td>
+                    <td>8 bytes</td>
+                    <td>指向共享内存中的条目头</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_valuep</td>
+                    <td class="field-type">void*</td>
+                    <td>8 bytes</td>
+                    <td>指向共享内存中的数据区（★关键）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">_length</td>
+                    <td class="field-type">jint</td>
+                    <td>4 bytes</td>
+                    <td>PerfByteArray 新增：数组长度</td>
+                </tr>
+            </table>
+
+            <h3>5.3 PerfDataEntry（共享内存中的条目头）</h3>
+            <table class="struct-table">
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>偏移</th>
+                    <th>说明</th>
+                </tr>
+                <tr>
+                    <td class="field-name">entry_length</td>
+                    <td class="field-type">jint</td>
+                    <td>0x00</td>
+                    <td>条目总长度（字节）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">name_offset</td>
+                    <td class="field-type">jint</td>
+                    <td>0x04</td>
+                    <td>名称字符串的偏移</td>
+                </tr>
+                <tr>
+                    <td class="field-name">vector_length</td>
+                    <td class="field-type">jint</td>
+                    <td>0x08</td>
+                    <td>向量长度（标量为0/1）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">data_type</td>
+                    <td class="field-type">jbyte</td>
+                    <td>0x0C</td>
+                    <td>数据类型（B=byte, J=long）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">data_units</td>
+                    <td class="field-type">jbyte</td>
+                    <td>0x0D</td>
+                    <td>单位（1=None, 2=Bytes...）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">data_variability</td>
+                    <td class="field-type">jbyte</td>
+                    <td>0x0E</td>
+                    <td>可变性（1=Constant, 2=Monotonic, 3=Variable）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">flags</td>
+                    <td class="field-type">jbyte</td>
+                    <td>0x0F</td>
+                    <td>标志位</td>
+                </tr>
+                <tr>
+                    <td class="field-name">data_offset</td>
+                    <td class="field-type">jint</td>
+                    <td>0x10</td>
+                    <td>数据区的偏移</td>
+                </tr>
+            </table>
+            <p style="color: #888; font-size: 0.9em; margin-top: 10px;">sizeof(PerfDataEntry) = 32 bytes (0x20)，与 jlong 对齐</p>
+        </div>
+
+        <!-- 第六部分：流程图 -->
+        <div class="section">
+            <h2>六、完整调用流程图</h2>
+            <div class="mermaid">
+flowchart TD
+    A[collectedHeap.cpp:238<br/>create_string_variable] --> B{max_length<br/>== 0?}
+    B -->|Yes| C[max_length = strlen]
+    B -->|No| D[new PerfStringVariable]
+    C --> D
+    
+    D --> E[PerfData::PerfData<br/>分配_name]
+    E --> F[PerfByteArray::PerfByteArray<br/>设置_length]
+    F --> G[create_entry]
+    
+    G --> G1[计算总大小]<-->G2[PerfMemory::alloc<br/>或C Heap回退]
+    G2 --> G3[填充PerfDataEntry头]
+    G3 --> G4[复制名称到共享内存]
+    G4 --> H[PerfString::PerfString]
+    
+    H --> H1[set_string<br/>复制初始值]
+    H1 --> I[返回对象指针]
+    
+    I --> J{is_valid?<br/>_valuep != NULL}
+    J -->|No| K[delete p<br/>抛出OOM]
+    J -->|Yes| L[add_item<br/>注册到全局列表]
+    
+    L --> M[返回PerfStringVariable*]
+    
+    K --> N[异常处理]
+    M --> O[正常返回]
+    
+    style A fill:#00d4ff,color:#000
+    style G2 fill:#ffd700,color:#000
+    style J fill:#ff6b6b,color:#fff
+    style L fill:#4ecdc4,color:#000
+    style M fill:#95e1d3,color:#000
+            </div>
+        </div>
+
+        <!-- 第七部分：命名空间 -->
+        <div class="section">
+            <h2>七、CounterNS 命名空间</h2>
+            <table class="struct-table">
+                <tr>
+                    <th>枚举值</th>
+                    <th>字符串</th>
+                    <th>稳定性</th>
+                    <th>用途示例</th>
+                </tr>
+                <tr>
+                    <td class="field-name">JAVA_NS (0)</td>
+                    <td>"java"</td>
+                    <td style="color: #4ecdc4;">稳定，支持</td>
+                    <td>java.* 计数器</td>
+                </tr>
+                <tr>
+                    <td class="field-name">COM_NS (1)</td>
+                    <td>"com.sun"</td>
+                    <td style="color: #ffd700;">不稳定，支持</td>
+                    <td>com.sun.* 计数器</td>
+                </tr>
+                <tr>
+                    <td class="field-name">SUN_NS (2)</td>
+                    <td>"sun"</td>
+                    <td style="color: #ff6b6b;">不稳定，不支持</td>
+                    <td>sun.* 计数器（内部使用）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">SUN_GC (5)</td>
+                    <td>"sun.gc"</td>
+                    <td style="color: #ff6b6b;">不稳定，不支持</td>
+                    <td>GC 相关计数器（如 cause）</td>
+                </tr>
+                <tr>
+                    <td class="field-name">SUN_CI (8)</td>
+                    <td>"sun.ci"</td>
+                    <td style="color: #ff6b6b;">不稳定，不支持</td>
+                    <td>编译器相关计数器</td>
+                </tr>
+            </table>
+            
+            <div class="highlight-box" style="margin-top: 15px;">
+                <strong>命名规则：</strong>完整名称 = 命名空间前缀 + "." + 计数器名称<br>
+                例如：SUN_GC + "cause" = "sun.gc.cause"
+            </div>
+        </div>
+
+        <!-- 第八部分：总结 -->
+        <div class="section">
+            <h2>八、核心要点总结</h2>
+            
+            <div class="step-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <div class="step-title">双层内存结构</div>
+                        <div class="step-desc">
+                            <strong>C++ 对象</strong>（堆分配）：包含元数据、指向共享内存的指针<br>
+                            <strong>PerfMemory 条目</strong>（共享内存）：实际存储名称和数据，可被外部进程读取
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <div class="step-title">5层构造函数链</div>
+                        <div class="step-desc">
+                            CHeapObj → PerfData → PerfByteArray → PerfString → PerfStringVariable<br>
+                            每层负责特定初始化：内存标记 → 名称分配 → 长度设置 → 数据复制 → 类型标记
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <div class="step-title">失败回退机制</div>
+                        <div class="step-desc">
+                            如果 PerfMemory 耗尽，自动回退到 C Heap 分配<br>
+                            通过 <code>_on_c_heap</code> 标记，析构时正确释放内存
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <div class="step-title">共享内存布局</div>
+                        <div class="step-desc">
+                            [PerfDataEntry 头 | 名称字符串 | padding | 数据区 | padding]<br>
+                            所有条目 8 字节对齐，便于外部工具解析
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00d4ff;"></div>
+                    <span>入口/出口点</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffd700;"></div>
+                    <span>关键操作</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff6b6b;"></div>
+                    <span>条件判断/异常</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4ecdc4;"></div>
+                    <span>正常流程</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            classDiagram: {
+                useMaxWidth: true
+            }
+        });
+    </script>
+</body>
+</html>

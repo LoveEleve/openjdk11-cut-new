@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JVM 启动流程 - 基础环境初始化</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+        
+        /* 核心原理卡片 */
+        .principle-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            color: white;
+        }
+        .principle-section h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+            padding-bottom: 8px;
+        }
+        .principle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .principle-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .principle-card h3 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #ffd700;
+        }
+        .principle-card p {
+            font-size: 12px;
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+        
+        /* 树形结构样式 */
+        .tree { font-size: 13px; line-height: 1.6; margin-top: 20px; }
+        .node {
+            margin-left: 24px;
+            position: relative;
+        }
+        .node-content {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .node-content:hover { background: #f0f0f0; }
+        .node::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            background: #d9d9d9;
+        }
+        .node:last-child::before { height: 14px; }
+        .node-content::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            width: 10px;
+            height: 1px;
+            background: #d9d9d9;
+        }
+        .root > .node-content::before, .root::before { display: none; }
+        .toggle {
+            width: 14px; height: 14px;
+            border-radius: 2px;
+            border: 1px solid #999;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 6px;
+            font-size: 10px;
+            color: #666;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle:hover { border-color: #666; }
+        .toggle.leaf { border: none; background: transparent; }
+        .toggle.leaf::after {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #bbb;
+        }
+        .icon {
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            margin-right: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            flex-shrink: 0;
+        }
+        .icon.root { background: #52c41a; color: white; }
+        .icon.phase { background: #1890ff; color: white; }
+        .icon.core { background: #722ed1; color: white; }
+        .icon.module { background: #13c2c2; color: white; }
+        .icon.func { background: #fa8c16; color: white; }
+        .icon.detail { background: #bfbfbf; color: white; }
+        .icon.data { background: #eb2f96; color: white; }
+        .icon.sys { background: #52c41a; color: white; }
+        
+        .label {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #333;
+            font-size: 13px;
+            flex: 1;
+        }
+        .label .func-name {
+            color: #0969da;
+            font-weight: 500;
+        }
+        .label .func-name:hover {
+            text-decoration: underline;
+        }
+        .label .comment {
+            color: #52c41a;
+            font-size: 12px;
+            margin-left: 8px;
+            font-family: -apple-system, sans-serif;
+        }
+        .label .file {
+            color: #999;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        .label .highlight {
+            background: #fff7e6;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #d46b08;
+        }
+        
+        .children {
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .children.collapsed { max-height: 0; opacity: 0; }
+        .children.expanded { max-height: 50000px; opacity: 1; }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 6px 14px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            background: white;
+            color: #333;
+            transition: all 0.15s;
+        }
+        .btn:hover { border-color: #1890ff; color: #1890ff; }
+        .btn-primary { background: #1890ff; color: white; border-color: #1890ff; }
+        .btn-primary:hover { background: #40a9ff; border-color: #40a9ff; }
+        
+        .legend {
+            margin-top: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 16px;
+            margin-bottom: 4px;
+        }
+        .legend-icon { width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
+        
+        .search-box {
+            padding: 6px 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 200px;
+        }
+        .search-box:focus { outline: none; border-color: #1890ff; }
+        
+        /* 代码块样式 */
+        .code-block {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .code-block .comment { color: #6a737d; }
+        .code-block .keyword { color: #d73a49; }
+        .code-block .function { color: #6f42c1; }
+        
+        /* 表格样式 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #e8e8e8;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .data-table th {
+            background: #fafafa;
+            font-weight: 600;
+        }
+        .data-table tr:hover { background: #f5f5f5; }
+        
+        /* 高亮 */
+        .highlight-line { background: #fff7e6 !important; border-left: 3px solid #ffa940; }
+        
+        /* 系统调用标签 */
+        .syscall-tag {
+            display: inline-block;
+            background: #52c41a;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+        
+        /* 阶段标题 */
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin: 20px 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #1890ff;
+            display: inline-block;
+        }
+        
+        /* 关键要点 */
+        .key-points {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .key-points h4 {
+            color: #0969da;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .key-points ul {
+            margin-left: 20px;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+        
+        /* 设计决策 */
+        .design-decision {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        .design-decision::before {
+            content: "💡 ";
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JVM 启动流程 - 基础环境初始化</h1>
+        <p class="subtitle">Phase 1 深度解析 | thread.cpp:3876-3915 | OpenJDK 11</p>
+        
+        <!-- 核心原理卡片 -->
+        <div class="principle-section">
+            <h2>🎯 核心原理</h2>
+            <div class="principle-grid">
+                <div class="principle-card">
+                    <h3>本质是什么？</h3>
+                    <p>Phase 1 是 JVM 启动的<strong>最底层基础设施准备阶段</strong>，目标是建立 JVM 运行所需的最小操作系统级环境。</p>
+                </div>
+                <div class="principle-card">
+                    <h3>为什么需要？</h3>
+                    <p>JVM 依赖底层能力：获取当前线程（TLS）、输出日志、感知硬件能力（CPU/内存）、系统调用准备（时钟/随机数）。</p>
+                </div>
+                <div class="principle-card">
+                    <h3>怎么解决？</h3>
+                    <p>1. TLS 预初始化 → 2. 流系统初始化 → 3. 启动器属性处理 → 4. OS 信息采集</p>
+                </div>
+                <div class="principle-card">
+                    <h3>为什么这样设计？</h3>
+                    <p>TLS 必须在 OS 初始化前完成（后续代码需要 Thread::current()）；流系统必须在 OS 初始化前完成（否则出错无法报告）。</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="expandAll()">展开全部</button>
+            <button class="btn" onclick="collapseAll()">折叠全部</button>
+            <button class="btn" onclick="expandToLevel(2)">展开到第2层</button>
+            <button class="btn" onclick="expandToLevel(3)">展开到第3层</button>
+            <input type="text" class="search-box" id="searchInput" placeholder="搜索函数或关键词..." onkeyup="search()">
+        </div>
+        
+        <!-- 初始化流程树 -->
+        <div class="section-title">📋 Phase 1 初始化流程</div>
+        <div class="tree" id="tree">
+            <!-- Root Node -->
+            <div class="node root">
+                <div class="node-content" onclick="toggle(this)">
+                    <span class="toggle">−</span>
+                    <span class="icon root">R</span>
+                    <span class="label"><span class="func-name">Threads::create_vm()</span><span class="file">thread.cpp:3876</span><span class="comment">JVM 启动入口</span></span>
+                </div>
+                <div class="children expanded">
+                    
+                    <!-- 步骤 1: CPU 预初始化 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">1</span>
+                            <span class="label"><span class="func-name">VM_Version::early_initialize()</span><span class="file">abstract_vm_version.hpp:96</span><span class="comment">CPU 特性预初始化（x86: 空函数）</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon detail">•</span>
+                                    <span class="label"><span class="highlight">留给特定平台做 CPU 特性预初始化</span><span class="comment">嵌入式平台可能在此检测 CPU 特性</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤 2: TLS 初始化 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon core">⚙</span>
+                            <span class="label"><span class="func-name">ThreadLocalStorage::init()</span><span class="file">threadLocalStorage_posix.cpp:51</span><span class="comment">★ TLS 线程本地存储初始化 - 根基！</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon sys">S</span>
+                                    <span class="label"><span class="func-name">pthread_key_create(&_thread_key, restore_thread_pointer)</span><span class="syscall-tag">POSIX</span><span class="comment">创建线程私钥</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon data">D</span>
+                                    <span class="label"><span class="highlight">static pthread_key_t _thread_key</span><span class="comment">TLS 私钥句柄，进程级唯一</span></span>
+                                </div>
+                            </div>
+                            <div class="key-points" style="margin: 10px 0 10px 24px;">
+                                <h4>为什么 TLS 是第一个初始化的？</h4>
+                                <ul>
+                                    <li>后续代码需要通过 <code>Thread::current()</code> 获取当前线程</li>
+                                    <li>TLS 是线程自引用的唯一机制</li>
+                                    <li>使用 pthread TLS 而非 C++ thread_local（动态库兼容性更好）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤 3: 输出流初始化 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon core">⚙</span>
+                            <span class="label"><span class="func-name">ostream_init()</span><span class="file">ostream.cpp:918</span><span class="comment">★ 输出流模块初始化</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon data">D</span>
+                                    <span class="label"><span class="func-name">new(ResourceObj::C_HEAP, mtInternal) defaultStream()</span><span class="comment">C 堆分配单例</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon data">D</span>
+                                    <span class="label"><span class="highlight">tty = defaultStream::instance</span><span class="comment">全局别名，后续通过 tty->print() 输出</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon detail">•</span>
+                                    <span class="label"><span class="func-name">tty->time_stamp().update_to(1)</span><span class="comment">确保 GC 日志时间戳从 JVM 启动开始</span></span>
+                                </div>
+                            </div>
+                            <div class="design-decision" style="margin: 10px 0 10px 24px;">
+                                为什么流系统要在 OS 初始化前完成？→ OS 初始化出错时需要输出错误信息，必须有输出通道
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤 4: 启动器属性处理 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon func">f</span>
+                            <span class="label"><span class="func-name">Arguments::process_sun_java_launcher_properties()</span><span class="file">arguments.cpp:358</span><span class="comment">解析启动器属性</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon detail">•</span>
+                                    <span class="label"><span class="highlight">-Dsun.java.launcher=</span><span class="comment">启动器类型（java/javaw/jspawnhelper）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon detail">•</span>
+                                    <span class="label"><span class="highlight">-Dsun.java.launcher.is_altjvm=</span><span class="comment">是否使用替代 JVM</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon detail">•</span>
+                                    <span class="label"><span class="highlight">-Dsun.java.launcher.pid=</span><span class="comment">启动器进程 PID</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤 5: OS 模块初始化 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon core">⚙</span>
+                            <span class="label"><span class="func-name">os::init()</span><span class="file">os_linux.cpp:5770</span><span class="comment">★ OS 模块初始化 - Linux 系统调用</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon sys">S</span>
+                                    <span class="label"><span class="func-name">sysconf(_SC_CLK_TCK)</span><span class="syscall-tag">sysconf</span><span class="comment">时钟频率（通常 100Hz）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">init_random(1234567)</span><span class="comment">初始化随机数种子（固定值）</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon sys">S</span>
+                                    <span class="label"><span class="func-name">sysconf(_SC_PAGESIZE)</span><span class="syscall-tag">sysconf</span><span class="comment">内存页大小（通常 4KB）</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- initialize_system_info -->
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">Linux::initialize_system_info()</span><span class="file">os_linux.cpp:404</span><span class="comment">获取处理器数量和物理内存</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon sys">S</span>
+                                            <span class="label"><span class="func-name">sysconf(_SC_NPROCESSORS_CONF)</span><span class="syscall-tag">sysconf</span><span class="comment">逻辑 CPU 数 → _processor_count</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon sys">S</span>
+                                            <span class="label"><span class="func-name">sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE)</span><span class="syscall-tag">sysconf</span><span class="comment">物理内存大小 → _physical_memory</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="key-points" style="margin: 10px 0 10px 24px;">
+                                        <h4>这些信息的用途</h4>
+                                        <ul>
+                                            <li><strong>处理器数量</strong>：决定并行 GC 线程数、编译线程数</li>
+                                            <li><strong>物理内存</strong>：堆大小自动调优的依据</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- initialize_os_info -->
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">Linux::initialize_os_info()</span><span class="file">os_linux.cpp:5491</span><span class="comment">获取内核版本信息</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon sys">S</span>
+                                            <span class="label"><span class="func-name">uname(&_uname)</span><span class="syscall-tag">uname</span><span class="comment">获取内核版本</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="highlight">sscanf(_uname.release, "%d.%d.%d", &major, &minor, &fix)</span><span class="comment">解析内核版本号</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon sys">S</span>
+                                    <span class="label"><span class="func-name">pthread_self()</span><span class="syscall-tag">pthread</span><span class="comment">保存主线程 ID → _main_thread</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">Linux::clock_init()</span><span class="comment">初始化高精度时钟</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon sys">S</span>
+                                    <span class="label"><span class="func-name">dlsym(RTLD_DEFAULT, "pthread_setname_np")</span><span class="syscall-tag">dlopen</span><span class="comment">动态获取设置线程名函数</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- 数据结构清单 -->
+        <div class="section-title">📊 核心数据结构</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>结构/变量</th>
+                    <th>类型</th>
+                    <th>源码位置</th>
+                    <th>核心作用</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>_thread_key</code></td>
+                    <td><code>pthread_key_t</code></td>
+                    <td>threadLocalStorage_posix.cpp:28</td>
+                    <td>TLS 私钥，线程访问自身 Thread 对象的钥匙</td>
+                </tr>
+                <tr>
+                    <td><code>defaultStream::instance</code></td>
+                    <td><code>defaultStream*</code></td>
+                    <td>ostream.hpp</td>
+                    <td>全局输出流单例</td>
+                </tr>
+                <tr>
+                    <td><code>tty</code></td>
+                    <td><code>outputStream*</code></td>
+                    <td>ostream.cpp</td>
+                    <td>全局输出流指针别名</td>
+                </tr>
+                <tr>
+                    <td><code>_page_size</code></td>
+                    <td><code>int</code></td>
+                    <td>os_linux.cpp</td>
+                    <td>系统内存页大小（通常是 4KB）</td>
+                </tr>
+                <tr>
+                    <td><code>_processor_count</code></td>
+                    <td><code>int</code></td>
+                    <td>os_linux.cpp</td>
+                    <td>处理器核心数（GC 线程数依据）</td>
+                </tr>
+                <tr>
+                    <td><code>_physical_memory</code></td>
+                    <td><code>julong</code></td>
+                    <td>os_linux.cpp</td>
+                    <td>物理内存总大小（堆调优依据）</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- 系统调用汇总 -->
+        <div class="section-title">🔧 使用的系统调用</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>系统调用</th>
+                    <th>用途</th>
+                    <th>典型返回值</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>pthread_key_create()</code></td>
+                    <td>创建线程本地存储私钥</td>
+                    <td>_thread_key 句柄</td>
+                </tr>
+                <tr>
+                    <td><code>sysconf(_SC_CLK_TCK)</code></td>
+                    <td>获取内核时钟频率</td>
+                    <td>100（100Hz）</td>
+                </tr>
+                <tr>
+                    <td><code>sysconf(_SC_PAGESIZE)</code></td>
+                    <td>获取内存页大小</td>
+                    <td>4096（4KB）</td>
+                </tr>
+                <tr>
+                    <td><code>sysconf(_SC_NPROCESSORS_CONF)</code></td>
+                    <td>获取配置的逻辑 CPU 数</td>
+                    <td>8（根据硬件）</td>
+                </tr>
+                <tr>
+                    <td><code>sysconf(_SC_PHYS_PAGES)</code></td>
+                    <td>获取物理内存页数量</td>
+                    <td>根据硬件</td>
+                </tr>
+                <tr>
+                    <td><code>uname()</code></td>
+                    <td>获取内核版本信息</td>
+                    <td>5.4.0-xxx</td>
+                </tr>
+                <tr>
+                    <td><code>pthread_self()</code></td>
+                    <td>获取当前线程 ID</td>
+                    <td>主线程 TID</td>
+                </tr>
+                <tr>
+                    <td><code>dlsym()</code></td>
+                    <td>动态获取函数指针</td>
+                    <td>pthread_setname_np 地址</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- 关键要点 -->
+        <div class="key-points">
+            <h4>🎯 Phase 1 核心要点</h4>
+            <ul>
+                <li><strong>最底层准备</strong>：Phase 1 是 JVM 的地基，所有后续阶段依赖它建立的基础设施</li>
+                <li><strong>零依赖设计</strong>：Phase 1 的函数只能使用 OS 提供的原始能力，不能依赖 JVM 的其他子系统</li>
+                <li><strong>失败即终止</strong>：任何一步失败都会导致 JVM 启动失败（没有容错空间）</li>
+                <li><strong>信息收集为主</strong>：Phase 1 主要是"感知环境"而非"构建功能"</li>
+            </ul>
+        </div>
+        
+        <div class="legend">
+            <strong>图例说明：</strong>
+            <div class="legend-item"><span class="legend-icon" style="background:#52c41a"></span>根节点</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#1890ff"></span>阶段</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#722ed1"></span>核心函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#fa8c16"></span>普通函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#52c41a;color:white;font-size:8px">S</span>系统调用</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#eb2f96;color:white;font-size:8px">D</span>数据结构</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#bfbfbf"></span>细节</div>
+        </div>
+    </div>
+
+    <script>
+        function toggle(element) {
+            const node = element.parentElement;
+            const children = node.querySelector(':scope > .children');
+            const toggleBtn = element.querySelector(':scope > .toggle');
+            if (!children || !toggleBtn || toggleBtn.classList.contains('leaf')) return;
+            if (children.classList.contains('collapsed')) {
+                children.classList.remove('collapsed');
+                children.classList.add('expanded');
+                toggleBtn.textContent = '−';
+            } else {
+                children.classList.remove('expanded');
+                children.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+            }
+        }
+        function expandAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('collapsed');
+                el.classList.add('expanded');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '−';
+            });
+        }
+        function collapseAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('expanded');
+                el.classList.add('collapsed');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '+';
+            });
+            document.querySelector('.root > .children').classList.remove('collapsed');
+            document.querySelector('.root > .children').classList.add('expanded');
+            document.querySelector('.root > .node-content > .toggle').textContent = '−';
+        }
+        function expandToLevel(level) {
+            collapseAll();
+            let selector = '.root';
+            for (let i = 0; i < level; i++) {
+                const nodes = document.querySelectorAll(selector + ' > .children > .node');
+                nodes.forEach(node => {
+                    const children = node.querySelector(':scope > .children');
+                    const toggle = node.querySelector(':scope > .node-content > .toggle');
+                    if (children && toggle && !toggle.classList.contains('leaf')) {
+                        children.classList.remove('collapsed');
+                        children.classList.add('expanded');
+                        toggle.textContent = '−';
+                    }
+                });
+                selector += ' > .children > .node';
+            }
+        }
+        function search() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.node-content').forEach(el => {
+                el.classList.remove('highlight-line');
+            });
+            if (query.length < 2) return;
+            document.querySelectorAll('.node-content').forEach(el => {
+                const text = el.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    el.classList.add('highlight-line');
+                    let parent = el.parentElement;
+                    while (parent) {
+                        if (parent.classList.contains('node')) {
+                            const children = parent.querySelector(':scope > .children');
+                            const toggle = parent.querySelector(':scope > .node-content > .toggle');
+                            if (children && toggle && !toggle.classList.contains('leaf')) {
+                                children.classList.remove('collapsed');
+                                children.classList.add('expanded');
+                                toggle.textContent = '−';
+                            }
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+            });
+        }
+        expandToLevel(2);
+    </script>
+</body>
+</html>

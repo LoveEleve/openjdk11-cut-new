@@ -28,7 +28,7 @@ class CollectedHeap;
 
 template <class Heap, class Policy>
 CollectedHeap* GCArguments::create_heap_with_policy() {
-  Policy* policy = new Policy();
-  policy->initialize_all();
-  return new Heap(policy);
+  Policy* policy = new Policy(); // new G1CollectorPolicy()
+  policy->initialize_all(); // 初始化一些对齐参数
+  return new Heap(policy); // new G1CollectedHeap(policy)
 }

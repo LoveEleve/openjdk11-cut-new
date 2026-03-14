@@ -72,9 +72,9 @@ class CollectorPolicy : public CHeapObj<mtGC> {
 
  public:
   void initialize_all() {
-    initialize_alignments();
-    initialize_flags();
-    initialize_size_info();
+    initialize_alignments(); // _space_alignment = 4MB  _heap_alignment = 4MB
+    initialize_flags(); // _initial_heap_byte_size = 8GB _max_heap_byte_size=8GB _min_heap_byte_size = 8MB
+    initialize_size_info(); // 打印最终堆大小日志
   }
 
   // Return maximum heap alignment that may be imposed by the policy.

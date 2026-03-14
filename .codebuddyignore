@@ -1,0 +1,116 @@
+# ============================================================
+# .codebuddyignore — CodeBuddy 索引排除规则
+# 目标：只索引核心源码 + 分析文档，跳过构建产物和二进制文件
+# ============================================================
+
+# ── 构建产物（体积最大，完全不需要索引）──────────────────────
+build/
+cmake-build-debug/
+build-config/
+
+# ── IDE / 工具配置 ────────────────────────────────────────────
+.git/
+.idea/
+.clion.source.upload.marker
+
+# ── 日志 / 临时文件 ───────────────────────────────────────────
+*.log
+gdb.txt
+hs_err_pid*.log
+config.log
+configure.log
+
+# ── 二进制 / 归档文件 ─────────────────────────────────────────
+*.class
+*.jar
+*.jmod
+*.so
+*.o
+*.a
+*.dylib
+*.dll
+*.exe
+*.zip
+*.tar
+*.gz
+
+# ── src/ 下不需要索引的模块（非核心，减少噪音）──────────────
+# 保留：hotspot / java.base / jdk.attach / jdk.jfr / jdk.management
+# 排除：桌面 UI、脚本引擎、加密、本地化等与 JVM 内核无关的模块
+src/java.desktop/
+src/java.datatransfer/
+src/java.scripting/
+src/jdk.scripting.nashorn/
+src/jdk.scripting.nashorn.shell/
+src/jdk.dynalink/
+src/jdk.crypto.cryptoki/
+src/jdk.crypto.ec/
+src/jdk.crypto.mscapi/
+src/jdk.crypto.ucrypto/
+src/jdk.localedata/
+src/jdk.charsets/
+src/jdk.editpad/
+src/jdk.jshell/
+src/jdk.jsobject/
+src/jdk.accessibility/
+src/jdk.smartcardio/
+src/java.smartcardio/
+src/java.xml/
+src/java.xml.crypto/
+src/java.sql/
+src/java.sql.rowset/
+src/java.transaction.xa/
+src/java.prefs/
+src/java.rmi/
+src/java.naming/
+src/java.net.http/
+src/java.security.jgss/
+src/java.security.sasl/
+src/jdk.security.auth/
+src/jdk.security.jgss/
+src/jdk.naming.dns/
+src/jdk.naming.ldap/
+src/jdk.naming.rmi/
+src/jdk.net/
+src/jdk.pack/
+src/jdk.rmic/
+src/jdk.jstatd/
+src/jdk.jconsole/
+src/jdk.jdeps/
+src/jdk.jdi/
+src/jdk.jdwp.agent/
+src/jdk.jartool/
+src/jdk.javadoc/
+src/jdk.jlink/
+src/jdk.httpserver/
+src/jdk.internal.ed/
+src/jdk.internal.le/
+src/jdk.internal.opt/
+src/jdk.internal.vm.compiler/
+src/jdk.internal.vm.compiler.management/
+src/jdk.internal.vm.ci/
+src/jdk.aot/
+src/jdk.zipfs/
+src/jdk.xml.dom/
+src/jdk.unsupported/
+src/jdk.unsupported.desktop/
+src/jdk.sctp/
+src/jdk.editpad/
+src/sample/
+src/bsd/
+src/solaris/
+src/demo/
+
+# ── doc/ 下的 HTML（已有 .md 版本，HTML 重复且体积大）────────
+doc/*.html
+doc/nashorn/
+
+# ── make/ 构建脚本（不是源码，不需要语义索引）────────────────
+make/
+
+# ── bin/ 工具脚本（非核心）───────────────────────────────────
+bin/
+
+# ── CMake 相关备份文件 ────────────────────────────────────────
+CMakeLists_improved.txt
+CMakeLists_original_backup.txt

@@ -674,9 +674,9 @@ void ReservedHeapSpace::initialize_compressed_heap(const size_t size, size_t ali
         // note ZeroBased 模式
         /*
          * 三个条件：
-         *  - aligned_heap_base_min_address + size <= zerobased_max(堆上界地址：31GB，但是下界为2GB,所以这里 heap_size <= 29GB):
-         *     - 2GB + heap_size <= 31GB 「也即堆内存大小 <= 29GB」
-         *  - _base == NULL || _base + size > zerobased_max: Unscaled模式分配失败 或者 成功了但是分配的位置不理想(应该不会出现这种情况)
+         *  - aligned_heap_base_min_address + size <= zerobased_max(堆上界地址：32GB，下界为2GB, heap_size(8GB) + 2GB <= 32GB --> true):
+         *     - 2GB + heap_size <= 32GB --> true
+         *  - _base == NULL (第一次初始化为true) || _base + size > zerobased_max: Unscaled模式分配失败 或者 成功了但是分配的位置不理想(应该不会出现这种情况)
          *
          *  note 小堆也可能走到下面的逻辑,因为可能每次分配的位置都不理想
          */
@@ -685,7 +685,7 @@ void ReservedHeapSpace::initialize_compressed_heap(const size_t size, size_t ali
              (_base + size > zerobased_max))) {        // Unscaled delivered an arbitrary address.
 
             // Calc address range within we try to attach (range of possible start addresses)
-            // forcus 计算搜索范围(这里假设堆内存大小为16GB) ,那么查找的起始地址为: 31GB - 8GB = 23GB
+            // forcus 计算搜索范围(这里假设堆内存大小为8GB) ,那么查找的起始地址为: 32GB - 8GB = 24GB
             char *const highest_start = align_down(zerobased_max - size, attach_point_alignment);
             // Need to be careful about size being guaranteed to be less
             // than UnscaledOopHeapMax due to type constraints.

@@ -2276,19 +2276,19 @@ new-jvm-md/Instrumentation/
 | 第5章 JIT 编译 | C1触发阈值？C2触发阈值？编译耗时？代码大小？C1 vs C2代码大小对比？ | ✅ 已完成 | 05-JIT-Probe-Results.md |
 | 第5B章 OSR 栈上替换 | OSR触发的 backedge_count？OSR编译的 osr_bci？切换时机？ | ✅ 已完成 | 05B-OSR-Probe-Results.md |
 | 第5C章 去优化 | 去优化原因？重建了多少个栈帧？恢复到哪个bci？ | ✅ 已完成 | 05C-Deoptimization-Probe-Results.md |
-| 第5D章 字节码解释执行 | dispatch table地址？handler数量？解释器代码大小？ | ⬜ 待开始 | - |
-| 第6章 Safepoint | TTT是多少ms？最慢线程在做什么？操作耗时 vs 恢复耗时？ | ⬜ 待开始 | - |
-| 第7章 同步机制 | 膨胀前后Mark Word变化？ObjectMonitor的_EntryList长度？膨胀原因？ | ⬜ 待开始 | - |
-| 第8章 线程生命周期 | JavaThread大小？线程栈大小？VMThread执行了哪些VM_Operation？ | ⬜ 待开始 | - |
-| 第9章 信号处理 | libjsig拦截了哪些信号？链式调用顺序？ | ⬜ 待开始 | - |
-| 第10章 Attach 机制 | Attach Listener何时启动？命令如何分发？Agent加载路径？ | ⬜ 待开始 | - |
-| 第11章 Handshake 机制 | Handshake耗时 vs Safepoint耗时？快多少倍？ | ⬜ 待开始 | - |
-| 第12章 Metaspace 分配 | 加载一个类消耗多少Metaspace？碎片率是多少？Chunk大小？ | ⬜ 待开始 | - |
-| 第13章 CodeCache 管理 | 3段各自使用率？Sweeper触发条件？回收了多少nmethod？ | ⬜ 待开始 | - |
+| 第5D章 字节码解释执行 | dispatch table地址？handler数量？解释器代码大小？ | ✅ 已完成 | 05D-TemplateInterpreter-Probe-Results.md（dispatch table=20480B，解释器代码=127KB，invokevirtual/new=18.3倍） |
+| 第6章 Safepoint | TTT是多少ms？最慢线程在做什么？操作耗时 vs 恢复耗时？ | ✅ 已完成 | 06-Safepoint-Probe-Results.md（TTSP=0.046~0.074ms，thread_local_poll，poll_bit=0x8，计数器奇偶交替） |
+| 第7章 同步机制 | 膨胀前后Mark Word变化？ObjectMonitor的_EntryList长度？膨胀原因？ | ✅ 已完成 | 07-Synchronization-Deep-Dive.md（inflate原因=Monitor Wait/Enter，Mark Word低2位=10，deflate在STW时执行） |
+| 第8章 线程生命周期 | JavaThread大小？线程栈大小？VMThread执行了哪些VM_Operation？ | ✅ 已完成 | 08-ThreadLifecycle-Probe.md（JavaThread=1888B，GC线程栈=1024KB，首个VM_Op=EnableBiasedLocking，最后=RevokeBias） |
+| 第9章 信号处理 | libjsig拦截了哪些信号？链式调用顺序？ | ✅ 已完成 | 09-Signal-Probe-Results.md |
+| 第10章 Attach 机制 | Attach Listener何时启动？命令如何分发？Agent加载路径？ | ✅ 已完成 | 10-Attach-Probe-Results.md（懒加载，SIGQUIT触发，socket=/tmp/.java_pid<pid>，Arthas attach耗时703ms） |
+| 第11章 Handshake 机制 | Handshake耗时 vs Safepoint耗时？快多少倍？ | ✅ 已完成 | 11-Handshake-Probe.md（单线程Handshake=130~249us，全局Safepoint=61516~95379us，快约300倍） |
+| 第12章 Metaspace 分配 | 加载一个类消耗多少Metaspace？碎片率是多少？Chunk大小？ | ✅ 已完成 | 12-Metaspace-Probe.md（碎片率6~10%，Method+ConstMethod占60%+，used_bytes()延迟更新） |
+| 第13章 CodeCache 管理 | 3段各自使用率？Sweeper触发条件？回收了多少nmethod？ | ✅ 已完成 | 13-CodeCache-Sweeper-Probe.md（NonNMethod稳定49%，Profiled/NonProfiled<2%，Sweeper两阶段：zombie→flushed） |
 | 第14章 Reference 处理 | YoungGC后处理了多少弱引用？多少被清除？处理耗时？ | ⬜ 待开始 | - |
 | 第15章 Parker/LockSupport | _counter状态机？先unpark再park是否立即返回？futex参数？ | ⬜ 待开始 | - |
 | 第16章 异常处理 | 异常表项数？查找次数？是否需要栈展开？ | ⬜ 待开始 | - |
-| 第17章 JMM 内存屏障 | x86上volatile写插入什么指令？volatile读需要屏障吗？为什么用lock addl不用mfence？ | ⬜ 待开始 | - |
+| 第17章 JMM 内存屏障 | x86上volatile写插入什么指令？volatile读需要屏障吗？为什么用lock addl不用mfence？ | ✅ 已完成 | 17-JMM-Barrier-Probe.md（volatile写=lock addl $0,-64(%rsp)，volatile读无需屏障，StoreLoad+StoreStore） |
 
 **总计：~146 个插桩点，覆盖 JVM 全部核心子系统**
 

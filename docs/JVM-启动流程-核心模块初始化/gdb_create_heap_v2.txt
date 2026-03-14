@@ -1,0 +1,37 @@
+# GDB 脚本 - 验证 Universe::create_heap() 调用链（简化版）
+# 使用方法: gdb -x gdb_create_heap_v2.txt --args java -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+set pagination off
+set print pretty on
+set breakpoint pending on
+
+# 在 G1CollectedHeap 构造函数打断点
+b G1CollectedHeap::G1CollectedHeap
+
+# 运行
+run
+
+printf "\n========== G1CollectedHeap 构造函数 ==========\n"
+
+# 打印调用栈
+printf "\n----- 调用栈 -----\n"
+bt 5
+
+# 打印 this 指针
+printf "\n----- this 指针 -----\n"
+p this
+
+printf "\n========== 关键数据结构大小 ==========\n"
+p sizeof(CollectedHeap)
+p sizeof(G1CollectedHeap)
+p sizeof(G1CollectorPolicy)
+p sizeof(HeapRegion)
+
+printf "\n========== G1CollectedHeap 字段偏移 ==========\n"
+p &((G1CollectedHeap*)0)->_g1_policy
+p &((G1CollectedHeap*)0)->_hrm
+p &((G1CollectedHeap*)0)->_g1_remset
+p &((G1CollectedHeap*)0)->_cm
+
+printf "\n========== 验证完成 ==========\n"
+quit

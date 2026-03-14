@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universe::create_heap() 调用链分析</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+        
+        /* 核心原理卡片 */
+        .principle-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            color: white;
+        }
+        .principle-section h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+            padding-bottom: 8px;
+        }
+        .principle-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .principle-card h3 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #ffd700;
+        }
+        .principle-card p {
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        /* 树形结构 */
+        .tree { font-size: 13px; line-height: 1.6; margin-top: 20px; }
+        .node {
+            margin-left: 24px;
+            position: relative;
+        }
+        .node-content {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .node-content:hover { background: #f0f0f0; }
+        .node::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            background: #d9d9d9;
+        }
+        .node:last-child::before { height: 14px; }
+        .node-content::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            width: 10px;
+            height: 1px;
+            background: #d9d9d9;
+        }
+        .root > .node-content::before, .root::before { display: none; }
+        .toggle {
+            width: 14px; height: 14px;
+            border-radius: 2px;
+            border: 1px solid #999;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 6px;
+            font-size: 10px;
+            color: #666;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle:hover { border-color: #666; }
+        .toggle.leaf { border: none; background: transparent; }
+        .toggle.leaf::after {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #bbb;
+        }
+        .icon {
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            margin-right: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            flex-shrink: 0;
+        }
+        .icon.root { background: #52c41a; color: white; }
+        .icon.core { background: #722ed1; color: white; }
+        .icon.func { background: #1890ff; color: white; }
+        .icon.data { background: #eb2f96; color: white; }
+        .icon.policy { background: #fa8c16; color: white; }
+        
+        .label {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #333;
+            font-size: 13px;
+            flex: 1;
+        }
+        .label .func-name {
+            color: #0969da;
+            font-weight: 500;
+        }
+        .label .comment {
+            color: #52c41a;
+            font-size: 12px;
+            margin-left: 8px;
+            font-family: -apple-system, sans-serif;
+        }
+        .label .file {
+            color: #999;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        .label .highlight {
+            background: #fff7e6;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #d46b08;
+        }
+        
+        .children {
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .children.collapsed { max-height: 0; opacity: 0; }
+        .children.expanded { max-height: 50000px; opacity: 1; }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 6px 14px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            background: white;
+            color: #333;
+            transition: all 0.15s;
+        }
+        .btn:hover { border-color: #1890ff; color: #1890ff; }
+        .btn-primary { background: #1890ff; color: white; border-color: #1890ff; }
+        .btn-primary:hover { background: #40a9ff; border-color: #40a9ff; }
+        
+        /* 创建的对象卡片 */
+        .object-card {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0 10px 24px;
+        }
+        .object-card h4 {
+            color: #52c41a;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .object-card table {
+            width: 100%;
+            font-size: 11px;
+            border-collapse: collapse;
+        }
+        .object-card th, .object-card td {
+            text-align: left;
+            padding: 4px 8px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        .object-card th {
+            color: #666;
+            font-weight: normal;
+        }
+        
+        /* 代码块 */
+        .code-block {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0 10px 24px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            overflow-x: auto;
+        }
+        .code-block .keyword { color: #d73a49; }
+        .code-block .type { color: #6f42c1; }
+        .code-block .func { color: #005cc5; }
+        .code-block .comment { color: #6a737d; }
+        
+        /* 多态分发图示 */
+        .poly-box {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0 10px 24px;
+        }
+        .poly-box h4 {
+            color: #0969da;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .poly-box p {
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        
+        /* 表格 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #e8e8e8;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .data-table th {
+            background: #fafafa;
+            font-weight: 600;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin: 20px 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #1890ff;
+            display: inline-block;
+        }
+        
+        .legend {
+            margin-top: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 16px;
+            margin-bottom: 4px;
+        }
+        .legend-icon { width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Universe::create_heap() 调用链分析</h1>
+        <p class="subtitle">从 Universe 到 G1CollectedHeap 的完整创建流程 | OpenJDK 11</p>
+        
+        <!-- 核心原理 -->
+        <div class="principle-section">
+            <h2>🎯 核心原理</h2>
+            <div class="principle-card">
+                <h3>本质是什么？</h3>
+                <p><strong>多态工厂模式</strong>：通过 GCConfig 根据 JVM 参数（-XX:+UseG1GC）决定创建哪种类型的堆对象，返回 CollectedHeap 抽象基类指针。</p>
+            </div>
+            <div class="principle-card">
+                <h3>创建了什么？</h3>
+                <p>1. <strong>G1CollectorPolicy</strong>（策略对象）<br>2. <strong>G1CollectedHeap</strong>（堆对象，包含 2048 个 Region 的引用）</p>
+            </div>
+            <div class="principle-card">
+                <h3>关键设计</h3>
+                <p><strong>延迟初始化</strong>：create_heap() 只分配 C++ 对象，真正的内存分配（mmap 8GB）在 _collectedHeap->initialize() 中完成。</p>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="expandAll()">展开全部</button>
+            <button class="btn" onclick="collapseAll()">折叠全部</button>
+            <button class="btn" onclick="expandToLevel(2)">展开到第2层</button>
+        </div>
+        
+        <!-- 调用链树 -->
+        <div class="section-title">📋 完整调用链</div>
+        <div class="tree" id="tree">
+            <div class="node root">
+                <div class="node-content" onclick="toggle(this)">
+                    <span class="toggle">−</span>
+                    <span class="icon root">R</span>
+                    <span class="label"><span class="func-name">Universe::create_heap()</span><span class="file">universe.cpp:876</span><span class="comment">堆工厂入口</span></span>
+                </div>
+                <div class="children expanded">
+                    
+                    <!-- 第1层：GCConfig -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon core">⚙</span>
+                            <span class="label"><span class="func-name">GCConfig::arguments()->create_heap()</span><span class="file">gcConfig.cpp:247</span><span class="comment">★ 多态分发</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="poly-box">
+                                <h4>🎭 多态分发机制</h4>
+                                <p><strong>GCConfig::arguments()</strong> 根据 JVM 参数返回不同的 GCArguments 子类：</p>
+                                <ul style="margin-left: 20px; margin-top: 5px;">
+                                    <li><code>-XX:+UseG1GC</code> → 返回 <strong>G1Arguments</strong></li>
+                                    <li><code>-XX:+UseParallelGC</code> → 返回 <strong>ParallelArguments</strong></li>
+                                    <li><code>-XX:+UseSerialGC</code> → 返回 <strong>SerialArguments</strong></li>
+                                    <li><code>-XX:+UseZGC</code> → 返回 <strong>ZArguments</strong></li>
+                                </ul>
+                            </div>
+                            
+                            <!-- 第2层：G1Arguments -->
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-name">G1Arguments::create_heap()</span><span class="file">g1Arguments.cpp:178</span><span class="comment">G1 堆创建</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="code-block">
+<span class="comment">// g1Arguments.cpp:178-183</span>
+<span class="type">CollectedHeap</span>* <span class="func">G1Arguments::create_heap</span>() {
+    <span class="keyword">return</span> <span class="func">create_heap_with_policy</span>&lt;<span class="type">G1CollectedHeap</span>, <span class="type">G1CollectorPolicy</span>&gt;();
+}
+                                    </div>
+                                    
+                                    <!-- 第3层：模板函数 -->
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon core">⚙</span>
+                                            <span class="label"><span class="func-name">create_heap_with_policy&lt;G1CollectedHeap, G1CollectorPolicy&gt;()</span><span class="file">gcArguments.hpp</span><span class="comment">★ 模板工厂</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            
+                                            <!-- 创建策略对象 -->
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon policy">P</span>
+                                                    <span class="label"><span class="highlight">new G1CollectorPolicy()</span><span class="comment">创建策略对象</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="object-card">
+                                                <h4>📦 创建的对象：G1CollectorPolicy</h4>
+                                                <table>
+                                                    <tr><th>属性</th><th>值</th></tr>
+                                                    <tr><td>类型</td><td>G1CollectorPolicy（策略模式）</td></tr>
+                                                    <tr><td>作用</td><td>决策何时/如何执行 GC、Region 分配策略</td></tr>
+                                                    <tr><td>大小</td><td>约 200+ 字节</td></tr>
+                                                    <tr><td>关键字段</td><td>_young_gen_sizer、_g1_collection_set、_analytics</td></tr>
+                                                </table>
+                                            </div>
+                                            
+                                            <!-- 初始化策略 -->
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon func">f</span>
+                                                    <span class="label"><span class="func-name">policy->initialize_all()</span><span class="comment">初始化策略参数（暂停目标、Region 大小等）</span></span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 创建堆对象 -->
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon data">D</span>
+                                                    <span class="label"><span class="highlight">new G1CollectedHeap(policy)</span><span class="comment">★ 创建堆对象（核心！）</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="object-card">
+                                                <h4>📦 创建的对象：G1CollectedHeap</h4>
+                                                <table>
+                                                    <tr><th>属性</th><th>值</th></tr>
+                                                    <tr><td>类型</td><td>G1CollectedHeap（继承 CollectedHeap）</td></tr>
+                                                    <tr><td>大小</td><td>1248 字节（GDB 实测）</td></tr>
+                                                    <tr><td>核心字段</td><td>_hrm(Region管理器)、_g1_policy、_g1_remset、_cm、_cr</td></tr>
+                                                    <tr><td>此时状态</td><td><strong>C++ 对象已创建，但尚未分配内存！</strong></td></tr>
+                                                </table>
+                                            </div>
+                                            
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- 创建的对象汇总 -->
+        <div class="section-title">📦 创建的对象汇总</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>对象</th>
+                    <th>类型</th>
+                    <th>大小</th>
+                    <th>核心作用</th>
+                    <th>创建位置</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>G1CollectorPolicy</code></td>
+                    <td>策略对象</td>
+                    <td>~200 字节</td>
+                    <td>GC 策略决策（何时 GC、选择哪些 Region）</td>
+                    <td>create_heap_with_policy()</td>
+                </tr>
+                <tr>
+                    <td><code>G1CollectedHeap</code></td>
+                    <td>堆管理器</td>
+                    <td>1248 字节</td>
+                    <td>管理整个 G1 堆（2048 个 Region 的引用）</td>
+                    <td>create_heap_with_policy()</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- 重要说明 -->
+        <div class="section-title">⚠️ 重要说明</div>
+        <div class="poly-box" style="margin: 0;">
+            <h4>此时堆内存还未分配！</h4>
+            <p><code>Universe::create_heap()</code> 只完成了 C++ 对象的创建，<strong>真正的内存分配在下一步</strong>：</p>
+            <div class="code-block" style="margin: 10px 0;">
+<span class="comment">// Universe::initialize_heap() 中的调用顺序</span>
+_collectedHeap = <span class="func">create_heap</span>();           <span class="comment">// 第1步：创建 C++ 对象（本文档）</span>
+_collectedHeap-><span class="func">initialize</span>();                   <span class="comment">// 第2步：mmap 8GB、创建 2048 个 Region（下一步）</span>
+            </div>
+            <p style="margin-top: 10px;"><strong>设计原因</strong>：分离"对象创建"和"资源初始化"，便于错误处理和状态管理。</p>
+        </div>
+        
+        <div class="legend">
+            <strong>图例说明：</strong>
+            <div class="legend-item"><span class="legend-icon" style="background:#52c41a"></span>根节点</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#722ed1"></span>核心函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#1890ff"></span>普通函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#eb2f96;color:white;font-size:8px">D</span>数据对象</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#fa8c16;color:white;font-size:8px">P</span>策略对象</div>
+        </div>
+    </div>
+
+    <script>
+        function toggle(element) {
+            const node = element.parentElement;
+            const children = node.querySelector(':scope > .children');
+            const toggleBtn = element.querySelector(':scope > .toggle');
+            if (!children || !toggleBtn || toggleBtn.classList.contains('leaf')) return;
+            if (children.classList.contains('collapsed')) {
+                children.classList.remove('collapsed');
+                children.classList.add('expanded');
+                toggleBtn.textContent = '−';
+            } else {
+                children.classList.remove('expanded');
+                children.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+            }
+        }
+        function expandAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('collapsed');
+                el.classList.add('expanded');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '−';
+            });
+        }
+        function collapseAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('expanded');
+                el.classList.add('collapsed');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '+';
+            });
+            document.querySelector('.root > .children').classList.remove('collapsed');
+            document.querySelector('.root > .children').classList.add('expanded');
+            document.querySelector('.root > .node-content > .toggle').textContent = '−';
+        }
+        function expandToLevel(level) {
+            collapseAll();
+            let selector = '.root';
+            for (let i = 0; i < level; i++) {
+                const nodes = document.querySelectorAll(selector + ' > .children > .node');
+                nodes.forEach(node => {
+                    const children = node.querySelector(':scope > .children');
+                    const toggle = node.querySelector(':scope > .node-content > .toggle');
+                    if (children && toggle && !toggle.classList.contains('leaf')) {
+                        children.classList.remove('collapsed');
+                        children.classList.add('expanded');
+                        toggle.textContent = '−';
+                    }
+                });
+                selector += ' > .children > .node';
+            }
+        }
+        expandToLevel(2);
+    </script>
+</body>
+</html>

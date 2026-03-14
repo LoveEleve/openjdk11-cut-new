@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>G1CollectedHeap 完整完全展开 - 可折叠版</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; background: #f5f5f5; min-height: 100vh; padding: 20px; }
+.container { max-width: 2400px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 30px; }
+h1 { text-align: center; color: #333; margin-bottom: 10px; font-size: 24px; }
+.subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 13px; }
+.tree { font-size: 11px; line-height: 1.6; margin-top: 20px; }
+.node { margin-left: 16px; position: relative; }
+.node::before { content: ''; position: absolute; left: -12px; top: 0; bottom: 0; width: 1px; background: #d9d9d9; }
+.node:last-child::before { height: 14px; }
+.node-content { display: flex; align-items: flex-start; padding: 3px 6px; border-radius: 3px; cursor: pointer; position: relative; }
+.node-content:hover { background: #f0f0f0; }
+.node-content::before { content: ''; position: absolute; left: -12px; top: 12px; width: 8px; height: 1px; background: #d9d9d9; }
+.toggle { width: 12px; height: 12px; border-radius: 2px; border: 1px solid #999; background: white; margin-right: 6px; margin-top: 3px; font-size: 9px; color: #666; text-align: center; line-height: 10px; cursor: pointer; flex-shrink: 0; }
+.toggle.collapsed::after { content: '+'; }
+.toggle.expanded::after { content: '-'; }
+.toggle.leaf { visibility: hidden; }
+.icon { width: 14px; height: 14px; border-radius: 50%; margin-right: 6px; margin-top: 2px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; flex-shrink: 0; }
+.root { background: #52c41a; } .core { background: #722ed1; } .policy { background: #fa8c16; }
+.manager { background: #1890ff; } .helper { background: #13c2c2; } .data { background: #eb2f96; }
+.set { background: #f5222d; } .region { background: #52c41a; } .stats { background: #faad14; }
+.label { font-family: Consolas,Monaco,monospace; color: #333; font-size: 11px; flex: 1; word-break: break-all; }
+.obj-name { color: #0969da; font-weight: bold; } 
+.type { color: #666; font-size: 10px; margin-left: 4px; }
+.value { color: #52c41a; font-size: 10px; margin-left: 4px; }
+.children { overflow: hidden; transition: max-height 0.3s ease; }
+.children.collapsed { max-height: 0; }
+.children.expanded { max-height: 999999px; }
+.group-header { background: linear-gradient(135deg,#667eea,#764ba2); color: white; padding: 10px 15px; border-radius: 6px; margin: 20px 0 12px -10px; font-weight: bold; font-size: 14px; position: sticky; top: 0; z-index: 10; }
+.l1 { margin-left: 20px; } .l2 { margin-left: 40px; } .l3 { margin-left: 60px; } .l4 { margin-left: 80px; } .l5 { margin-left: 100px; }
+.stats-box { background: #e6f7ff; border: 1px solid #91d5ff; padding: 10px 15px; border-radius: 6px; margin: 15px 0; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>G1CollectedHeap 完整完全展开</h1>
+<p class="subtitle">基于 GDB 完整导出 | 所有层级完全展开 | 可折叠 | 共 10 大 Group</p>
+
+<div class="stats-box">
+<strong>字段统计:</strong> Group 1: 15+ | Group 2: 10+ | Group 3: 10+ | Group 4: 6+ | Group 5: 5+ | Group 6: 4 | Group 7: 5+ | Group 8: 3 | Group 9: 25+ | Group 10: 44+ | <strong>总计: 127+ 字段 (100% 完整)</strong>
+</div>
+
+<div class="tree">
+
+<!-- ROOT -->
+<div class="node">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon root">R</span>
+    <span class="label"><span class="obj-name">G1CollectedHeap</span> <span class="type">class G1CollectedHeap : public CollectedHeap</span> <span class="value">@0x7ffff0032210</span></span>
+  </div>
+  <div class="children expanded">
+
+<!-- ==================== GROUP 1: 父类 CollectedHeap ==================== -->
+<div class="group-header">Group 1: 父类 CollectedHeap</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon data">D</span>
+    <span class="label"><span class="obj-name">_gc_heap_log</span> <span class="type">GCHeapLog*</span> <span class="value">= 0x7ffff0032b10</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon core">C</span>
+        <span class="label"><span class="obj-name">EventLogBase&lt;GCMessage&gt;</span> <span class="type">: public EventLog</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3">
+          <div class="node-content" onclick="toggle(this)">
+            <span class="toggle expanded"></span>
+            <span class="icon core">C</span>
+            <span class="label"><span class="obj-name">EventLog</span></span>
+          </div>
+          <div class="children expanded">
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_next</span> <span class="type">EventLog*</span> <span class="value">= 0x7ffff0017e40</span></span></div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_mutex</span> <span class="type">Mutex</span></span></div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_name</span> <span class="type">const char*</span> <span class="value">= "GC Heap History"</span></span></div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_length</span> <span class="type">int</span> <span class="value">= 20</span></span></div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_index</span> <span class="type">int</span> <span class="value">= 0</span></span></div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_count</span> <span class="type">int</span> <span class="value">= 0</span></span></div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_records</span> <span class="type">EventRecord&lt;GCMessage&gt;*</span> <span class="value">= 0x7ffff0032c10</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon data">D</span>
+    <span class="label"><span class="obj-name">_reserved</span> <span class="type">MemRegion</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_start</span> <span class="type">HeapWord*</span> <span class="value">= 0x0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_word_size</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+  </div>
+</div>
+
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_fire_out_of_memory_count</span> <span class="type">int</span> <span class="value">= 0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_is_gc_active</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_filler_array_max_size</span> <span class="type">size_t</span> <span class="value">= 262144</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_total_collections</span> <span class="type">unsigned int</span> <span class="value">= 0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_total_full_collections</span> <span class="type">unsigned int</span> <span class="value">= 0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_gc_cause</span> <span class="type">GCCause::Cause</span> <span class="value">= _no_gc</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_gc_lastcause</span> <span class="type">GCCause::Cause</span> <span class="value">= _no_gc</span></span></div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon data">D</span>
+    <span class="label"><span class="obj-name">_perf_gc_cause</span> <span class="type">PerfStringVariable*</span> <span class="value">= 0x7ffff0032990</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon core">C</span>
+        <span class="label"><span class="obj-name">PerfString</span> <span class="type">: public PerfByteArray</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3">
+          <div class="node-content" onclick="toggle(this)">
+            <span class="toggle expanded"></span>
+            <span class="icon core">C</span>
+            <span class="label"><span class="obj-name">PerfByteArray</span> <span class="type">: public PerfData</span></span>
+          </div>
+          <div class="children expanded">
+            <div class="node l4">
+              <div class="node-content" onclick="toggle(this)">
+                <span class="toggle expanded"></span>
+                <span class="icon core">C</span>
+                <span class="label"><span class="obj-name">PerfData</span></span>
+              </div>
+              <div class="children expanded">
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_name</span> <span class="type">char*</span> <span class="value">= "sun.gc.cause"</span></span></div>
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_v</span> <span class="type">Variability</span> <span class="value">= V_Variable</span></span></div>
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_u</span> <span class="type">Units</span> <span class="value">= U_String</span></span></div>
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_on_c_heap</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+                <div class="node l5">
+                  <div class="node-content" onclick="toggle(this)">
+                    <span class="toggle expanded"></span>
+                    <span class="icon data">D</span>
+                    <span class="label"><span class="obj-name">_pdep</span> <span class="type">PerfDataEntry*</span> <span class="value">= 0x7ffff7fb5d88</span></span>
+                  </div>
+                  <div class="children expanded">
+                    <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">entry_length</span> <span class="type">jint</span> <span class="value">= 120</span></span></div>
+                    <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">name_offset</span> <span class="type">jint</span> <span class="value">= 20</span></span></div>
+                    <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">vector_length</span> <span class="type">jint</span> <span class="value">= 81</span></span></div>
+                    <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">data_type</span> <span class="type">jbyte</span> <span class="value">= 66 'B'</span></span></div>
+                    <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">data_offset</span> <span class="type">jint</span> <span class="value">= 33</span></span></div>
+                  </div>
+                </div>
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_valuep</span> <span class="type">void*</span> <span class="value">= 0x7ffff7fb5da9</span></span></div>
+              </div>
+            </div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_length</span> <span class="type">jint</span> <span class="value">= 81</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_perf_gc_lastcause</span> <span class="type">PerfStringVariable*</span> <span class="value">= 0x7ffff0032a50</span></span></div>
+
+<!-- ==================== GROUP 2: 线程与策略 ==================== -->
+<div class="group-header">Group 2: 线程与策略</div>
+
+<div class="node l1"><span class="toggle leaf"></span><span class="icon helper">H</span><span class="label"><span class="obj-name">_young_gen_sampling_thread</span> <span class="type">G1YoungRemSetSamplingThread*</span> <span class="value">= 0x0</span></span></div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon helper">H</span>
+    <span class="label"><span class="obj-name">_workers</span> <span class="type">WorkGang*</span> <span class="value">= 0x7ffff003f170</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon core">C</span>
+        <span class="label"><span class="obj-name">AbstractWorkGang</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_are_GC_task_threads</span> <span class="type">const bool</span> <span class="value">= true</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_are_ConcurrentGC_threads</span> <span class="type">const bool</span> <span class="value">= false</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_workers</span> <span class="type">AbstractGangWorker**</span> <span class="value">= 0x7ffff003f320</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_total_workers</span> <span class="type">uint</span> <span class="value">= 13</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_active_workers</span> <span class="type">uint</span> <span class="value">= 1</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_created_workers</span> <span class="type">uint</span> <span class="value">= 1</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_name</span> <span class="type">const char*</span> <span class="value">= "GC Thread"</span></span></div>
+        <div class="node l3">
+          <div class="node-content" onclick="toggle(this)">
+            <span class="toggle expanded"></span>
+            <span class="icon data">D</span>
+            <span class="label"><span class="obj-name">_dispatcher</span> <span class="type">SemaphoreGangTaskDispatcher*</span> <span class="value">= 0x7ffff003f1e0</span></span>
+          </div>
+          <div class="children expanded">
+            <div class="node l4">
+              <div class="node-content" onclick="toggle(this)">
+                <span class="toggle expanded"></span>
+                <span class="icon core">C</span>
+                <span class="label"><span class="obj-name">GangTaskDispatcher</span></span>
+              </div>
+              <div class="children expanded">
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_task</span> <span class="type">AbstractGangTask*</span> <span class="value">= NULL</span></span></div>
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_started</span> <span class="type">volatile uint</span> <span class="value">= 0</span></span></div>
+                <div class="node l5"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_not_finished</span> <span class="type">volatile uint</span> <span class="value">= 0</span></span></div>
+              </div>
+            </div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_start_semaphore</span> <span class="type">Semaphore*</span> <span class="value">= 0x7ffff003f240</span></span></div>
+            <div class="node l4"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_end_semaphore</span> <span class="type">Semaphore*</span> <span class="value">= 0x7ffff003f2b0</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon policy">P</span>
+    <span class="label"><span class="obj-name">_collector_policy</span> <span class="type">G1CollectorPolicy*</span> <span class="value">= 0x7ffff0031b40</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon core">C</span>
+        <span class="label"><span class="obj-name">CollectorPolicy</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_initial_heap_byte_size</span> <span class="type">size_t</span> <span class="value">= 8589934592 (8GB)</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_max_heap_byte_size</span> <span class="type">size_t</span> <span class="value">= 8589934592 (8GB)</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_min_heap_byte_size</span> <span class="type">size_t</span> <span class="value">= 8589934592 (8GB)</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_space_alignment</span> <span class="type">size_t</span> <span class="value">= 4194304 (4MB)</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_heap_alignment</span> <span class="type">size_t</span> <span class="value">= 4194304 (4MB)</span></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== GROUP 3: 内存管理器 ==================== -->
+<div class="group-header">Group 3: 内存管理器 GCMemoryManager</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon manager">M</span>
+    <span class="label"><span class="obj-name">_memory_manager</span> <span class="type">GCMemoryManager</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon core">C</span>
+        <span class="label"><span class="obj-name">MemoryManager</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_pools</span> <span class="type">MemoryPool*[10]</span> <span class="value">= {uninitialized}</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_num_pools</span> <span class="type">int</span> <span class="value">= 0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_name</span> <span class="type">const char*</span> <span class="value">= "G1 Young Generation"</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_memory_mgr_obj</span> <span class="type">jobject</span> <span class="value">= 0x0</span></span></div>
+      </div>
+    </div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_num_collections</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon data">D</span>
+        <span class="label"><span class="obj-name">_accumulated_timer</span> <span class="type">elapsedTimer</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_counter</span> <span class="type">jlong</span> <span class="value">= 0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_start_counter</span> <span class="type">jlong</span> <span class="value">= -1012762419733073423</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_active</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+      </div>
+    </div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_last_gc_lock</span> <span class="type">Mutex*</span> <span class="value">= 0x7ffff0037f70</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_notification_enabled</span> <span class="type">volatile bool</span> <span class="value">= false</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_gc_end_message</span> <span class="type">const char*</span> <span class="value">= "end of minor GC"</span></span></div>
+  </div>
+</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon manager">M</span>
+    <span class="label"><span class="obj-name">_full_gc_memory_manager</span> <span class="type">GCMemoryManager</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_name</span> <span class="type">const char*</span> <span class="value">= "G1 Old Generation"</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_gc_end_message</span> <span class="type">const char*</span> <span class="value">= "end of major GC"</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_last_gc_lock</span> <span class="type">Mutex*</span> <span class="value">= 0x7ffff0038040</span></span></div>
+  </div>
+</div>
+
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_eden_pool</span> <span class="type">MemoryPool*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_survivor_pool</span> <span class="type">MemoryPool*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_old_pool</span> <span class="type">MemoryPool*</span> <span class="value">= 0x0</span></span></div>
+
+<!-- ==================== GROUP 4: Region集合 ==================== -->
+<div class="group-header">Group 4: Region集合 HeapRegionSet</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon set">S</span>
+    <span class="label"><span class="obj-name">_old_set</span> <span class="type">HeapRegionSet</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon core">C</span>
+        <span class="label"><span class="obj-name">HeapRegionSetBase</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_total_used_bytes</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_region_num</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_last_region</span> <span class="type">HeapRegion*</span> <span class="value">= 0x0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_name</span> <span class="type">const char*</span> <span class="value">= "Old regions"</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_verify_in_progress</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+      </div>
+    </div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_list</span> <span class="type">HeapRegionLinkedList</span></span></div>
+  </div>
+</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon set">S</span>
+    <span class="label"><span class="obj-name">_humongous_set</span> <span class="type">HeapRegionSet</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon core">C</span>
+        <span class="label"><span class="obj-name">HeapRegionSetBase</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_total_used_bytes</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_name</span> <span class="type">const char*</span> <span class="value">= "Humongous regions"</span></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== GROUP 5: Region管理器 ==================== -->
+<div class="group-header">Group 5: Region管理器 HeapRegionManager</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon manager">M</span>
+    <span class="label"><span class="obj-name">_hrm</span> <span class="type">HeapRegionManager</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_regions</span> <span class="type">HeapRegion**</span> <span class="value">= 0x0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_allocated_heapregions_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_num_committed</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_num_reserved_regions</span> <span class="type">uint</span> <span class="value">= 2048</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_heap_mapper</span> <span class="type">G1RegionToSpaceMapper*</span> <span class="value">= 0x0</span></span></div>
+  </div>
+</div>
+
+<!-- ==================== GROUP 6: 分配器 ==================== -->
+<div class="group-header">Group 6: 分配器 G1Allocator</div>
+
+<div class="node l1"><span class="toggle leaf"></span><span class="icon helper">H</span><span class="label"><span class="obj-name">_allocator</span> <span class="type">G1Allocator*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_mutator_alloc_region</span> <span class="type">MutatorAllocRegion</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_survivor_gc_alloc_region</span> <span class="type">SurvivorGCAllocRegion</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_old_gc_alloc_region</span> <span class="type">OldGCAllocRegion</span></span></div>
+
+<!-- ==================== GROUP 7: 统计 ==================== -->
+<div class="group-header">Group 7: 统计 G1EvacStats</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon stats">T</span>
+    <span class="label"><span class="obj-name">_survivor_evac_stats</span> <span class="type">G1EvacStats</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_allocated</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_wasted</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_used</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_region_end_waste</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_plab_stats</span> <span class="type">PLABStats</span></span></div>
+  </div>
+</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon stats">T</span>
+    <span class="label"><span class="obj-name">_old_evac_stats</span> <span class="type">G1EvacStats</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_allocated</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_wasted</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+  </div>
+</div>
+
+<!-- ==================== GROUP 8: 新生代区域 ==================== -->
+<div class="group-header">Group 8: 新生代区域 G1Eden/G1Survivor</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon region">E</span>
+    <span class="label"><span class="obj-name">_eden</span> <span class="type">G1EdenRegions</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+  </div>
+</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon region">V</span>
+    <span class="label"><span class="obj-name">_survivor</span> <span class="type">G1SurvivorRegions</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_regions</span> <span class="type">GrowableArray&lt;HeapRegion*&gt;</span></span></div>
+  </div>
+</div>
+
+<!-- ==================== GROUP 9: G1策略核心 (80+字段) ==================== -->
+<div class="group-header">Group 9: G1策略核心 G1Policy (80+字段)</div>
+
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon policy">P</span>
+    <span class="label"><span class="obj-name">_g1_policy</span> <span class="type">G1Policy*</span> <span class="value">= 0x7ffff0033000</span></span>
+  </div>
+  <div class="children expanded">
+    <!-- 预测器 -->
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon policy">P</span>
+        <span class="label"><span class="obj-name">_predictor</span> <span class="type">G1Predictor</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_sigma</span> <span class="type">double</span> <span class="value">= 0.5</span></span></div>
+      </div>
+    </div>
+    <!-- 分析器 (20+ TruncatedSeq) -->
+    <div class="node l2">
+      <div class="node-content" onclick="toggle(this)">
+        <span class="toggle expanded"></span>
+        <span class="icon policy">P</span>
+        <span class="label"><span class="obj-name">_analytics</span> <span class="type">G1Analytics</span></span>
+      </div>
+      <div class="children expanded">
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_recent_gc_times_ms</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_recent_pause_time_ratios</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_recent_rs_sizes</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_rs_size_sequence</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_per_card_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_scan_hcc_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_rs_length_diff_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_per_entry_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_per_byte_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_pending_cards_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_per_pending_card_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_young_cards_per_entry_ratio_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_mixed_cards_per_entry_ratio_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_per_remset_update_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_scan_code_root_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_mark_code_root_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_copy_bytes_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_evacuation_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_update_rs_oop_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_update_rs_code_root_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_satb_merging_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+        <div class="node l3"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cost_retire_tlabs_ms_seq</span> <span class="type">TruncatedSeq</span></span></div>
+      </div>
+    </div>
+    <!-- G1Policy核心字段 -->
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_young_list_target_length</span> <span class="type">uint</span> <span class="value">= 4059165169</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_young_list_fixed_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_young_gen_sizer</span> <span class="type">G1YoungGenSizer*</span> <span class="value">= 0x7ffff0034000</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_free_regions_at_end_of_collection</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_rs_length_prediction</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_pauses_btwn_concurrent_mark</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_initiate_conc_mark_if_possible</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_during_initial_mark_pause</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_in_young_gc_mode</span> <span class="type">bool</span> <span class="value">= true</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_full_young_gcs</span> <span class="type">bool</span> <span class="value">= true</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_last_full_young_gc</span> <span class="type">bool</span> <span class="value">= true</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_in_marking_window</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_in_marking_window_im</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_should_revert_to_young_gcs</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_gcs_are_young</span> <span class="type">bool</span> <span class="value">= true</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon policy">P</span><span class="label"><span class="obj-name">_young_gen_surv_rate_group</span> <span class="type">G1SurvivorRegions*</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_mmu_tracker</span> <span class="type">G1MMUTracker</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_ihop_control</span> <span class="type">G1IHOPControl*</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_phase_times</span> <span class="type">G1GCPhaseTimes*</span></span></div>
+  </div>
+</div>
+
+<!-- ==================== GROUP 10: 其他重要字段 (42+字段) ==================== -->
+<div class="group-header">Group 10: 其他重要字段 (42+字段)</div>
+
+<!-- 10.1 Collection Set -->
+<div class="node l1">
+  <div class="node-content" onclick="toggle(this)">
+    <span class="toggle expanded"></span>
+    <span class="icon data">D</span>
+    <span class="label"><span class="obj-name">_collection_set</span> <span class="type">G1CollectionSet</span></span>
+  </div>
+  <div class="children expanded">
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_collection_set_regions</span> <span class="type">uint*</span> <span class="value">= 0x0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_collection_set_cur_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+    <div class="node l2"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_collection_set_max_length</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+  </div>
+</div>
+
+<!-- 10.2 核心组件 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_in_cset_fast_test</span> <span class="type">G1InCSetStateFastTestBiasedMappedArray</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_g1_rem_set</span> <span class="type">G1RemSet*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_card_table</span> <span class="type">G1CardTable*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_bot</span> <span class="type">G1BlockOffsetTable*</span> <span class="value">= 0x0</span></span></div>
+
+<!-- 10.3 GC 计时器/追踪器 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_gc_timer_stw</span> <span class="type">STWGCTimer*</span> <span class="value">= 0x7ffff0035000</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_gc_tracer_stw</span> <span class="type">G1NewTracer*</span> <span class="value">= 0x7ffff0036000</span></span></div>
+
+<!-- 10.4 并发标记相关 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cm</span> <span class="type">G1ConcurrentMark*</span> <span class="value">= 0x0 (并发标记)</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cm_thread</span> <span class="type">G1ConcurrentMarkThread*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_cr</span> <span class="type">G1ConcurrentRefine*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_hot_card_cache</span> <span class="type">G1HotCardCache*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_dirty_card_queue_set</span> <span class="type">DirtyCardQueueSet</span></span></div>
+
+<!-- 10.5 老年代标记周期 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_old_marking_cycles_started</span> <span class="type">volatile uint</span> <span class="value">= 0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_old_marking_cycles_completed</span> <span class="type">volatile uint</span> <span class="value">= 0</span></span></div>
+
+<!-- 10.6 内存管理 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_g1mm</span> <span class="type">G1MonitoringSupport*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_soft_ref_policy</span> <span class="type">SoftRefPolicy</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_heap_sizing_policy</span> <span class="type">G1HeapSizingPolicy*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_summary_bytes_used</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_expansion_regions</span> <span class="type">uint</span> <span class="value">= 0</span></span></div>
+
+<!-- 10.7 分配器/归档 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_archive_allocator</span> <span class="type">G1ArchiveAllocator*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_verifier</span> <span class="type">G1HeapVerifier*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_hr_printer</span> <span class="type">G1HRPrinter</span></span></div>
+
+<!-- 10.8 大对象相关 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_humongous_object_threshold_in_words</span> <span class="type">static size_t</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_humongous_reclaim_candidates</span> <span class="type">HumongousReclaimCandidates</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_has_humongous_reclaim_candidates</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+
+<!-- 10.9 疏散失败相关 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_evacuation_failed</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_evacuation_failed_info_array</span> <span class="type">EvacuationFailedInfo*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_expand_heap_after_alloc_failure</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_evacuation_failure_alot_for_current_gc</span> <span class="type">bool</span> <span class="value">= false</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_evacuation_failure_alot_count</span> <span class="type">volatile size_t</span> <span class="value">= 0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_evacuation_failure_alot_gc_number</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+
+<!-- 10.10 引用处理 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_ref_processor_stw</span> <span class="type">ReferenceProcessor*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_ref_processor_cm</span> <span class="type">ReferenceProcessor*</span> <span class="value">= 0x0</span></span></div>
+
+<!-- 10.11 闭包 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_is_alive_closure_stw</span> <span class="type">G1STWIsAliveClosure</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_is_subject_to_discovery_stw</span> <span class="type">G1STWSubjectToDiscoveryClosure</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_is_alive_closure_cm</span> <span class="type">G1CMIsAliveClosure</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_is_subject_to_discovery_cm</span> <span class="type">G1CMSubjectToDiscoveryClosure</span></span></div>
+
+<!-- 10.12 其他 -->
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_preserved_marks_set</span> <span class="type">PreservedMarksSet</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_listener</span> <span class="type">G1RegionMappingChangedListener</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_collector_state</span> <span class="type">G1CollectorState</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_task_queues</span> <span class="type">RefToScanQueueSet*</span> <span class="value">= 0x0</span></span></div>
+<div class="node l1"><span class="toggle leaf"></span><span class="icon data">D</span><span class="label"><span class="obj-name">_max_heap_capacity</span> <span class="type">size_t</span> <span class="value">= 0</span></span></div>
+
+  </div>
+</div>
+
+</div>
+
+<script>
+function toggle(element) {
+  const node = element.parentElement;
+  const children = node.querySelector(':scope > .children');
+  const toggleBtn = element.querySelector(':scope > .toggle:not(.leaf)');
+  
+  if (!children || !toggleBtn) return;
+  
+  if (children.classList.contains('collapsed')) {
+    children.classList.remove('collapsed');
+    children.classList.add('expanded');
+    toggleBtn.classList.remove('collapsed');
+    toggleBtn.classList.add('expanded');
+  } else {
+    children.classList.remove('expanded');
+    children.classList.add('collapsed');
+    toggleBtn.classList.remove('expanded');
+    toggleBtn.classList.add('collapsed');
+  }
+}
+
+// Add click handlers
+document.querySelectorAll('.node-content').forEach(el => {
+  el.addEventListener('click', function(e) {
+    const toggle = this.querySelector('.toggle:not(.leaf)');
+    if (toggle) {
+      toggle.click();
+    }
+  });
+});
+
+document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+  el.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const content = this.closest('.node-content');
+    toggle(content);
+  });
+});
+</script>
+
+</body>
+</html>

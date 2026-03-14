@@ -690,7 +690,7 @@ jint universe_init() {
   TraceTime timer("Genesis", TRACETIME_LOG(Info, startuptime));
   // forcus 计算JVM需要直接访问的Java类字段偏移量
   JavaClasses::compute_hard_coded_offsets();
-  // forcus 初始化堆(G1 GC为例)
+  // forcus 初始化堆(G1 GC为例) - 超级核心的方法
   jint status = Universe::initialize_heap();
   if (status != JNI_OK) {
     return status;
@@ -875,6 +875,14 @@ jint universe_init() {
 
 CollectedHeap* Universe::create_heap() {
   assert(_collectedHeap == NULL, "Heap already created");
+  /*
+        GCConfig::arguments()->create_heap()
+            - G1Arguments::create_heap()
+                - create_heap_with_policy<G1CollectedHeap, G1CollectorPolicy>()
+                    - new G1CollectorPolicy()
+                    - policy->initialize_all()
+                    - new G1CollectedHeap(policy)
+   */
   return GCConfig::arguments()->create_heap();
 }
 

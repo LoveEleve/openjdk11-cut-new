@@ -203,6 +203,15 @@ CollectedHeap::CollectedHeap() :
   // 计算填充数组的最大大小（用于对齐）
   const size_t max_len = size_t(arrayOopDesc::max_array_length(T_INT));
   const size_t elements_per_word = HeapWordSize / sizeof(jint);
+  /*
+        计算 _filler_array_max_size（填充数组最大尺寸
+        为什么需要这个值？
+            GC 在回收对象后，内存区域会出现"空洞"（碎片）。为了让堆保持可解析性（parsable），必须用合法的 Java 对象填充这些空洞，否则 GC 扫描时会把垃圾数据当成对象头，导致崩溃。
+            填充策略：
+            空洞 < 2 words → 用 java.lang.Object（最小对象）填充
+            空洞 ≥ 2 words → 用 int[] 数组填充（可以任意调整长度）
+            空洞 > _filler_array_max_size → 拆成多个 int[] 填充
+   */
   _filler_array_max_size = align_object_size(filler_array_hdr_size() +
                                              max_len / elements_per_word);
 
@@ -212,18 +221,66 @@ CollectedHeap::CollectedHeap() :
   if (UsePerfData) {
     EXCEPTION_MARK;
 
+    /*
+        这两个计数器是干什么的？
+        jvmstat 是 JVM 内置的性能监控机制，数据写入共享内存（/tmp/hsperfdata_<user>/<pid>），
+        外部工具（jstat、jconsole、VisualVM）通过 mmap 读取，不需要任何 JVM 暂停。
+            # 用 jstat 可以直接看到这两个值：
+            $ jstat -gc <pid>
+            # 或者用 jcmd 查看：
+            $ jcmd <pid> PerfCounter.print | grep gc.cause
+            sun.gc.cause=G1 Evacuation Pause
+            sun.gc.lastCause=G1 Evacuation Pause
+     */
     // create the gc cause jvmstat counters
+    // key = "sun.gc.cause"
+    // forcus 没太懂这里的逻辑 - mark一下
     _perf_gc_cause = PerfDataManager::create_string_variable(SUN_GC, "cause",
                              80, GCCause::to_string(_gc_cause), CHECK);
 
+    // key = "sun.gc.lastCause"
     _perf_gc_lastcause =
                 PerfDataManager::create_string_variable(SUN_GC, "lastCause",
                              80, GCCause::to_string(_gc_lastcause), CHECK);
   }
 
   // Create the ring log
-  // 创建GC事件日志环形缓冲区
-  if (LogEvents) {
+  // forcus 创建GC事件日志环形缓冲区
+  /*
+        环形缓冲区工作原理：
+         - 容量 = 20 条（LogEventsBufferEntries）
+         - 每条 = 1024 字节的堆状态快照 + 时间戳 + 线程指针
+         - 写入时：
+                index = (index + 1) % 20  ← 循环覆盖最旧的记录
+         - 读取时（JVM 崩溃时自动 dump）：
+                从 _index 开始，按时间顺序打印最近 20 次 GC 前后的堆状态
+         - 什么时候写入？
+            // 每次 GC 前后都会调用：
+                void CollectedHeap::print_heap_before_gc() {
+                    if (_gc_heap_log != NULL) {
+                        _gc_heap_log->log_heap_before(this);  // 记录 GC 前堆状态
+                    }
+                }
+                void CollectedHeap::print_heap_after_gc() {
+                    if (_gc_heap_log != NULL) {
+                        _gc_heap_log->log_heap_after(this);   // 记录 GC 后堆状态
+                    }
+                }
+
+            forcus 崩溃时的输出示例（hs_err_pid.log 里能看到）：
+            GC Heap History (20 events):
+            Event: 1.234 GC heap before
+            {Heap before GC invocations=5 (full 0):
+             garbage-first heap   total 8388608K, used 2097152K ...
+            }
+            Event: 1.456 GC heap after
+            {Heap after GC invocations=5 (full 0):
+             garbage-first heap   total 8388608K, used 1048576K ...
+            }
+
+
+   */
+  if (LogEvents) { // 默认为true (  -XX:+LogEvents（默认开启）)
     _gc_heap_log = new GCHeapLog();
   } else {
     _gc_heap_log = NULL;

@@ -1,0 +1,78 @@
+# GDB 脚本 - Phase 5: 核心模块初始化验证
+# 使用方法: gdb -x gdb_phase5.txt --args java -Xms8g -Xmx8g -XX:+UseG1GC -version
+
+set pagination off
+set print pretty on
+
+# 在关键函数入口处打断点
+b init_globals
+b universe_init
+b Universe::initialize_heap
+b G1CollectedHeap::initialize
+b interpreter_init
+b CodeCache::initialize
+
+# 运行
+run
+
+printf "\n========== Phase 5: 核心模块初始化 ==========\n"
+
+# 当命中 init_globals 时
+printf "\n----- init_globals() 开始 -----\n"
+info breakpoints
+
+# 继续到 universe_init
+c
+
+printf "\n========== universe_init() - 创世初始化 ==========\n"
+
+# 打印 Universe 相关
+printf "\n----- Universe 结构大小 -----\n"
+p sizeof(Universe)
+
+printf "\n----- CollectedHeap 继承链 -----\n"
+p sizeof(CollectedHeap)
+p sizeof(G1CollectedHeap)
+
+# 继续到 G1CollectedHeap::initialize
+c
+
+printf "\n========== G1CollectedHeap::initialize() ==========\n"
+
+printf "\n----- 关键常量（标准条件：-Xms8g -Xmx8g -XX:+UseG1GC）-----\n"
+p HeapRegion::GrainBytes
+p HeapRegion::LogOfHRGrainBytes
+p G1HeapRegionSize
+
+printf "\n----- G1CollectedHeap 关键字段偏移 -----\n"
+p &((G1CollectedHeap*)0)->_g1_policy
+p &((G1CollectedHeap*)0)->_g1_remset
+p &((G1CollectedHeap*)0)->_cm
+p &((G1CollectedHeap*)0)->_cr
+
+# 继续到 interpreter_init
+c
+
+printf "\n========== interpreter_init() ==========\n"
+
+printf "\n----- Interpreter 相关大小 -----\n"
+p sizeof(Interpreter)
+p sizeof(AbstractInterpreter)
+p sizeof(TemplateInterpreter)
+
+printf "\n----- CodeBlob 继承链 -----\n"
+p sizeof(CodeBlob)
+p sizeof(nmethod)
+p sizeof(BufferBlob)
+
+# 继续到 CodeCache::initialize
+c
+
+printf "\n========== CodeCache::initialize() ==========\n"
+
+printf "\n----- CodeCache 关键大小 -----\n"
+p sizeof(CodeCache)
+p sizeof(CodeHeap)
+
+printf "\n========== 验证完成 ==========\n"
+quit

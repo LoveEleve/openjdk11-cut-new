@@ -419,25 +419,25 @@ PerfLongConstant* PerfDataManager::create_long_constant(CounterNS ns,
   return p;
 }
 
-PerfStringVariable* PerfDataManager::create_string_variable(CounterNS ns,
-                                                            const char* name,
-                                                            int max_length,
-                                                            const char* s,
+PerfStringVariable* PerfDataManager::create_string_variable(CounterNS ns, // = SUN_GC（枚举值 5）
+                                                            const char* name, // = "cause"
+                                                            int max_length, // = 80（需要+1,最后用来存储'\0'）
+                                                            const char* s,  // = "No GC"
                                                             TRAPS) {
 
   if (max_length == 0 && s != NULL) max_length = (int)strlen(s);
 
   assert(max_length != 0, "PerfStringVariable with length 0");
-
+  // forcus  创建 PerfStringVariable 对象（触发 5 层构造函数链）
   PerfStringVariable* p = new PerfStringVariable(ns, name, max_length, s);
-
+  // 检查是否分配成功（_valuep != NULL 才算有效）
   if (!p->is_valid()) {
     // allocation of native resources failed.
     delete p;
     THROW_0(vmSymbols::java_lang_OutOfMemoryError());
   }
-
-  add_item(p, false);
+  // 注册到全局管理列表
+  add_item(p, false); // false = 不需要 StatSampler 定期采样
 
   return p;
 }

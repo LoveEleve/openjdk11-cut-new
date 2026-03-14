@@ -363,3 +363,32 @@ JavaMain
 | 第2章 | [**对象分配探针结果**](./Instrumentation/03-ObjectAlloc-Probe-Results.md) | ✅ 完成（TLAB/Humongous 分配路径验证） |
 | 第4章 | [**G1 YoungGC 探针结果**](./Instrumentation/04-YoungGC-Probe-Results.md) | ✅ 完成（2次YoungGC完整数据：触发条件/CSet/复制字节数/Region守恒验证。关键修复：探针必须在note_gc_start()之前读Eden，在set_bytes_copied()之后读evacuation_info） |
 | 第4B章 | [**G1 写屏障漏斗分析**](./Instrumentation/04B-WriteBarrier-Probe-Results.md) | ✅ 完成（汇编快路径全路径插桩：431万次触发漏斗分析。关键发现：最大过滤是Young Card(88.1%)而非同Region(8%)；真正入队仅0.0009%；校验和误差<15符合多线程非原子计数器预期。修正总纲"95%同Region"的错误预期） |
+| 第6章 | [**SafePoint 机制插桩结果（完整版）**](./Instrumentation/06-Safepoint-Probe-Results.md) | ✅ 完成（14 个探针全命中：SafepointMechanism::init 轮询页 armed/disarmed 值 + poll_bit=8；STS 系列 7 个探针（join/leave/yield/yield_resume/synchronize/synchronize_done/desynchronize）；safepoint.cpp begin/phase1/phase2/end/block；safepointMechanism block_if_requested_slow。关键发现：STS::synchronize 几乎零耗时（already_sync，nthreads=0）；TTSP 约 0.05ms（-Xint）；Java 线程阻塞时 state=7（_thread_in_Java）；poll_bit=0x8 通过 bit3 区分 armed/disarmed；Safepoint 计数器奇偶交替验证通过。） |
+
+---
+
+## new-md G1 GC 系列（出版级，持续进行中）
+
+### 已完成
+
+| 篇章 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| 第 22 篇 | `22-g1-allocation-HandWritten.md`（889行） | 🟢 初稿完成 | 数据结构完整，GDB 验证完成（sizeof=144B，TLAB=2048KB，Humongous=2MB） |
+| 第 23 篇 | `23-g1-overview-HandWritten.md`（1190行） | 🟢 数据结构补强完成 | HeapRegion/HeapRegionRemSet 6项分析完成，GDB验证完成 |
+| 第 24 篇 | `24-g1-young-gc-HandWritten.md`（1068行） | 🟢 出版级完成 | 6项数据结构分析 + copy_to_survivor_space源码逐行注释 + 工作窃取终止协议 + GDB验证 |
+| 第 25 篇 | `25-g1-rset-HandWritten.md`（1131行） | 🟢 补强完成 | G1FromCardCache完整分析，DCQ三区源码推导，打桩数据完整 |
+| 第 26 篇 | `26-g1-concurrent-mark-HandWritten.md`（1300行） | 🟢 出版级完成 | do_marking_step()六阶段源码逐行注释，打桩验证（SATB_QUEUE=98.7%） |
+| 第 27 篇 | `27-g1-mixed-gc-HandWritten.md`（1071行） | 🟢 出版级完成 | TruncatedSeq衰减均值算法源码，G1Analytics完整字段，打桩验证 |
+| 第 27b 篇 | `27b-g1-full-gc-HandWritten.md`（777行） | 🟢 补强完成 | G1FullCollector完整字段分析，四个阶段源码逐行注释，打桩验证 |
+| 第 27c 篇 | `27c-g1-humongous-HandWritten.md`（989行） | 🟢 补强完成 | 分配三级策略源码，急切回收四条件源码，打桩验证 |
+| 第 27d 篇 | `27d-g1-auxiliary-HandWritten.md`（678行） | 🟢 出版级完成 | G1StringDedup完整数据结构分析（6项）+ 去重算法源码逐行注释 + String.intern() vs 字符串去重对比 + 打桩验证（入队/新条目/去重发生 3个探针全命中） |
+| 第 27e 篇 | `27e-g1-reference-HandWritten.md`（768行） | 🟢 补强完成 | 四种引用类型完整分析，discover_reference/process_discovered_references源码逐行注释，打桩验证 |
+| 第 28 篇 | `28-g1-safepoint-stw-HandWritten.md`（739行） | 🟢 出版级完成 | SafepointSynchronize/ThreadSafepointState完整字段分析 + begin()/block()/end()源码逐行注释 + 奇偶编码状态机 + 打桩验证（TTSP≈24μs，STW总时长40ms，_safepoint_counter奇偶交替，block()线程state=7） |
+| 第 29 篇 | `29-g1-gc-log-HandWritten.md`（722行） | 🟢 初稿完成 | 真实日志采集，8大部分：日志格式/Young GC/并发标记/异常识别/详细子阶段/诊断框架，源码行号对齐 |
+| 第 30 篇 | `30-g1-tuning-HandWritten.md`（840行） | 🟢 初稿完成 | 10大部分：调优姿势/参数全景/Young GC优化/Full GC预防/Mixed GC优化/内存泄漏/Metaspace/实战案例/决策树/ZGC对比 |
+
+### 待完成
+
+| 篇章 | 文件 | 状态 |
+|------|------|------|
+| 第 31 篇 | `31-gc-comparison-HandWritten.md` | 🟢 **出版级完成**（944行，G1/ZGC/Shenandoah 三维对比：着色指针/Brooks指针/Region化堆完整数据结构分析 + 三款GC停顿来源源码分析 + 核心指标对比表 + GC选择决策树（Mermaid）+ 演进趋势（分代ZGC/IU模式/G1 JDK12-17优化）） |

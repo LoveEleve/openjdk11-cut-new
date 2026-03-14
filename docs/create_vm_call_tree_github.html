@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threads::create_vm() 调用关系树</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+        .tree { font-size: 13px; line-height: 1.6; }
+        .node {
+            margin-left: 24px;
+            position: relative;
+        }
+        .node-content {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .node-content:hover { background: #f0f0f0; }
+        .node::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            background: #d9d9d9;
+        }
+        .node:last-child::before { height: 14px; }
+        .node-content::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            width: 10px;
+            height: 1px;
+            background: #d9d9d9;
+        }
+        .root > .node-content::before, .root::before { display: none; }
+        .toggle {
+            width: 14px; height: 14px;
+            border-radius: 2px;
+            border: 1px solid #999;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 6px;
+            font-size: 10px;
+            color: #666;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .toggle:hover { border-color: #666; }
+        .toggle.leaf { border: none; background: transparent; }
+        .toggle.leaf::after {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #bbb;
+        }
+        .icon {
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            margin-right: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            flex-shrink: 0;
+        }
+        .icon.root { background: #52c41a; color: white; }
+        .icon.phase { background: #1890ff; color: white; }
+        .icon.core { background: #722ed1; color: white; }
+        .icon.module { background: #13c2c2; color: white; }
+        .icon.func { background: #fa8c16; color: white; }
+        .icon.detail { background: #bfbfbf; color: white; }
+        
+        .label {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #333;
+            font-size: 13px;
+        }
+        .label a {
+            color: #0969da;
+            text-decoration: none;
+        }
+        .label a:hover {
+            text-decoration: underline;
+        }
+        .label .func-link {
+            color: #0969da;
+            cursor: pointer;
+        }
+        .label .func-link:hover {
+            text-decoration: underline;
+        }
+        .label .comment {
+            color: #52c41a;
+            font-size: 12px;
+            margin-left: 8px;
+            font-family: -apple-system, sans-serif;
+        }
+        .label .file {
+            color: #999;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        
+        .children {
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .children.collapsed { max-height: 0; opacity: 0; }
+        .children.expanded { max-height: 50000px; opacity: 1; }
+        
+        .controls {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 6px 14px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            background: white;
+            color: #333;
+            transition: all 0.15s;
+        }
+        .btn:hover { border-color: #1890ff; color: #1890ff; }
+        .btn-primary { background: #1890ff; color: white; border-color: #1890ff; }
+        .btn-primary:hover { background: #40a9ff; border-color: #40a9ff; }
+        
+        .legend {
+            margin-top: 20px;
+            padding: 12px;
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 16px;
+            margin-bottom: 4px;
+        }
+        .legend-icon { width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; }
+        
+        .highlight { background: #fff7e6 !important; border-left: 2px solid #ffa940; }
+        .search-box {
+            padding: 6px 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 200px;
+        }
+        .search-box:focus { outline: none; border-color: #1890ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Threads::create_vm() 调用关系树</h1>
+        <p class="subtitle">OpenJDK 11 JVM 启动核心流程 | thread.cpp:3876-4307</p>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="expandAll()">展开全部</button>
+            <button class="btn" onclick="collapseAll()">折叠全部</button>
+            <button class="btn" onclick="expandToLevel(2)">展开到第2层</button>
+            <button class="btn" onclick="expandToLevel(3)">展开到第3层</button>
+            <input type="text" class="search-box" id="searchInput" placeholder="搜索函数..." onkeyup="search()">
+        </div>
+        
+        <div class="tree" id="tree">
+            <!-- Root Node -->
+            <div class="node root">
+                <div class="node-content" onclick="toggle(this)">
+                    <span class="toggle">−</span>
+                    <span class="icon root">R</span>
+                    <span class="label"><span class="func-link">Threads::create_vm(args, canTryAgain)</span><span class="file">thread.cpp:3876</span></span>
+                </div>
+                <div class="children expanded">
+                    
+                    <!-- Phase 1 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">1</span>
+                            <span class="label">Phase 1: 基础环境初始化<span class="comment">// 最底层的系统准备</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">VM_Version::early_initialize()</span><span class="comment">// CPU特性预初始化</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">ThreadLocalStorage::init()</span><span class="comment">// TLS线程本地存储</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">ostream_init()</span><span class="comment">// 输出流模块</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">Arguments::process_sun_java_launcher_properties()</span><span class="comment">// 启动器属性</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">os::init()</span><span class="comment">// OS模块初始化 - Linux系统调用</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::initialize_system_tick()</span><span class="comment">// 系统时钟</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::init_random()</span><span class="comment">// 随机数种子</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::Linux::initialize_os_info()</span><span class="comment">// OS信息</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::Linux::init_thread_fpu_state()</span><span class="comment">// FPU状态</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 2 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">2</span>
+                            <span class="label">Phase 2: 参数解析与验证<span class="comment">// JVM参数处理</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">Arguments::init_system_properties()</span><span class="comment">// 系统属性</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">Arguments::parse()</span><span class="comment">// 解析JVM参数 - 核心</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">parse_java_tool_options_environment_variable()</span><span class="comment">// JAVA_TOOL_OPTIONS</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">parse_java_options_environment_variable()</span><span class="comment">// _JAVA_OPTIONS</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">parse_each_vm_init_arg()</span><span class="comment">// 逐个解析参数</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">os::init_before_ergo()</span><span class="comment">// 自动调优前准备</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">Arguments::apply_ergo()</span><span class="comment">// 自动调优 - 根据CPU/内存调整参数</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">set_ergonomics_flags()</span><span class="comment">// GC选择、堆大小</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">set_shared_space_flags()</span><span class="comment">// CDS共享空间</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">JVMFlagRangeList::check_ranges()</span><span class="comment">// 参数范围检查</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">JVMFlagConstraintList::check_constraints()</span><span class="comment">// 参数约束检查</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">os::init_2()</span><span class="comment">// OS第二阶段初始化</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">SafepointMechanism::initialize()</span><span class="comment">// Safepoint机制初始化 - 关键！</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::reserve_memory()</span><span class="comment">// 分配polling page</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::protect_memory()</span><span class="comment">// 设置保护位</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 3 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">3</span>
+                            <span class="label">Phase 3: Agent与全局数据<span class="comment">// JVMTI和全局结构</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">create_vm_init_agents()</span><span class="comment">// 初始化JVMTI Agent</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">lookup_on_load()</span><span class="comment">// 查找Agent入口</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label">Agent_OnLoad()<span class="comment">// 调用Agent初始化</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">vm_init_globals()</span><span class="comment">// VM全局数据结构初始化</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">check_ThreadShadow()</span><span class="comment">// 检查Thread布局</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">basic_types_init()</span><span class="comment">// 基本类型初始化</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">eventLog_init()</span><span class="comment">// 事件日志</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 4 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">4</span>
+                            <span class="label">Phase 4: 主线程创建<span class="comment">// 第一个JavaThread</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">new JavaThread()</span><span class="comment">// 创建JavaThread对象</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">JavaThread::JavaThread()</span><span class="comment">// 构造函数</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label">_threadObj = NULL<span class="comment">// 尚未关联Java对象</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label">_osthread = NULL<span class="comment">// 尚未关联OS线程</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">main_thread->set_thread_state(_thread_in_vm)</span><span class="comment">// 设置线程状态</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">main_thread->initialize_thread_current()</span><span class="comment">// 绑定到当前OS线程</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">ThreadLocalStorage::set_thread(this)</span><span class="comment">// TLS存储</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">main_thread->record_stack_base_and_size()</span><span class="comment">// 记录栈基址和大小</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">main_thread->register_thread_stack_with_NMT()</span><span class="comment">// NMT内存追踪</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">main_thread->set_active_handles()</span><span class="comment">// JNI Handle</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">JNIHandleBlock::allocate_block()</span><span class="comment">// 分配Handle块</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">main_thread->set_as_starting_thread()</span><span class="comment">// 设置为起始线程 - 关键！</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">new OSThread()</span><span class="comment">// 创建OSThread</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::create_main_thread()</span><span class="comment">// 创建主线程</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::set_priority()</span><span class="comment">// 设置优先级</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">main_thread->create_stack_guard_pages()</span><span class="comment">// 栈保护页</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">ObjectMonitor::Initialize()</span><span class="comment">// 同步子系统初始化</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">PerfMemory::alloc()</span><span class="comment">// 分配PerfData内存</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 5 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">5</span>
+                            <span class="label">Phase 5: 核心模块初始化 ⭐<span class="comment">// 最关键的阶段</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">init_globals()</span><span class="comment">// ★★★ 初始化所有核心模块</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">universe_init()</span><span class="comment">// Universe/堆初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">Universe::initialize_heap()</span><span class="comment">// 初始化GC堆</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">G1CollectedHeap::initialize()</span><span class="comment">// G1初始化</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">Universe::genesis()</span><span class="comment">// 创建基本类型镜像</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">interpreter_init()</span><span class="comment">// 解释器初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">TemplateTable::initialize()</span><span class="comment">// 模板表</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">Interpreter::initialize()</span><span class="comment">// 解释器代码生成</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">stubRoutines_init()</span><span class="comment">// Stub例程初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">StubRoutines::initialize1()</span><span class="comment">// 阶段1</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">StubRoutines::initialize2()</span><span class="comment">// 阶段2</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">codeCache_init()</span><span class="comment">// 代码缓存初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">CodeCache::initialize()</span><span class="comment">// 初始化代码缓存</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">CodeHeap::reserve()</span><span class="comment">// 预留内存</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">VMStructs::init()</span><span class="comment">// VM结构初始化（供SA使用）</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">classLoader_init()</span><span class="comment">// 类加载器初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">ClassLoader::initialize()</span><span class="comment">// 初始化启动类加载器</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">compilationPolicy_init()</span><span class="comment">// 编译策略初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">CompilationPolicy::initialize()</span><span class="comment">// 初始化编译策略</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">compileBroker_init()</span><span class="comment">// 编译代理初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">CompileBroker::initialize()</span><span class="comment">// 初始化编译队列</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">jvmti_init()</span><span class="comment">// JVMTI初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">JvmtiExport::initialize()</span><span class="comment">// 初始化JVMTI导出</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content" onclick="toggle(this)">
+                                            <span class="toggle">−</span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">SystemDictionary::initialize()</span><span class="comment">// 系统字典初始化</span></span>
+                                        </div>
+                                        <div class="children expanded">
+                                            <div class="node">
+                                                <div class="node-content">
+                                                    <span class="toggle leaf"></span>
+                                                    <span class="icon detail">•</span>
+                                                    <span class="label"><span class="func-link">SystemDictionary::initialize_preloaded_classes()</span><span class="comment">// 预加载类</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">classFileParser_init()</span><span class="comment">// 类文件解析器初始化</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">jni_handles_init()</span><span class="comment">// JNI Handles初始化</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">deoptimization_init()</span><span class="comment">// 反优化初始化</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon module">M</span>
+                                            <span class="label"><span class="func-link">PerfDataMemory::initialize()</span><span class="comment">// PerfData内存初始化</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 6 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">6</span>
+                            <span class="label">Phase 6: VM 线程创建<span class="comment">// 后台操作线程</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">VMThread::create()</span><span class="comment">// 创建VM线程</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">new VMThread()</span><span class="comment">// 创建VMThread对象</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">os::create_thread()</span><span class="comment">// 创建OS线程</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">os::start_thread(vmthread)</span><span class="comment">// 启动VM线程</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">Notify_lock->wait()</span><span class="comment">// 等待VM线程就绪</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">VMThread::run()</span><span class="comment">// VM线程主循环</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 7 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">7</span>
+                            <span class="label">Phase 7: Java 类初始化<span class="comment">// 加载核心Java类</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">initialize_java_lang_classes()</span><span class="comment">// 初始化java.lang.*</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">SystemDictionary::resolve_or_fail()</span><span class="comment">// 解析java.lang.String</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><a href="https://github.com/LoveEleve/openjdk11-cut-new/blob/main/src/hotspot/share/classfile/systemDictionary.cpp" target="_blank">SystemDictionary::resolve_or_fail()</a><span class="comment">// 解析java.lang.System</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><a href="https://github.com/LoveEleve/openjdk11-cut-new/blob/main/src/hotspot/share/classfile/systemDictionary.cpp" target="_blank">SystemDictionary::resolve_or_fail()</a><span class="comment">// 解析java.lang.Thread</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><a href="https://github.com/LoveEleve/openjdk11-cut-new/blob/main/src/hotspot/share/classfile/systemDictionary.cpp" target="_blank">SystemDictionary::resolve_or_fail()</a><span class="comment">// 解析java.lang.ThreadGroup</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">java_lang_System::initialize_system_classes()</span><span class="comment">// 初始化System类</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">quicken_jni_functions()</span><span class="comment">// JNI函数加速</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">set_init_completed()</span><span class="comment">// 标记初始化完成</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 8 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">8</span>
+                            <span class="label">Phase 8: 服务线程与编译器<span class="comment">// 启动后台服务</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">ServiceThread::initialize()</span><span class="comment">// 服务线程</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">ServiceThread::service_thread()</span><span class="comment">// 处理JVMTI延迟事件</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">CompileBroker::compilation_init_phase1()</span><span class="comment">// 编译器初始化阶段1</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">create_compiler_threads()</span><span class="comment">// 创建编译线程</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">CompileBroker::compilation_init_phase2()</span><span class="comment">// 编译器初始化阶段2</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">initialize_jsr292_core_classes()</span><span class="comment">// JSR292核心类</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">SystemDictionary::resolve_or_fail()</span><span class="comment">// java.lang.invoke.MethodHandle</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">call_initPhase2()</span><span class="comment">// 模块系统初始化</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label">ModuleBootstrap.boot()<span class="comment">// 启动模块系统</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">call_initPhase3()</span><span class="comment">// 最终系统初始化</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label">System.initPhase3()<span class="comment">// 初始化System</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">SystemDictionary::compute_java_loaders()</span><span class="comment">// 计算类加载器</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase 9 -->
+                    <div class="node">
+                        <div class="node-content" onclick="toggle(this)">
+                            <span class="toggle">−</span>
+                            <span class="icon phase">9</span>
+                            <span class="label">Phase 9: 启动完成<span class="comment">// 进入Live阶段</span></span>
+                        </div>
+                        <div class="children expanded">
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">JvmtiExport::enter_live_phase()</span><span class="comment">// JVMTI Live阶段</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">JvmtiExport::post_vm_initialized()</span><span class="comment">// 通知JVMTI</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">os::initialize_jdk_signal_support()</span><span class="comment">// 信号处理</span></span>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">AttachListener::vm_start()</span><span class="comment">// Attach机制</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><span class="func-link">AttachListener::init()</span><span class="comment">// 初始化Attach监听</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content" onclick="toggle(this)">
+                                    <span class="toggle">−</span>
+                                    <span class="icon core">⚙</span>
+                                    <span class="label"><span class="func-link">WatcherThread::start()</span><span class="comment">// Watcher线程</span></span>
+                                </div>
+                                <div class="children expanded">
+                                    <div class="node">
+                                        <div class="node-content">
+                                            <span class="toggle leaf"></span>
+                                            <span class="icon detail">•</span>
+                                            <span class="label"><a href="https://github.com/LoveEleve/openjdk11-cut-new/blob/main/src/hotspot/share/runtime/task.cpp" target="_blank">PeriodicTask::real_time_tick()</a><span class="comment">// 周期性任务</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="node">
+                                <div class="node-content">
+                                    <span class="toggle leaf"></span>
+                                    <span class="icon func">f</span>
+                                    <span class="label"><span class="func-link">return JNI_OK</span><span class="comment">// JVM启动成功！</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <strong>图例说明：</strong>
+            <div class="legend-item"><span class="legend-icon" style="background:#52c41a"></span>根节点</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#1890ff"></span>阶段</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#722ed1"></span>核心函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#13c2c2"></span>模块</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#fa8c16"></span>普通函数</div>
+            <div class="legend-item"><span class="legend-icon" style="background:#bfbfbf"></span>细节</div>
+        </div>
+    </div>
+
+    <script>
+        function toggle(element) {
+            const node = element.parentElement;
+            const children = node.querySelector(':scope > .children');
+            const toggleBtn = element.querySelector(':scope > .toggle');
+            if (!children || !toggleBtn || toggleBtn.classList.contains('leaf')) return;
+            if (children.classList.contains('collapsed')) {
+                children.classList.remove('collapsed');
+                children.classList.add('expanded');
+                toggleBtn.textContent = '−';
+            } else {
+                children.classList.remove('expanded');
+                children.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+            }
+        }
+        function expandAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('collapsed');
+                el.classList.add('expanded');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '−';
+            });
+        }
+        function collapseAll() {
+            document.querySelectorAll('.children').forEach(el => {
+                el.classList.remove('expanded');
+                el.classList.add('collapsed');
+            });
+            document.querySelectorAll('.toggle:not(.leaf)').forEach(el => {
+                el.textContent = '+';
+            });
+            document.querySelector('.root > .children').classList.remove('collapsed');
+            document.querySelector('.root > .children').classList.add('expanded');
+            document.querySelector('.root > .node-content > .toggle').textContent = '−';
+        }
+        function expandToLevel(level) {
+            collapseAll();
+            let selector = '.root';
+            for (let i = 0; i < level; i++) {
+                const nodes = document.querySelectorAll(selector + ' > .children > .node');
+                nodes.forEach(node => {
+                    const children = node.querySelector(':scope > .children');
+                    const toggle = node.querySelector(':scope > .node-content > .toggle');
+                    if (children && toggle && !toggle.classList.contains('leaf')) {
+                        children.classList.remove('collapsed');
+                        children.classList.add('expanded');
+                        toggle.textContent = '−';
+                    }
+                });
+                selector += ' > .children > .node';
+            }
+        }
+        function search() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.node-content').forEach(el => {
+                el.classList.remove('highlight');
+            });
+            if (query.length < 2) return;
+            document.querySelectorAll('.node-content').forEach(el => {
+                const text = el.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    el.classList.add('highlight');
+                    let parent = el.parentElement;
+                    while (parent) {
+                        if (parent.classList.contains('node')) {
+                            const children = parent.querySelector(':scope > .children');
+                            const toggle = parent.querySelector(':scope > .node-content > .toggle');
+                            if (children && toggle && !toggle.classList.contains('leaf')) {
+                                children.classList.remove('collapsed');
+                                children.classList.add('expanded');
+                                toggle.textContent = '−';
+                            }
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+            });
+        }
+        expandToLevel(2);
+    </script>
+</body>
+</html>

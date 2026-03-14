@@ -58,7 +58,7 @@ class G1BarrierSetC2;
  *      - 队列满了，批量提交到全局队列集
  *      - GC 线程处理全局队列，确保旧值指向的对象被标记
  */
-SATBMarkQueueSet G1BarrierSet::_satb_mark_queue_set; // note SATB 标记队列集
+SATBMarkQueueSet G1BarrierSet::_satb_mark_queue_set; // note SATB 标记队列集 (静态成员变量的默认构造)
 /*
  * 脏卡队列集（_dirty_card_queue_set）
  *  1.作用：记录被修改的卡表项
@@ -68,7 +68,7 @@ SATBMarkQueueSet G1BarrierSet::_satb_mark_queue_set; // note SATB 标记队列�
  *      - 队列满了，批量提交到全局队列集
  *      - 并发细化线程（Concurrent Refinement） 后台处理，更新 RSet
  */
-DirtyCardQueueSet G1BarrierSet::_dirty_card_queue_set; // note 脏卡队列集
+DirtyCardQueueSet G1BarrierSet::_dirty_card_queue_set; // note 脏卡队列集 (静态成员变量的默认构造)
 
 G1BarrierSet::G1BarrierSet(G1CardTable* card_table) :
   // forcus 调用父类CardTableBarrierSet()构造函数

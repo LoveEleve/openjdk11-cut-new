@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PerfData 数据结构图解</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+        
+        .section {
+            margin: 40px 0;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #1890ff;
+        }
+        
+        .diagram-box {
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        /* ASCII 艺术图样式 */
+        .ascii-art {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre;
+            text-align: left;
+            overflow-x: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 6px;
+            color: #333;
+        }
+        
+        .ascii-box {
+            display: inline-block;
+            text-align: left;
+        }
+        
+        .note {
+            background: #e6f7ff;
+            border-left: 4px solid #1890ff;
+            padding: 12px 15px;
+            margin: 15px 0;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f6f8fa;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        .highlight-green { background: #d9f7be; }
+        .highlight-blue { background: #bae7ff; }
+        .highlight-orange { background: #ffe7ba; }
+        .highlight-purple { background: #f9f0ff; }
+        .highlight-red { background: #ffccc7; }
+        
+        /* 流程图样式 */
+        .flow-step {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: #fff;
+            border-radius: 6px;
+            border-left: 4px solid #1890ff;
+        }
+        .step-num {
+            width: 32px;
+            height: 32px;
+            background: #1890ff;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .step-content {
+            flex: 1;
+            text-align: left;
+        }
+        .step-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .step-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* 内存块样式 */
+        .memory-block {
+            display: inline-block;
+            text-align: left;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+        .memory-row {
+            display: flex;
+            align-items: center;
+            padding: 4px 0;
+        }
+        .memory-addr {
+            color: #999;
+            width: 60px;
+        }
+        .memory-field {
+            background: #e6f7ff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .memory-size {
+            color: #666;
+            font-size: 11px;
+        }
+        
+        .arrow {
+            font-size: 24px;
+            color: #999;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PerfData 数据结构图解</h1>
+        <p class="subtitle">纯 ASCII 艺术图可视化 - 无需 Mermaid</p>
+        
+        <!-- 图例 -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-box highlight-green"></div>
+                <span>目标类（PerfStringVariable）</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box highlight-blue"></div>
+                <span>中间基类</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box highlight-orange"></div>
+                <span>内存分配器</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-box highlight-purple"></div>
+                <span>共享内存</span>
+            </div>
+        </div>
+        
+        <!-- 图1: 继承关系 -->
+        <div class="section">
+            <div class="section-title">图 1: 5层继承链（从基类到子类）</div>
+            <div class="diagram-box">
+                <div class="ascii-art">
++-------------------------+
+|  L1: CHeapObj           |  <-- 内存分配器基类
+|  (mtInternal)           |
++-----------+-------------+
+            |
+            v
++-----------+-------------+
+|  L2: PerfData           |  <-- 性能数据基类
+|  _name, _ns             |
++-----------+-------------+
+            |
+            v
++-----------+-------------+
+|  L3: PerfVariable       |  <-- 变量类型基类
+|  _valuep                |
++-----------+-------------+
+            |
+            v
++-----------+-------------+
+|  L4: PerfString         |  <-- 字符串类型基类
+|  _max_length            |
++-----------+-------------+
+            |
+            v
++-------------------------+
+|  L5: PerfStringVariable |  <-- 【目标类】
+|  (无额外字段)           |
++-------------------------+
+                </div>
+            </div>
+            <div class="note">
+                <strong>构造顺序</strong>：L1 → L2 → L3 → L4 → L5（从基类到子类逐层构造）
+            </div>
+        </div>
+        
+        <!-- 图2: 内存布局 -->
+        <div class="section">
+            <div class="section-title">图 2: PerfStringVariable 内存布局（64位）</div>
+            <div class="diagram-box">
+                <div class="memory-block">
+                    <div style="background:#f6f8fa; padding:15px; border-radius:6px; margin-bottom:15px;">
+                        <strong>PerfStringVariable 对象（C++ 堆）</strong>
+                    </div>
+                    <div class="memory-row">
+                        <span class="memory-addr">0x00</span>
+                        <span class="memory-field">_vftable (虚表指针)</span>
+                        <span class="memory-size">8 bytes</span>
+                    </div>
+                    <div class="memory-row">
+                        <span class="memory-addr">0x08</span>
+                        <span class="memory-field">_name → "cause"</span>
+                        <span class="memory-size">8 bytes (char*)</span>
+                    </div>
+                    <div class="memory-row">
+                        <span class="memory-addr">0x10</span>
+                        <span class="memory-field">_ns = SUN_GC (5)</span>
+                        <span class="memory-size">4 bytes</span>
+                    </div>
+                    <div class="memory-row">
+                        <span class="memory-addr">0x14</span>
+                        <span class="memory-field">_max_length = 80</span>
+                        <span class="memory-size">4 bytes</span>
+                    </div>
+                    <div class="memory-row">
+                        <span class="memory-addr">0x18</span>
+                        <span class="memory-field">_valuep ──────┐</span>
+                        <span class="memory-size">8 bytes (char*)</span>
+                    </div>
+                    <div style="text-align:center; margin:10px 0; color:#999;">│</div>
+                    <div style="text-align:center; margin:10px 0; color:#999;">▼</div>
+                    <div style="background:#f9f0ff; padding:15px; border-radius:6px; border:2px solid #722ed1;">
+                        <strong>PerfMemory 共享内存</strong><br>
+                        <code>'N' 'o' ' ' 'G' 'C' '\0' ... (81 bytes)</code>
+                    </div>
+                </div>
+            </div>
+            <div class="note">
+                <strong>关键设计</strong>：对象本身在 C++ 堆上（~40字节），字符串数据在共享内存中（81字节）
+            </div>
+        </div>
+        
+        <!-- 图3: 整体架构 -->
+        <div class="section">
+            <div class="section-title">图 3: 整体架构图</div>
+            <div class="diagram-box">
+                <div class="ascii-art">
+┌─────────────────────────────────────────────────────────────┐
+│                      JVM 进程                                │
+│                                                              │
+│   ┌─────────────┐    ┌─────────────────────┐                │
+│   │   G1 GC     │    │  PerfDataManager    │                │
+│   │   代码      │───▶│  (单例管理器)       │                │
+│   └─────────────┘    └──────────┬──────────┘                │
+│                                 │                           │
+│            ┌────────────────────┼────────────────────┐      │
+│            │                    │                    │      │
+│            ▼                    ▼                    ▼      │
+│   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐│
+│   │PerfStringVar   │  │PerfLongVar     │  │PerfStringVar   ││
+│   │name: "cause"   │  │name: "count"   │  │name: "lastGC"  ││
+│   │value: "No GC"  │  │value: 100      │  │value: "Evac"   ││
+│   └───────┬────────┘  └───────┬────────┘  └───────┬────────┘│
+│           │                   │                   │         │
+│           └───────────────────┼───────────────────┘         │
+│                               │                             │
+│                               ▼                             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │              PerfMemory 共享内存                      │   │
+│   │         /tmp/hsperfdata_user/12345                   │   │
+│   └─────────────────────────┬───────────────────────────┘   │
+└─────────────────────────────┼───────────────────────────────┘
+                              │
+                              │ mmap (只读)
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    外部进程                                  │
+│   ┌──────────┐    ┌──────────┐    ┌──────────┐              │
+│   │  jstat   │    │   jps    │    │ jconsole │              │
+│   │  -gc     │    │   -v     │    │ (JMX)    │              │
+│   └──────────┘    └──────────┘    └──────────┘              │
+└─────────────────────────────────────────────────────────────┘
+                </div>
+            </div>
+            <div class="note">
+                <strong>核心机制</strong>：共享内存让外部工具无需 attach JVM 就能读取性能数据
+            </div>
+        </div>
+        
+        <!-- 图4: 执行流程 -->
+        <div class="section">
+            <div class="section-title">图 4: create_string_variable 执行流程</div>
+            
+            <div class="flow-step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <div class="step-title">参数处理</div>
+                    <div class="step-desc">检查 max_length，如果为0则使用 strlen(s) 自动计算</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <div class="flow-step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <div class="step-title">5层构造函数链（核心）</div>
+                    <div class="step-desc">
+                        new PerfStringVariable()<br>
+                        └─▶ CHeapObj() → PerfData() → PerfVariable() → PerfString() → PerfStringVariable()
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <div class="flow-step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <div class="step-title">共享内存分配</div>
+                    <div class="step-desc">在 PerfMemory 中分配 max_length+1 字节，存储字符串数据</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <div class="flow-step">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                    <div class="step-title">有效性检查</div>
+                    <div class="step-desc">
+                        成功: is_valid() 返回 true → 继续<br>
+                        失败: is_valid() 返回 false → delete + 抛出 OOM
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <div class="flow-step">
+                <div class="step-num">5</div>
+                <div class="step-content">
+                    <div class="step-title">注册到全局列表</div>
+                    <div class="step-desc">add_item(p, false) 将对象添加到 PerfDataManager 的内部列表</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <div class="flow-step" style="border-left-color: #52c41a;">
+                <div class="step-num" style="background: #52c41a;">6</div>
+                <div class="step-content">
+                    <div class="step-title">返回对象指针</div>
+                    <div class="step-desc">返回 PerfStringVariable*，可被外部访问和修改</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 图5: 共享内存布局 -->
+        <div class="section">
+            <div class="section-title">图 5: PerfMemory 共享内存布局</div>
+            <div class="diagram-box">
+                <div class="ascii-art">
+┌─────────────────────────────────────────────────────────────────┐
+│                         Header (32 bytes)                        │
+│  ┌──────────┬──────────┬──────────┬──────────┐                  │
+│  │  Magic   │ Version  │  Size    │  Used    │                  │
+│  │ 0xcafecafe│   2     │  64KB    │  4.5KB   │                  │
+│  └──────────┴──────────┴──────────┴──────────┘                  │
+└─────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    PerfDataEntry 数组                            │
+│                                                                  │
+│  Entry 0:  name="cause"     type=STRING   offset=0x100          │
+│  Entry 1:  name="count"     type=LONG     offset=0x151          │
+│  Entry 2:  name="lastGC"    type=STRING   offset=0x159          │
+│  ...                                                             │
+└─────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        数据区                                    │
+│  0x100: 'N' 'o' ' ' 'G' 'C' '\0'  ...   ("cause"的值)           │
+│  0x151: 00 00 00 00 00 00 00 64      ("count"=100)              │
+│  0x159: 'E' 'v' 'a' 'c' '\0' ...     ("lastGC"的值)             │
+└─────────────────────────────────────────────────────────────────┘
+                </div>
+            </div>
+            <div class="note">
+                <strong>文件路径</strong>：/tmp/hsperfdata_&lt;user&gt;/&lt;pid&gt;（mmap 映射到进程地址空间）
+            </div>
+        </div>
+        
+        <!-- 图6: 对象关系 -->
+        <div class="section">
+            <div class="section-title">图 6: 对象关系全景</div>
+            <div class="diagram-box">
+                <div class="ascii-art">
+┌──────────────────────────────────────────────────────────────┐
+│                 PerfDataManager (静态单例)                    │
+│                                                              │
+│   _all_items: [p1] ──▶ [p2] ──▶ [p3] ──▶ NULL              │
+│                   │        │        │                        │
+│                   ▼        ▼        ▼                        │
+│   _hash: {"cause": p1, "count": p2, "lastGC": p3}            │
+└──────────────────────────────────────────────────────────────┘
+           │           │           │
+           ▼           ▼           ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ p1: PerfStr  │ │ p2: PerfLong │ │ p3: PerfStr  │
+│   _name      │ │   _name      │ │   _name      │
+│   ="cause"   │ │   ="count"   │ │   ="lastGC"  │
+│   _valuep ───┼─┼──▶          │ │   _valuep ───┼──▶
+└──────────────┘ │ └──────────────┘ │ └──────────────┘
+                 │                  │
+                 ▼                  ▼
+┌────────────────┐            ┌────────────────┐
+│ "No GC\0"      │            │ "Evac\0"       │
+│ (共享内存)      │            │ (共享内存)      │
+└────────────────┘            └────────────────┘
+                 ▲
+                 │
+┌────────────────┴────────────────┐
+│       外部工具 (jstat/jps)       │
+│  jstat -gc 12345                │
+│  → 读取 /tmp/hsperfdata/...     │
+│  → 显示: cause = "No GC"        │
+└─────────────────────────────────┘
+                </div>
+            </div>
+        </div>
+        
+        <!-- 总结 -->
+        <div class="section" style="background: linear-gradient(135deg, #52c41a 0%, #389e0d 100%); border-radius: 8px; padding: 25px; color: white;">
+            <h3 style="font-size: 18px; margin-bottom: 20px;">🎯 一图胜千言总结</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
+                    <h4 style="color: #ffd700; font-size: 14px; margin-bottom: 10px;">5层继承</h4>
+                    <p style="font-size: 12px; opacity: 0.95;">CHeapObj → PerfData → PerfVariable → PerfString → PerfStringVariable</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
+                    <h4 style="color: #ffd700; font-size: 14px; margin-bottom: 10px;">2块内存</h4>
+                    <p style="font-size: 12px; opacity: 0.95;">C++ 对象在堆上，字符串数据在共享内存（mmap）</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px;">
+                    <h4 style="color: #ffd700; font-size: 14px; margin-bottom: 10px;">1个目的</h4>
+                    <p style="font-size: 12px; opacity: 0.95;">让外部工具（jstat/jps/jconsole）能读取 JVM 性能数据</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
